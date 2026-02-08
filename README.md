@@ -1,5 +1,11 @@
 # agent-security-scanner-mcp
 
+[![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
+[![npm total downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/sinewaveai/agent-security-scanner-mcp.svg)](https://github.com/sinewaveai/agent-security-scanner-mcp/stargazers)
+
 A powerful MCP (Model Context Protocol) server for real-time security vulnerability scanning. Integrates with Claude Desktop, Claude Code, OpenCode.ai, Kilo Code, and any MCP-compatible client to automatically detect and fix security issues as you code.
 
 AI coding agents like **Claude Code**, **Cursor**, **Windsurf**, **Cline**, **Copilot**, and **Devin** are transforming software development. But they introduce attack surfaces that traditional security tools weren't designed to handle:
