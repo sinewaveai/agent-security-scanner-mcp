@@ -1,0 +1,771 @@
+rules:
+  # ============================================================================
+  # CATEGORY 1: UNSAFE USER INPUT IN LLM PROMPTS
+  # ============================================================================
+
+  # ----------------------------------------------------------------------------
+  # Python - OpenAI SDK
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.openai-unsafe-fstring
+    languages: [python]
+    severity: ERROR
+    message: "User input directly interpolated into OpenAI prompt via f-string. Use input validation and sanitization before including in prompts."
+    patterns:
+      - "client\\.chat\\.completions\\.create\\s*\\([^)]*messages\\s*=.*f[\"']"
+      - "openai\\.ChatCompletion\\.create\\s*\\([^)]*messages\\s*=.*f[\"']"
+      - "openai\\.Completion\\.create\\s*\\([^)]*prompt\\s*=\\s*f[\"']"
+      - "messages\\.append\\s*\\(\\s*\\{[^}]*[\"']content[\"']\\s*:\\s*f[\"']"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+      references:
+        - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+
+  - id: python.llm.security.prompt-injection.openai-unsafe-concat
+    languages: [python]
+    severity: ERROR
+    message: "User input concatenated into OpenAI prompt. Sanitize user input before including in prompts."
+    patterns:
+      - "client\\.chat\\.completions\\.create\\s*\\([^)]*content.*\\+.*\\)"
+      - "openai\\.ChatCompletion\\.create\\s*\\([^)]*\\+.*user"
+      - "[\"']content[\"']\\s*:\\s*[^,}]+\\+\\s*\\w+(?!\\s*[\"'])"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  - id: python.llm.security.prompt-injection.openai-unsafe-format
+    languages: [python]
+    severity: ERROR
+    message: "User input in OpenAI prompt via .format(). Sanitize user input before injection into prompts."
+    patterns:
+      - "messages\\s*=.*\\.format\\s*\\("
+      - "[\"']content[\"']\\s*:\\s*[^,}]*\\.format\\s*\\("
+      - "completions\\.create.*\\.format\\s*\\("
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Python - Anthropic SDK
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.anthropic-unsafe-fstring
+    languages: [python]
+    severity: ERROR
+    message: "User input directly interpolated into Anthropic/Claude prompt. Sanitize input before use."
+    patterns:
+      - "anthropic\\.messages\\.create\\s*\\([^)]*messages\\s*=.*f[\"']"
+      - "client\\.messages\\.create\\s*\\([^)]*content\\s*=\\s*f[\"']"
+      - "anthropic\\.Anthropic\\s*\\(\\).*messages.*f[\"']"
+      - "Claude.*messages.*f[\"']"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  - id: python.llm.security.prompt-injection.anthropic-unsafe-concat
+    languages: [python]
+    severity: ERROR
+    message: "User input concatenated into Anthropic prompt. Use input validation and sanitization."
+    patterns:
+      - "anthropic\\.messages\\.create\\s*\\([^)]*\\+"
+      - "client\\.messages\\.create\\s*\\([^)]*content\\s*=.*\\+"
+      - "messages\\.create.*content.*\\+.*user"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Python - LangChain
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.langchain-unsafe-template
+    languages: [python]
+    severity: ERROR
+    message: "User input directly in LangChain PromptTemplate without sanitization. Validate and sanitize input variables."
+    patterns:
+      - "PromptTemplate\\s*\\([^)]*template\\s*=\\s*f[\"']"
+      - "ChatPromptTemplate\\.from_messages\\s*\\([^)]*f[\"']"
+      - "HumanMessagePromptTemplate\\.from_template\\s*\\(\\s*f[\"']"
+      - "SystemMessagePromptTemplate\\.from_template\\s*\\(\\s*f[\"']"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  - id: python.llm.security.prompt-injection.langchain-chain-unsafe
+    languages: [python]
+    severity: ERROR
+    message: "LLMChain with unsanitized user input. Validate input before chain execution."
+    patterns:
+      - "LLMChain\\s*\\([^)]*\\)\\.run\\s*\\([^)]*\\+"
+      - "chain\\.run\\s*\\(\\s*f[\"']"
+      - "chain\\.invoke\\s*\\(\\s*\\{[^}]*:\\s*f[\"']"
+      - "\\.invoke\\s*\\(.*user_input"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection"
+
+  - id: python.llm.security.prompt-injection.langchain-agent-unsafe
+    languages: [python]
+    severity: ERROR
+    message: "LangChain agent with unsanitized user input. User input can manipulate agent behavior and tool execution."
+    patterns:
+      - "agent\\.run\\s*\\(\\s*f[\"']"
+      - "AgentExecutor.*\\.run\\s*\\([^)]*\\+"
+      - "create_.*_agent\\s*\\([^)]*\\)\\.run\\s*\\([^)]*\\+"
+      - "agent_executor\\.invoke.*user"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Python - LlamaIndex
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.llamaindex-unsafe-query
+    languages: [python]
+    severity: ERROR
+    message: "LlamaIndex query with unsanitized user input. Validate and sanitize before querying."
+    patterns:
+      - "index\\.query\\s*\\(\\s*f[\"']"
+      - "query_engine\\.query\\s*\\(\\s*f[\"']"
+      - "VectorStoreIndex.*\\.query\\s*\\([^)]*\\+"
+      - "index\\.as_query_engine\\(\\).*query.*\\+"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Python - HuggingFace Transformers
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.huggingface-unsafe-input
+    languages: [python]
+    severity: ERROR
+    message: "HuggingFace model with unsanitized user input in prompt. Sanitize before model inference."
+    patterns:
+      - "pipeline\\s*\\([^)]*\\)\\s*\\(\\s*f[\"']"
+      - "model\\.generate\\s*\\([^)]*input_ids.*\\+"
+      - "tokenizer\\s*\\(\\s*f[\"']"
+      - "tokenizer\\.encode\\s*\\(\\s*f[\"']"
+      - "AutoModelFor.*\\.generate.*f[\"']"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Python - Google Gemini/PaLM/Vertex AI
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.google-genai-unsafe
+    languages: [python]
+    severity: ERROR
+    message: "Google Generative AI with unsanitized user input. Sanitize before sending to model."
+    patterns:
+      - "genai\\.GenerativeModel.*\\.generate_content\\s*\\(\\s*f[\"']"
+      - "model\\.generate_content\\s*\\([^)]*\\+"
+      - "palm\\.generate_text\\s*\\([^)]*prompt\\s*=\\s*f[\"']"
+      - "vertexai\\..*\\.predict\\s*\\([^)]*f[\"']"
+      - "ChatSession.*send_message.*f[\"']"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Python - AWS Bedrock
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.bedrock-unsafe
+    languages: [python]
+    severity: ERROR
+    message: "AWS Bedrock invoke with unsanitized user input in prompt. Validate input before model invocation."
+    patterns:
+      - "bedrock\\.invoke_model\\s*\\([^)]*f[\"']"
+      - "bedrock_runtime\\.invoke_model\\s*\\([^)]*\\+"
+      - "BedrockChat.*\\([^)]*f[\"']"
+      - "invoke_model.*body.*f[\"']"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Python - Ollama
+  # ----------------------------------------------------------------------------
+  - id: python.llm.security.prompt-injection.ollama-unsafe
+    languages: [python]
+    severity: ERROR
+    message: "Ollama with unsanitized user input. Sanitize before sending to local model."
+    patterns:
+      - "ollama\\.chat\\s*\\([^)]*messages.*f[\"']"
+      - "ollama\\.generate\\s*\\([^)]*prompt\\s*=\\s*f[\"']"
+      - "Ollama\\s*\\(\\).*\\([^)]*\\+"
+      - "ollama\\..*\\(.*content.*f[\"']"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # JavaScript/TypeScript - OpenAI SDK
+  # ----------------------------------------------------------------------------
+  - id: javascript.llm.security.prompt-injection.openai-unsafe-template
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "User input in OpenAI prompt via template literal. Sanitize user input before including in prompts."
+    patterns:
+      - "openai\\.chat\\.completions\\.create\\s*\\([^)]*`"
+      - "client\\.chat\\.completions\\.create\\s*\\([^)]*content\\s*:\\s*`"
+      - "messages\\s*:\\s*\\[[^\\]]*content\\s*:\\s*`[^`]*\\$\\{"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  - id: javascript.llm.security.prompt-injection.openai-unsafe-concat
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "User input concatenated into OpenAI prompt. Use input sanitization."
+    patterns:
+      - "openai\\..*\\.create\\s*\\([^)]*\\+[^)]*\\)"
+      - "content\\s*:\\s*[^,}]+\\+\\s*\\w+"
+      - "messages\\.push\\s*\\(\\s*\\{[^}]*content\\s*:[^}]*\\+"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # JavaScript/TypeScript - Anthropic SDK
+  # ----------------------------------------------------------------------------
+  - id: javascript.llm.security.prompt-injection.anthropic-unsafe
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "User input in Anthropic prompt without sanitization. Validate and sanitize before API call."
+    patterns:
+      - "anthropic\\.messages\\.create\\s*\\([^)]*`"
+      - "client\\.messages\\.create\\s*\\([^)]*content\\s*:\\s*`"
+      - "Anthropic\\s*\\(\\).*messages.*\\$\\{"
+      - "new\\s+Anthropic.*messages.*`"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # JavaScript/TypeScript - LangChain.js
+  # ----------------------------------------------------------------------------
+  - id: javascript.llm.security.prompt-injection.langchain-unsafe
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "LangChain with unsanitized user input in prompt template. Sanitize template variables."
+    patterns:
+      - "PromptTemplate\\.fromTemplate\\s*\\(\\s*`[^`]*\\$\\{"
+      - "ChatPromptTemplate\\.fromMessages\\s*\\([^)]*`"
+      - "chain\\.invoke\\s*\\([^)]*\\+"
+      - "chain\\.call\\s*\\([^)]*\\+"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # JavaScript/TypeScript - Azure OpenAI
+  # ----------------------------------------------------------------------------
+  - id: javascript.llm.security.prompt-injection.azure-openai-unsafe
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Azure OpenAI with unsanitized user input. Sanitize before API call."
+    patterns:
+      - "AzureOpenAI\\s*\\([^)]*\\).*getChatCompletions.*`"
+      - "client\\.getChatCompletions\\s*\\([^)]*content\\s*:\\s*`"
+      - "OpenAIClient.*\\.getChatCompletions\\s*\\([^)]*\\+"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Go - OpenAI/LLM Clients
+  # ----------------------------------------------------------------------------
+  - id: go.llm.security.prompt-injection.openai-unsafe
+    languages: [go]
+    severity: ERROR
+    message: "Go OpenAI client with unsanitized user input in prompt. Sanitize before API call."
+    patterns:
+      - "openai\\.ChatCompletionRequest\\{[^}]*Content\\s*:\\s*[^,}]*\\+"
+      - "client\\.CreateChatCompletion\\s*\\([^)]*\\+"
+      - "fmt\\.Sprintf.*Content\\s*:"
+      - "ChatCompletionMessage.*Content.*\\+"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ----------------------------------------------------------------------------
+  # Java - OpenAI/LLM Clients
+  # ----------------------------------------------------------------------------
+  - id: java.llm.security.prompt-injection.openai-unsafe
+    languages: [java]
+    severity: ERROR
+    message: "Java OpenAI client with unsanitized user input. Sanitize before API call."
+    patterns:
+      - "ChatCompletionRequest\\.builder\\(\\).*content\\s*\\([^)]*\\+"
+      - "ChatMessage\\s*\\([^)]*\\+[^)]*\\)"
+      - "OpenAiService.*createChatCompletion.*\\+"
+      - "new\\s+ChatMessage.*\\+.*userInput"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection"
+
+  # ============================================================================
+  # CATEGORY 2: UNSAFE LLM OUTPUT HANDLING
+  # ============================================================================
+
+  - id: python.llm.security.output-injection.eval-llm-response
+    languages: [python]
+    severity: ERROR
+    message: "CRITICAL: eval() on LLM response. LLM outputs can contain arbitrary malicious code. Never execute LLM-generated code directly."
+    patterns:
+      - "eval\\s*\\(\\s*response"
+      - "eval\\s*\\(\\s*completion"
+      - "eval\\s*\\(\\s*output"
+      - "eval\\s*\\(.*\\.choices\\[0\\]"
+      - "eval\\s*\\(.*\\.content"
+      - "eval\\s*\\(.*\\.text"
+      - "eval\\s*\\(.*message\\.content"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      category: "prompt-injection-output"
+
+  - id: python.llm.security.output-injection.exec-llm-response
+    languages: [python]
+    severity: ERROR
+    message: "CRITICAL: exec() on LLM response. Never execute LLM-generated code directly. Use sandboxed execution if code execution is required."
+    patterns:
+      - "exec\\s*\\(\\s*response"
+      - "exec\\s*\\(\\s*completion"
+      - "exec\\s*\\(.*\\.choices"
+      - "exec\\s*\\(.*\\.content"
+      - "exec\\s*\\(.*\\.text"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      category: "prompt-injection-output"
+
+  - id: python.llm.security.output-injection.pickle-llm-response
+    languages: [python]
+    severity: ERROR
+    message: "CRITICAL: Deserializing LLM response with pickle. Use JSON or other safe formats for LLM outputs."
+    patterns:
+      - "pickle\\.loads\\s*\\(.*response"
+      - "pickle\\.loads\\s*\\(.*completion"
+      - "pickle\\.load\\s*\\(.*\\.content"
+      - "pickle\\.loads\\s*\\(.*output"
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      category: "prompt-injection-output"
+
+  - id: javascript.llm.security.output-injection.eval-llm-response
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "CRITICAL: eval() on LLM response. Never execute LLM outputs. Use JSON.parse for structured data."
+    patterns:
+      - "eval\\s*\\(\\s*response"
+      - "eval\\s*\\(\\s*completion"
+      - "eval\\s*\\(.*\\.choices\\[0\\]"
+      - "eval\\s*\\(.*\\.content"
+      - "eval\\s*\\(.*\\.message"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      category: "prompt-injection-output"
+
+  - id: javascript.llm.security.output-injection.function-constructor
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "CRITICAL: new Function() with LLM response. This is equivalent to eval() and allows arbitrary code execution."
+    patterns:
+      - "new\\s+Function\\s*\\(.*response"
+      - "new\\s+Function\\s*\\(.*completion"
+      - "new\\s+Function\\s*\\(.*\\.content"
+      - "Function\\s*\\(.*\\.choices"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      category: "prompt-injection-output"
+
+  - id: javascript.llm.security.output-injection.vm-execution
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "CRITICAL: vm module execution of LLM response. Sandboxing is insufficient for untrusted code."
+    patterns:
+      - "vm\\.runInContext\\s*\\(.*response"
+      - "vm\\.runInNewContext\\s*\\(.*completion"
+      - "vm\\.runInThisContext\\s*\\(.*\\.content"
+      - "vm\\.Script.*response"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      category: "prompt-injection-output"
+
+  # ============================================================================
+  # CATEGORY 3: MALICIOUS PROMPT CONTENT DETECTION
+  # ============================================================================
+
+  # ----------------------------------------------------------------------------
+  # Instruction Override Attacks
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.ignore-previous-instructions
+    languages: [generic]
+    severity: ERROR
+    message: "Prompt injection detected: Instruction override attempt trying to bypass system instructions."
+    patterns:
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior|above|earlier)\\s+(instructions?|prompts?|rules?|guidelines?)"
+      - "(?i)disregard\\s+(all\\s+)?(previous|prior|above)\\s+(instructions?|prompts?)"
+      - "(?i)forget\\s+(all\\s+)?(previous|prior|earlier)\\s+(instructions?|prompts?)"
+      - "(?i)do\\s+not\\s+follow\\s+(the\\s+)?(previous|above|system)\\s+(instructions?|prompts?)"
+      - "(?i)override\\s+(all\\s+)?(previous|system|original)\\s+(instructions?|prompts?)"
+      - "(?i)ignore\\s+the\\s+above\\s+and\\s+instead"
+      - "(?i)ignore\\s+above.{0,20}(output|print|say|write|return)"
+      - "(?i)forget\\s+everything\\s+(above|before|previously)"
+      - "(?i)new\\s+instructions\\s*:\\s*ignore"
+      - "(?i)SYSTEM\\s*:.*override"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "90"
+      action: BLOCK
+
+  - id: generic.prompt.security.new-instructions-injection
+    languages: [generic]
+    severity: ERROR
+    message: "Prompt injection detected: Attempt to inject new instructions replacing system behavior."
+    patterns:
+      - "(?i)your\\s+new\\s+(instructions?|task|role|purpose)\\s+(is|are)\\s*:"
+      - "(?i)from\\s+now\\s+on\\s*,?\\s+(you|your)\\s+(will|must|should|are)"
+      - "(?i)starting\\s+now\\s*,?\\s+you\\s+(will|must|are)"
+      - "(?i)new\\s+system\\s+prompt\\s*:"
+      - "(?i)update\\s+(your|the)\\s+(instructions?|system\\s+prompt)"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "85"
+      action: BLOCK
+
+  # ----------------------------------------------------------------------------
+  # Jailbreak Attempts
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.jailbreak-dan
+    languages: [generic]
+    severity: ERROR
+    message: "Jailbreak attempt detected: DAN-style (Do Anything Now) attack attempting to bypass safety measures."
+    patterns:
+      - "(?i)you\\s+are\\s+(now\\s+)?DAN"
+      - "(?i)act\\s+as\\s+DAN"
+      - "(?i)pretend\\s+(to\\s+be|you\\s+are)\\s+DAN"
+      - "(?i)do\\s+anything\\s+now"
+      - "(?i)jailbreak(ed)?\\s+(mode|version)"
+      - "(?i)\\[DAN\\]"
+      - "(?i)DAN\\s*:"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-jailbreak"
+      risk_score: "90"
+      action: BLOCK
+
+  - id: generic.prompt.security.jailbreak-roleplay
+    languages: [generic]
+    severity: WARNING
+    message: "Potential jailbreak: Role-playing manipulation to bypass safety restrictions."
+    patterns:
+      - "(?i)pretend\\s+(that\\s+)?you\\s+(have\\s+)?no\\s+(restrictions?|limitations?|filters?|guidelines?)"
+      - "(?i)act\\s+as\\s+(if|though)\\s+you\\s+(have|had)\\s+no\\s+(restrictions?|rules?)"
+      - "(?i)roleplay\\s+as\\s+an?\\s+(unrestricted|unfiltered|evil)\\s+"
+      - "(?i)imagine\\s+you\\s+are\\s+an?\\s+(evil|unrestricted|malicious)"
+      - "(?i)you\\s+are\\s+now\\s+(in\\s+)?developer\\s+mode"
+      - "(?i)enable\\s+(developer|debug|admin|god)\\s+mode"
+      - "(?i)pretend\\s+you'?re\\s+a\\s+(hacker|attacker|criminal)"
+      - "(?i)act\\s+as\\s+a\\s+(hacker|attacker|criminal)"
+      - "(?i)you\\s+are\\s+now\\s+a\\s+(hacker|attacker|criminal)"
+      - "(?i)respond\\s+(as|like)\\s+a\\s+(hacker|attacker|criminal)"
+      - "(?i)switch\\s+to\\s+unrestricted\\s+mode"
+      - "(?i)behave\\s+(as|like)\\s+(a\\s+)?(hacker|attacker|criminal)"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-jailbreak"
+      risk_score: "75"
+      action: WARN
+
+  - id: generic.prompt.security.jailbreak-hypothetical
+    languages: [generic]
+    severity: WARNING
+    message: "Potential jailbreak: Hypothetical/fictional scenario bypass attempt."
+    patterns:
+      - "(?i)hypothetically\\s*,?\\s+(if|what\\s+if)\\s+you\\s+(could|were\\s+able)"
+      - "(?i)in\\s+a\\s+fictional\\s+(story|scenario|world)\\s+where\\s+you"
+      - "(?i)imagine\\s+a\\s+(fictional\\s+)?(scenario|world)\\s+where"
+      - "(?i)for\\s+(educational|research|academic)\\s+purposes\\s+only"
+      - "(?i)this\\s+is\\s+just\\s+(a\\s+)?(test|hypothetical|fiction)"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-jailbreak"
+      risk_score: "60"
+      action: WARN
+
+  # ----------------------------------------------------------------------------
+  # System Prompt Extraction
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.system-prompt-extraction
+    languages: [generic]
+    severity: ERROR
+    message: "System prompt extraction attempt detected: Trying to reveal hidden system instructions."
+    patterns:
+      - "(?i)(reveal|show|display|print|output|repeat|tell\\s+me)\\s+(your|the)\\s+(system\\s+)?prompt"
+      - "(?i)what\\s+(is|are)\\s+your\\s+(system\\s+)?instructions?"
+      - "(?i)(show|reveal|output)\\s+(your|the)\\s+(initial|original|hidden)\\s+(instructions?|prompt)"
+      - "(?i)repeat\\s+(everything|all)\\s+(above|before)"
+      - "(?i)echo\\s+(your|the)\\s+(system\\s+)?prompt"
+      - "(?i)print\\s+(your|the)\\s+(entire\\s+)?(system\\s+)?prompt"
+    metadata:
+      cwe: "CWE-200"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-extraction"
+      risk_score: "80"
+      action: BLOCK
+
+  - id: generic.prompt.security.system-prompt-extraction-indirect
+    languages: [generic]
+    severity: WARNING
+    message: "Indirect system prompt extraction attempt: Trying to obtain system instructions through rephrasing."
+    patterns:
+      - "(?i)(summarize|rephrase|paraphrase)\\s+(your|the)\\s+(system\\s+)?instructions?"
+      - "(?i)what\\s+(were|are)\\s+you\\s+(told|instructed)\\s+to\\s+do"
+      - "(?i)how\\s+were\\s+you\\s+(programmed|configured|set\\s+up)"
+      - "(?i)what\\s+rules\\s+(are\\s+you|do\\s+you)\\s+follow"
+    metadata:
+      cwe: "CWE-200"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-extraction"
+      risk_score: "65"
+      action: WARN
+
+  # ----------------------------------------------------------------------------
+  # Delimiter Injection Attacks
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.delimiter-injection
+    languages: [generic]
+    severity: ERROR
+    message: "Delimiter injection attack: Attempting to escape context boundaries using special tokens or markers."
+    patterns:
+      - "\\]\\]\\].*\\[\\[\\["
+      - "```.*system.*```"
+      - "---+\\s*(system|assistant|user)\\s*---+"
+      - "<\\|.*\\|>"
+      - "\\[INST\\].*\\[/INST\\]"
+      - "<\\|im_start\\|>.*<\\|im_end\\|>"
+      - "###\\s*(SYSTEM|USER|ASSISTANT)\\s*###"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-delimiter"
+      risk_score: "85"
+      action: BLOCK
+
+  - id: generic.prompt.security.xml-tag-injection
+    languages: [generic]
+    severity: WARNING
+    message: "XML/HTML tag injection in prompt: May escape context boundaries or manipulate parsing."
+    patterns:
+      - "<system>.*</system>"
+      - "<instructions?>.*</instructions?>"
+      - "<prompt>.*</prompt>"
+      - "<context>.*</context>"
+      - "</user>.*<assistant>"
+      - "</assistant>.*<user>"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-delimiter"
+      risk_score: "70"
+      action: WARN
+
+  # ----------------------------------------------------------------------------
+  # Context Manipulation
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.context-manipulation
+    languages: [generic]
+    severity: WARNING
+    message: "Context manipulation attempt: Trying to alter AI's perceived context or redirect attention."
+    patterns:
+      - "(?i)the\\s+(user|human)\\s+(actually\\s+)?said"
+      - "(?i)the\\s+real\\s+(question|request|task)\\s+is"
+      - "(?i)but\\s+first\\s*,?\\s+(answer|do|complete)\\s+this"
+      - "(?i)before\\s+(you\\s+)?(respond|answer)\\s*,?\\s+(first\\s+)?(do|complete)"
+      - "(?i)actually\\s*,?\\s+(ignore|skip)\\s+that\\s+and"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-context"
+      risk_score: "65"
+      action: WARN
+
+  # ----------------------------------------------------------------------------
+  # Encoding/Obfuscation Attacks
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.base64-encoded-injection
+    languages: [generic]
+    severity: WARNING
+    message: "Potential Base64-encoded prompt injection payload. Encoded content may hide malicious instructions."
+    patterns:
+      - "(?i)decode\\s+(this\\s+)?base64\\s*:\\s*[A-Za-z0-9+/=]{20,}"
+      - "(?i)base64\\s*:\\s*[A-Za-z0-9+/=]{40,}"
+      - "aWdub3JlIHByZXZpb3Vz"
+      - "c3lzdGVtIHByb21wdA=="
+      - "(?i)execute\\s+(this\\s+)?encoded"
+      - "(?i)(follow|execute)\\s+(the\\s+)?decoded\\s+instructions?"
+      - "(?i)decode\\s+and\\s+follow"
+      - "aWdub3JlIGFsbC"
+      - "b3ZlcnJpZGU="
+      - "(?i)base64.{0,20}instructions?.{0,20}follow"
+      - "[A-Za-z0-9+/]{40,}={0,2}\\s*.{0,20}(?i)(decode|execute|follow|run)"
+      - "(?i)(decode|run|execute)\\s+.{0,20}[A-Za-z0-9+/]{40,}={0,2}"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-encoded"
+      risk_score: "80"
+      action: WARN
+
+  # ----------------------------------------------------------------------------
+  # Privileged Operation Requests
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.privileged-operation-request
+    languages: [generic]
+    severity: WARNING
+    message: "Request for privileged/dangerous operation through prompt injection."
+    patterns:
+      - "(?i)(execute|run)\\s+(this\\s+)?(command|code|script)\\s*:"
+      - "(?i)(access|read|write)\\s+(the\\s+)?(file|system|database)"
+      - "(?i)(delete|remove|drop)\\s+(the\\s+)?(file|table|database)"
+      - "(?i)sudo\\s+"
+      - "(?i)(make|send)\\s+(a\\s+)?(http|api)\\s+(request|call)\\s+to"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-privilege"
+      risk_score: "70"
+      action: WARN
+
+  # ----------------------------------------------------------------------------
+  # Multi-turn Attack Patterns
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.multi-turn-attack
+    languages: [generic]
+    severity: WARNING
+    message: "Potential multi-turn prompt injection: Building up to an attack across conversation turns."
+    patterns:
+      - "(?i)remember\\s+(this|that)\\s+for\\s+later"
+      - "(?i)keep\\s+this\\s+in\\s+mind\\s+for\\s+(the\\s+)?next"
+      - "(?i)in\\s+my\\s+next\\s+message.*you\\s+(will|should|must)"
+      - "(?i)when\\s+i\\s+say.*you\\s+(will|should|must)"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: LOW
+      category: "prompt-injection-multi-turn"
+      risk_score: "55"
+      action: LOG
+
+  # ----------------------------------------------------------------------------
+  # Code Block Obfuscation Attacks
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.codeblock-obfuscation
+    languages: [generic]
+    severity: ERROR
+    message: "Attack instructions hidden inside code block. Malicious directives may be obfuscated within fenced code."
+    patterns:
+      - "```[\\s\\S]{0,20}(?i)(ignore|override|disregard)\\s+(all\\s+)?(previous|system|safety)"
+      - "```[\\s\\S]{0,20}(?i)SYSTEM\\s*:.*override"
+      - "```[\\s\\S]{0,50}(?i)(you\\s+are\\s+now|new\\s+instructions)"
+      - "```[\\s\\S]{0,20}(?i)(rm\\s+-rf|curl.*\\|.*sh|wget.*\\|.*bash)"
+      - "```[\\s\\S]{0,20}(?i)(eval|exec)\\s*\\("
+      - "```[\\s\\S]{0,50}(?i)send.{0,30}(secret|password|key|token|credential)"
+    metadata:
+      cwe: "CWE-77"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "80"
+      action: BLOCK
+
+  # ----------------------------------------------------------------------------
+  # Natural Language Exfiltration Attacks
+  # ----------------------------------------------------------------------------
+  - id: generic.prompt.security.natural-language-exfiltration
+    languages: [generic]
+    severity: ERROR
+    message: "Data exfiltration attempt: Instructions to send sensitive data to external destination."
+    patterns:
+      - "(?i)send\\s+.{0,40}(secret|password|key|token|credential|env).{0,40}to\\s+\\S+"
+      - "(?i)read\\s+/etc/(passwd|shadow|hosts).{0,40}send"
+      - "(?i)(env|environment)\\s+(var|variable)s?.{0,30}send\\s+to"
+      - "(?i)curl\\s+.{0,30}(steal|exfil|attacker|evil)"
+      - "(?i)(cat|read|dump)\\s+.{0,20}\\.(ssh|env|credentials).{0,30}(curl|wget|send|post)"
+    metadata:
+      cwe: "CWE-200"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-output"
+      risk_score: "95"
+      action: BLOCK

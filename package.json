@@ -1,0 +1,94 @@
+{
+  "name": "agent-security-scanner-mcp",
+  "version": "2.0.4",
+  "mcpName": "io.github.sinewaveai/agent-security-scanner-mcp",
+  "description": "Security scanner MCP server for AI coding agents. Prompt injection firewall, package hallucination detection (4.3M+ packages), 359 vulnerability rules with auto-fix. For Claude Code, Cursor, Windsurf, Cline.",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "agent-security-scanner-mcp": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "opencode",
+    "kilocode",
+    "security",
+    "scanner",
+    "vulnerability",
+    "sast",
+    "code-analysis",
+    "tree-sitter",
+    "ast-analysis",
+    "sql-injection",
+    "xss",
+    "secrets-detection",
+    "hallucination-detection",
+    "package-verification",
+    "supply-chain-security",
+    "prompt-injection",
+    "agent-security",
+    "llm-security",
+    "ai-safety",
+    "claude-desktop",
+    "claude-code",
+    "mcp-server",
+    "cursor",
+    "cody",
+    "cline",
+    "windsurf",
+    "agentic",
+    "devin",
+    "owasp",
+    "cwe",
+    "semgrep",
+    "zed",
+    "prompt-firewall",
+    "auto-fix",
+    "hallucination"
+  ],
+  "author": "Sinewave AI <divya@sinewave.ai>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sinewaveai/agent-security-scanner-mcp.git"
+  },
+  "homepage": "https://github.com/sinewaveai/agent-security-scanner-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/sinewaveai/agent-security-scanner-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "bloom-filters": "^3.0.4",
+    "zod": "^4.3.6"
+  },
+  "files": [
+    "LICENSE",
+    "server.json",
+    "index.js",
+    "analyzer.py",
+    "ast_parser.py",
+    "generic_ast.py",
+    "pattern_matcher.py",
+    "regex_fallback.py",
+    "semgrep_loader.py",
+    "taint_analyzer.py",
+    "requirements.txt",
+    "rules/**",
+    "packages/**"
+  ],
+  "devDependencies": {
+    "all-the-package-names": "^2.0.2349",
+    "vitest": "^4.0.18"
+  }
+}

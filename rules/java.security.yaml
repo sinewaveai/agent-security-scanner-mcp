@@ -1,0 +1,453 @@
+rules:
+  # ============================================================================
+  # SQL INJECTION
+  # ============================================================================
+  - id: java.lang.security.audit.sqli.sql-injection-jdbc
+    languages: [java]
+    severity: ERROR
+    message: "Possible SQL injection via string concatenation. Use PreparedStatement with parameterized queries."
+    patterns:
+      - "executeQuery\\s*\\([^)]*\\+"
+      - "executeUpdate\\s*\\([^)]*\\+"
+      - "execute\\s*\\([^)]*\\+"
+      - "createStatement\\s*\\(\\s*\\)\\.execute"
+      - "\"SELECT.*\"\\s*\\+\\s*"
+      - "\"INSERT.*\"\\s*\\+\\s*"
+      - "\"UPDATE.*\"\\s*\\+\\s*"
+      - "\"DELETE.*\"\\s*\\+\\s*"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.sqli.sql-injection-jdbc
+
+  - id: java.lang.security.audit.sqli.sql-injection-hibernate
+    languages: [java]
+    severity: ERROR
+    message: "Possible SQL injection in Hibernate query. Use parameterized queries."
+    patterns:
+      - "createQuery\\s*\\([^)]*\\+"
+      - "createNativeQuery\\s*\\([^)]*\\+"
+      - "createSQLQuery\\s*\\([^)]*\\+"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.sqli.sql-injection-hibernate
+
+  # ============================================================================
+  # COMMAND INJECTION
+  # ============================================================================
+  - id: java.lang.security.audit.command-injection-runtime-exec
+    languages: [java]
+    severity: ERROR
+    message: "Possible command injection via Runtime.exec(). Validate and sanitize input."
+    patterns:
+      - "Runtime\\.getRuntime\\s*\\(\\s*\\)\\.exec\\s*\\([^)]*\\+"
+      - "Runtime\\.getRuntime\\s*\\(\\s*\\)\\.exec\\s*\\(\\s*[^\\\"\\)]*\\)"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.command-injection-runtime-exec
+
+  - id: java.lang.security.audit.command-injection-process-builder
+    languages: [java]
+    severity: ERROR
+    message: "Possible command injection via ProcessBuilder. Validate and sanitize input."
+    patterns:
+      - "new\\s+ProcessBuilder\\s*\\([^)]*\\+"
+      - "ProcessBuilder\\s*\\(\\s*[^\\\"\\)]*\\)"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.command-injection-process-builder
+
+  # ============================================================================
+  # XXE (XML EXTERNAL ENTITY)
+  # ============================================================================
+  - id: java.lang.security.xxe.xxe-saxparser
+    languages: [java]
+    severity: ERROR
+    message: "XMLParser may be vulnerable to XXE. Disable external entities."
+    patterns:
+      - "SAXParserFactory\\.newInstance\\s*\\("
+      - "XMLReaderFactory\\.createXMLReader\\s*\\("
+      - "DocumentBuilderFactory\\.newInstance\\s*\\("
+    metadata:
+      cwe: "CWE-611"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.xxe.xxe-saxparser
+
+  - id: java.lang.security.xxe.xxe-xmlinputfactory
+    languages: [java]
+    severity: ERROR
+    message: "XMLInputFactory may be vulnerable to XXE. Set IS_SUPPORTING_EXTERNAL_ENTITIES to false."
+    patterns:
+      - "XMLInputFactory\\.newInstance\\s*\\("
+      - "XMLInputFactory\\.newFactory\\s*\\("
+    metadata:
+      cwe: "CWE-611"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.xxe.xxe-xmlinputfactory
+
+  # ============================================================================
+  # DESERIALIZATION
+  # ============================================================================
+  - id: java.lang.security.deserialization.object-inputstream
+    languages: [java]
+    severity: ERROR
+    message: "ObjectInputStream.readObject() is vulnerable to deserialization attacks. Validate input or use safer alternatives."
+    patterns:
+      - "\\.readObject\\s*\\(\\s*\\)"
+      - "ObjectInputStream"
+      - "new\\s+ObjectInputStream\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.deserialization.object-inputstream
+
+  - id: java.lang.security.deserialization.xstream
+    languages: [java]
+    severity: ERROR
+    message: "XStream deserialization is vulnerable to RCE. Use XStream security framework."
+    patterns:
+      - "XStream\\s*\\(\\s*\\)"
+      - "xstream\\.fromXML\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.deserialization.xstream
+
+  # ============================================================================
+  # CRYPTOGRAPHY
+  # ============================================================================
+  - id: java.lang.security.crypto.weak-hash-md5
+    languages: [java]
+    severity: WARNING
+    message: "MD5 is cryptographically weak. Use SHA-256 or stronger."
+    patterns:
+      - "MessageDigest\\.getInstance\\s*\\(\\s*\"MD5\"\\s*\\)"
+      - "DigestUtils\\.md5"
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.weak-hash-md5
+
+  - id: java.lang.security.crypto.weak-hash-sha1
+    languages: [java]
+    severity: WARNING
+    message: "SHA-1 is cryptographically weak. Use SHA-256 or stronger."
+    patterns:
+      - "MessageDigest\\.getInstance\\s*\\(\\s*\"SHA-1\"\\s*\\)"
+      - "MessageDigest\\.getInstance\\s*\\(\\s*\"SHA1\"\\s*\\)"
+      - "DigestUtils\\.sha1"
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.weak-hash-sha1
+
+  - id: java.lang.security.crypto.weak-cipher-des
+    languages: [java]
+    severity: ERROR
+    message: "DES is insecure. Use AES with 256-bit keys."
+    patterns:
+      - "Cipher\\.getInstance\\s*\\(\\s*\"DES"
+      - "Cipher\\.getInstance\\s*\\(\\s*\"DESede"
+      - "DESKeySpec"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.weak-cipher-des
+
+  - id: java.lang.security.crypto.ecb-mode
+    languages: [java]
+    severity: ERROR
+    message: "ECB mode is insecure. Use CBC or GCM mode with proper IV."
+    patterns:
+      - "Cipher\\.getInstance\\s*\\(\\s*\"[^\"]+/ECB/"
+      - "AES/ECB/"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.ecb-mode
+
+  - id: java.lang.security.crypto.insecure-random
+    languages: [java]
+    severity: WARNING
+    message: "java.util.Random is not cryptographically secure. Use SecureRandom."
+    patterns:
+      - "new\\s+Random\\s*\\("
+      - "java\\.util\\.Random"
+    metadata:
+      cwe: "CWE-330"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.insecure-random
+
+  # ============================================================================
+  # PATH TRAVERSAL
+  # ============================================================================
+  - id: java.lang.security.audit.path-traversal-file
+    languages: [java]
+    severity: WARNING
+    message: "Possible path traversal vulnerability. Validate and sanitize file paths."
+    patterns:
+      - "new\\s+File\\s*\\([^)]*\\+"
+      - "new\\s+FileInputStream\\s*\\([^)]*\\+"
+      - "new\\s+FileOutputStream\\s*\\([^)]*\\+"
+      - "new\\s+FileReader\\s*\\([^)]*\\+"
+      - "new\\s+FileWriter\\s*\\([^)]*\\+"
+      - "Paths\\.get\\s*\\([^)]*\\+"
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.path-traversal-file
+
+  # ============================================================================
+  # SSRF
+  # ============================================================================
+  - id: java.lang.security.audit.ssrf-url
+    languages: [java]
+    severity: WARNING
+    message: "Possible SSRF vulnerability. Validate and whitelist URLs."
+    patterns:
+      - "new\\s+URL\\s*\\([^)]*\\+"
+      - "new\\s+URI\\s*\\([^)]*\\+"
+      - "HttpClient.*\\.send\\s*\\("
+      - "HttpURLConnection"
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.ssrf-url
+
+  # ============================================================================
+  # LDAP INJECTION
+  # ============================================================================
+  - id: java.lang.security.audit.ldap-injection
+    languages: [java]
+    severity: ERROR
+    message: "Possible LDAP injection. Sanitize user input in LDAP queries."
+    patterns:
+      - "search\\s*\\([^)]*\\+"
+      - "NamingEnumeration"
+      - "DirContext\\.search\\s*\\("
+    metadata:
+      cwe: "CWE-90"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.ldap-injection
+
+  # ============================================================================
+  # XPATH INJECTION
+  # ============================================================================
+  - id: java.lang.security.audit.xpath-injection
+    languages: [java]
+    severity: ERROR
+    message: "Possible XPath injection. Use parameterized XPath queries."
+    patterns:
+      - "XPath\\.compile\\s*\\([^)]*\\+"
+      - "xpath\\.evaluate\\s*\\([^)]*\\+"
+    metadata:
+      cwe: "CWE-643"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.xpath-injection
+
+  # ============================================================================
+  # SSL/TLS
+  # ============================================================================
+  - id: java.lang.security.ssl.trust-all-certificates
+    languages: [java]
+    severity: ERROR
+    message: "Trust manager accepts all certificates. This allows MITM attacks."
+    patterns:
+      - "TrustAllCertificates"
+      - "X509TrustManager"
+      - "checkClientTrusted\\s*\\([^)]*\\)\\s*\\{\\s*\\}"
+      - "checkServerTrusted\\s*\\([^)]*\\)\\s*\\{\\s*\\}"
+      - "ALLOW_ALL_HOSTNAME_VERIFIER"
+      - "setHostnameVerifier\\s*\\(\\s*SSLSocketFactory\\.ALLOW_ALL"
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.ssl-trust-all-certificates
+
+  # ============================================================================
+  # HARDCODED SECRETS
+  # ============================================================================
+  - id: java.lang.security.audit.hardcoded-password
+    languages: [java]
+    severity: ERROR
+    message: "Hardcoded password detected. Use environment variables or a secrets manager."
+    patterns:
+      - "password\\s*=\\s*\"[^\"]{4,}\""
+      - "passwd\\s*=\\s*\"[^\"]{4,}\""
+      - "setPassword\\s*\\(\\s*\"[^\"]{4,}\"\\s*\\)"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.hardcoded-password
+
+  - id: java.lang.security.audit.hardcoded-secret-key
+    languages: [java]
+    severity: ERROR
+    message: "Hardcoded secret key detected. Use environment variables."
+    patterns:
+      - "secretKey\\s*=\\s*\"[^\"]{8,}\""
+      - "apiKey\\s*=\\s*\"[^\"]{8,}\""
+      - "SecretKeySpec\\s*\\(\\s*\"[^\"]+\"\\.getBytes"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.hardcoded-secret-key
+
+  # ============================================================================
+  # SPRING SECURITY
+  # ============================================================================
+  - id: java.spring.security.csrf-disabled
+    languages: [java]
+    severity: WARNING
+    message: "CSRF protection is disabled. Enable unless using stateless API."
+    patterns:
+      - "\\.csrf\\s*\\(\\s*\\)\\.disable\\s*\\("
+      - "csrf\\.disable\\s*\\("
+    metadata:
+      cwe: "CWE-352"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.spring.security.audit.csrf-disabled
+
+  - id: java.spring.security.permit-all
+    languages: [java]
+    severity: WARNING
+    message: "permitAll() allows unauthenticated access. Ensure this is intentional."
+    patterns:
+      - "\\.permitAll\\s*\\(\\s*\\)"
+    metadata:
+      cwe: "CWE-284"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/java.spring.security.audit.permit-all
+
+  # ============================================================================
+  # LOGGING SENSITIVE DATA
+  # ============================================================================
+  - id: java.lang.security.audit.logging-sensitive-data
+    languages: [java]
+    severity: WARNING
+    message: "Possible sensitive data in log statement. Avoid logging passwords or secrets."
+    patterns:
+      - "log\\.(info|debug|warn|error|trace)\\s*\\([^)]*password"
+      - "log\\.(info|debug|warn|error|trace)\\s*\\([^)]*secret"
+      - "log\\.(info|debug|warn|error|trace)\\s*\\([^)]*token"
+      - "logger\\.(info|debug|warn|error|trace)\\s*\\([^)]*password"
+      - "System\\.out\\.print.*password"
+    metadata:
+      cwe: "CWE-532"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.logging-sensitive-data
+
+  # ============================================================================
+  # EXPRESSION LANGUAGE INJECTION (SPRING)
+  # ============================================================================
+  - id: java.spring.security.spel-injection
+    languages: [java]
+    severity: ERROR
+    message: "Possible SpEL injection. Avoid using user input in SpEL expressions."
+    patterns:
+      - "ExpressionParser.*parseExpression\\s*\\([^)]*\\+"
+      - "SpelExpressionParser"
+      - "@Value\\s*\\(\\s*\"#\\{"
+    metadata:
+      cwe: "CWE-917"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.spring.security.audit.spel-injection
+
+  # ============================================================================
+  # OPEN REDIRECT
+  # ============================================================================
+  - id: java.lang.security.audit.open-redirect
+    languages: [java]
+    severity: WARNING
+    message: "Possible open redirect vulnerability. Validate redirect URLs."
+    patterns:
+      - "sendRedirect\\s*\\([^)]*\\+"
+      - "setHeader\\s*\\(\\s*\"Location\"\\s*,[^)]*\\+"
+    metadata:
+      cwe: "CWE-601"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/java.lang.security.audit.open-redirect
+
+  # ============================================================================
+  # JWT SECURITY
+  # ============================================================================
+  - id: java.jwt.security.jwt-none-algorithm
+    languages: [java]
+    severity: ERROR
+    message: "JWT with 'none' algorithm detected. Always use a secure algorithm."
+    patterns:
+      - "Algorithm\\.none\\s*\\("
+      - "SignatureAlgorithm\\.NONE"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.jwt.security.jwt-none-algorithm
+
+  - id: java.jwt.security.jwt-hardcoded-secret
+    languages: [java]
+    severity: ERROR
+    message: "Hardcoded JWT secret detected. Use environment variables."
+    patterns:
+      - "Jwts\\.parser\\s*\\(\\s*\\)\\.setSigningKey\\s*\\(\\s*\"[^\"]{8,}\""
+      - "Algorithm\\.HMAC.*\\(\\s*\"[^\"]{8,}\""
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/java.jwt.security.jwt-hardcoded-secret
