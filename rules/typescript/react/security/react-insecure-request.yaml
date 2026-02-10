@@ -1,0 +1,62 @@
+rules:
+- id: react-insecure-request
+  message: >-
+    Unencrypted request over HTTP detected.
+  metadata:
+    vulnerability: Insecure Transport
+    owasp:
+    - A03:2017 - Sensitive Data Exposure
+    - A02:2021 - Cryptographic Failures
+    - A04:2025 - Cryptographic Failures
+    cwe:
+    - 'CWE-319: Cleartext Transmission of Sensitive Information'
+    references:
+    - https://www.npmjs.com/package/axios
+    category: security
+    technology:
+    - react
+    subcategory:
+    - vuln
+    likelihood: LOW
+    impact: MEDIUM
+    confidence: MEDIUM
+  languages:
+  - typescript
+  - javascript
+  severity: ERROR
+  patterns:
+    - pattern-either:
+        - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  import $AXIOS from 'axios';
+                  ...
+                  $AXIOS.$METHOD(...)
+              - pattern-inside: |
+                  $AXIOS = require('axios');
+                  ...
+                  $AXIOS.$METHOD(...)
+          - pattern: $AXIOS.$VERB("$URL",...)
+          - metavariable-regex:
+              metavariable: $VERB
+              regex: ^(get|post|delete|head|patch|put|options)
+        - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  import $AXIOS from 'axios';
+                  ...
+                  $AXIOS(...)
+              - pattern-inside: |
+                  $AXIOS = require('axios');
+                  ...
+                  $AXIOS(...)
+          - pattern-either:
+              - pattern: '$AXIOS({url: "$URL"}, ...)'
+              - pattern: |
+                  $OPTS = {url: "$URL"}
+                  ...
+                  $AXIOS($OPTS, ...)
+        - pattern: fetch("$URL", ...)
+    - metavariable-regex:
+          metavariable: $URL
+          regex: ^([Hh][Tt][Tt][Pp]:\/\/(?!localhost).*)

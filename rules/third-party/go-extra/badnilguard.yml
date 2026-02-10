@@ -1,0 +1,15 @@
+rules:
+  - id: bad-nil-guard
+    patterns:
+        - pattern-either:
+              - pattern: $X == nil && <... $X.$F ...>
+              - pattern: $X != nil || <... $X.$F ...>
+              - pattern: $X == nil && <... len($X) > 0 ...>
+              - pattern: <... $X.$F ...> && $X != nil
+              - pattern: <... $X.$F ...> || $X == nil
+              - pattern: <... $X.$F ...> && $X == nil
+              - pattern: <... $X.$F ...> || $X != nil
+              - pattern: <... len($X) > 0 ...> && $X == nil
+    message: "Bad nil guard"
+    languages: [go]
+    severity: ERROR

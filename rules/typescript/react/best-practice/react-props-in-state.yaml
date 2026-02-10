@@ -1,0 +1,58 @@
+rules:
+  - id: react-props-in-state
+    pattern-either:
+      - patterns:
+          - pattern-inside: |
+              class $CN extends React.Component {
+                ...
+              }
+          - pattern-either:
+              - pattern: |
+                  state = {$NAME: <... this.props.$PROP ...>}
+              - pattern: |
+                  this.state = {$NAME: <... this.props.$PROP ...>}
+          - metavariable-regex:
+              metavariable: $NAME
+              regex: ^(?!default|initial).*$
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  function $FN({$PROP},...) {
+                    ...
+                  }
+              - pattern-inside: |
+                  function $FN($PROP,...) {
+                    ...
+                  }
+          - pattern-either:
+              - pattern: useState(<... $PROP ...>)
+              - pattern: useState(<... $PROP.$KEY ...>)
+              - pattern: |
+                  useState(function $X(...) {
+                    ...
+                    <... $PROP ...>
+                    ...
+                  })
+              - pattern: |
+                  useState(function $X(...) {
+                    ...
+                    <... $PROP.$KEY ...>
+                    ...
+                  })
+          - metavariable-regex:
+              metavariable: $PROP
+              regex: ^(?!default|initial).*$
+    message: >-
+      Copying a prop into state in React -- this is bad practice as all updates
+      to it are ignored. Instead, read props directly in your component and avoid
+      copying props into state.
+    metadata:
+      references:
+        - https://overreacted.io/writing-resilient-components/#principle-1-dont-stop-the-data-flow
+      category: best-practice
+      technology:
+        - react
+    languages:
+      - typescript
+      - javascript
+    severity: WARNING

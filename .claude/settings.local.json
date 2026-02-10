@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command:*)",
+      "Bash(find:*)",
+      "Bash(xargs du:*)",
+      "Bash(du:*)",
+      "Bash(tar czf:*)",
+      "Bash(git count-objects:*)"
+    ]
+  }
+}

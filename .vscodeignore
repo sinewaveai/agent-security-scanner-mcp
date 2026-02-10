@@ -1,0 +1,14 @@
+.vscode/
+node_modules/
+.vscode-test/
+.pytest_cache/
+*.vsix
+src/**/*.ts
+**/*.map
+.gitignore
+tsconfig.json
+CLAUDE.md
+SETUP.md
+test-vulnerabilities.js
+check_dev_env.bat
+**/test_*.py

@@ -1,0 +1,47 @@
+{
+  "name": "agent-security-scanner-mcp-full",
+  "version": "1.4.5",
+  "description": "Full MCP security scanner with npm hallucination detection (3.3M npm packages). Use 'agent-security-scanner-mcp' for lightweight version without npm.",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "agent-security-scanner-mcp-full": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "opencode",
+    "kilocode",
+    "security",
+    "scanner",
+    "npm",
+    "hallucination-detection",
+    "package-verification"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sinewaveai/agent-security-layer-fork.git"
+  },
+  "homepage": "https://github.com/sinewaveai/agent-security-layer-fork#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "bloom-filters": "^3.0.4",
+    "zod": "^4.3.6"
+  },
+  "files": [
+    "index.js",
+    "analyzer.py",
+    "rules/**",
+    "packages/**",
+    "README.md"
+  ]
+}

@@ -1,0 +1,19 @@
+rules:
+  - id: use-writer-not-writestring
+    patterns:
+        - pattern: io.WriteString($W, string($VAR))
+    message: "use $W.Write($VAR) instead of io.WriteString when $VAR is []byte"
+    languages: [go]
+    severity: ERROR
+  - id: use-write-not-fprint
+    patterns:
+        - pattern: fmt.Fprint($W, string($VAR))
+    message: "use $W.Write($VAR) instead of fmt.Fprint when $VAR is []byte"
+    languages: [go]
+    severity: ERROR
+  - id: use-fprintf-not-write-fsprint
+    patterns:
+        - pattern: $W.Write([]byte(fmt.Sprintf($...VALS)))
+    message: "use fmt.Fprintf($W, $...VALS) instead of fmt.Sprintf and []byte conversion"
+    languages: [go]
+    severity: ERROR

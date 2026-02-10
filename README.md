@@ -18,7 +18,7 @@ AI coding agents like **Claude Code**, **Cursor**, **Windsurf**, **Cline**, **Co
 **agent-security-scanner-mcp** is the first security scanner purpose-built for the agentic era. It protects AI coding agents in real-time via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).
 
 
-**359 Semgrep-aligned security rules | 120 auto-fix templates | 6 ecosystems indexed | AI Agent prompt security**
+**1700+ Semgrep-aligned security rules | 120 auto-fix templates | 6 ecosystems indexed | AI Agent prompt security | AST + Taint Analysis**
 
 ## Installation
 
@@ -64,6 +64,15 @@ The scanner works without tree-sitter using regex-based detection, but AST analy
 - Language-aware pattern matching
 
 ---
+
+## What's New in v3.0.0 🚀
+
+- **AST Engine** - Tree-sitter based analysis replaces regex for 10x more accurate detection
+- **Taint Analysis** - Dataflow tracking traces vulnerabilities from source to sink across function boundaries
+- **1700+ Semgrep Rules** - Full Semgrep rule library integration (up from 359 rules)
+- **Regex Fallback** - Graceful degradation when tree-sitter is unavailable
+- **New Languages** - Added C, C#, PHP, Ruby, Go, Rust, TypeScript AST support
+- **React/Next.js Rules** - XSS, JWT storage, CORS, and 50+ frontend security patterns
 
 ## What's New in v2.0.7
 

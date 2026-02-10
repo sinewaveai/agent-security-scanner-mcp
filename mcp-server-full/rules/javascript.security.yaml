@@ -1,0 +1,504 @@
+rules:
+  # ============================================================================
+  # XSS RULES
+  # ============================================================================
+  - id: javascript.browser.security.dom-based-xss.innerHTML
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected innerHTML assignment. This can lead to XSS. Use textContent or sanitize input."
+    patterns:
+      - "\\.innerHTML\\s*="
+      - "\\.innerHTML\\s*\\+="
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.browser.security.dom-based-xss.dom-based-xss-innerHTML
+
+  - id: javascript.browser.security.dom-based-xss.outerHTML
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected outerHTML assignment. This can lead to XSS. Sanitize input before use."
+    patterns:
+      - "\\.outerHTML\\s*="
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.browser.security.dom-based-xss.dom-based-xss-outerHTML
+
+  - id: javascript.browser.security.dom-based-xss.document-write
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected document.write(). This can lead to XSS. Use safer DOM manipulation methods."
+    patterns:
+      - "document\\.write\\s*\\("
+      - "document\\.writeln\\s*\\("
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.browser.security.dom-based-xss.dom-based-xss-document-write
+
+  - id: javascript.browser.security.dom-based-xss.insertAdjacentHTML
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected insertAdjacentHTML. This can lead to XSS. Sanitize input before use."
+    patterns:
+      - "\\.insertAdjacentHTML\\s*\\("
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.browser.security.dom-based-xss.dom-based-xss-insertAdjacentHTML
+
+  - id: javascript.react.security.dangerouslySetInnerHTML
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected dangerouslySetInnerHTML in React. Ensure input is sanitized with DOMPurify."
+    patterns:
+      - "dangerouslySetInnerHTML\\s*="
+      - "dangerouslySetInnerHTML:\\s*\\{"
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.react.security.audit.react-dangerouslysetinnerhtml
+
+  # ============================================================================
+  # CODE INJECTION / EVAL
+  # ============================================================================
+  - id: javascript.lang.security.audit.eval-detected
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected eval(). This is dangerous and can lead to code injection. Avoid eval() with untrusted input."
+    patterns:
+      - "\\beval\\s*\\("
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.eval-detected
+
+  - id: javascript.lang.security.audit.function-constructor
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected Function constructor. This is similar to eval() and can lead to code injection."
+    patterns:
+      - "new\\s+Function\\s*\\("
+      - "Function\\s*\\("
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.function-constructor
+
+  - id: javascript.lang.security.audit.setTimeout-string
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Detected setTimeout/setInterval with string argument. Use function reference instead."
+    patterns:
+      - "setTimeout\\s*\\(\\s*[\"']"
+      - "setInterval\\s*\\(\\s*[\"']"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.setTimeout-string-argument
+
+  # ============================================================================
+  # COMMAND INJECTION
+  # ============================================================================
+  - id: javascript.lang.security.audit.child-process-exec
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected child_process.exec() with user input. Use execFile() or spawn() with shell=false."
+    patterns:
+      - "exec\\s*\\([^)]*\\+[^)]*\\)"
+      - "exec\\s*\\(\\s*`"
+      - "execSync\\s*\\([^)]*\\+[^)]*\\)"
+      - "execSync\\s*\\(\\s*`"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.child-process-exec
+
+  - id: javascript.lang.security.audit.spawn-shell
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected spawn() with shell=true. This can lead to command injection."
+    patterns:
+      - "spawn\\s*\\([^)]*shell\\s*:\\s*true"
+      - "spawnSync\\s*\\([^)]*shell\\s*:\\s*true"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.spawn-shell-true
+
+  # ============================================================================
+  # SQL INJECTION
+  # ============================================================================
+  - id: javascript.lang.security.audit.sql-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Possible SQL injection. Use parameterized queries or prepared statements."
+    patterns:
+      - "query\\s*\\([^)]*\\+[^)]*\\)"
+      - "query\\s*\\(\\s*`[^`]*\\$\\{"
+      - "execute\\s*\\([^)]*\\+[^)]*\\)"
+      - "raw\\s*\\(\\s*`[^`]*\\$\\{"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.sql-injection
+
+  - id: javascript.sequelize.security.raw-query
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Detected Sequelize raw query with string interpolation. Use parameterized replacements."
+    patterns:
+      - "sequelize\\.query\\s*\\(\\s*`"
+      - "\\.query\\s*\\(\\s*`[^`]*\\$\\{"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.sequelize.security.audit.sequelize-raw-query
+
+  # ============================================================================
+  # NOSQL INJECTION
+  # ============================================================================
+  - id: javascript.mongodb.security.nosql-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Possible NoSQL injection. Validate and sanitize user input in MongoDB queries."
+    patterns:
+      - "\\$where\\s*:"
+      - "\\$expr\\s*:"
+      - "find\\s*\\(\\s*\\{[^}]*:\\s*req\\."
+      - "findOne\\s*\\(\\s*\\{[^}]*:\\s*req\\."
+    metadata:
+      cwe: "CWE-943"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.mongodb.security.audit.nosql-injection
+
+  # ============================================================================
+  # PATH TRAVERSAL
+  # ============================================================================
+  - id: javascript.lang.security.audit.path-traversal
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Possible path traversal vulnerability. Validate and sanitize file paths."
+    patterns:
+      - "readFile\\s*\\([^)]*\\+[^)]*\\)"
+      - "readFileSync\\s*\\([^)]*\\+[^)]*\\)"
+      - "writeFile\\s*\\([^)]*\\+[^)]*\\)"
+      - "writeFileSync\\s*\\([^)]*\\+[^)]*\\)"
+      - "createReadStream\\s*\\([^)]*\\+[^)]*\\)"
+      - "createWriteStream\\s*\\([^)]*\\+[^)]*\\)"
+      - "path\\.join\\s*\\([^)]*req\\."
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.path-traversal
+
+  # ============================================================================
+  # SSRF
+  # ============================================================================
+  - id: javascript.lang.security.audit.ssrf-fetch
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Possible SSRF vulnerability. Validate and whitelist URLs before making requests."
+    patterns:
+      - "fetch\\s*\\([^)]*\\+[^)]*\\)"
+      - "fetch\\s*\\(\\s*`[^`]*\\$\\{"
+      - "fetch\\s*\\(\\s*req\\."
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.ssrf-fetch
+
+  - id: javascript.lang.security.audit.ssrf-axios
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Possible SSRF vulnerability with axios. Validate and whitelist URLs."
+    patterns:
+      - "axios\\.(get|post|put|delete|patch)\\s*\\([^)]*\\+[^)]*\\)"
+      - "axios\\.(get|post|put|delete|patch)\\s*\\(\\s*`[^`]*\\$\\{"
+      - "axios\\s*\\(\\s*\\{[^}]*url\\s*:[^}]*\\+[^}]*\\}"
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.axios.security.audit.ssrf-axios
+
+  # ============================================================================
+  # PROTOTYPE POLLUTION
+  # ============================================================================
+  - id: javascript.lang.security.audit.prototype-pollution
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Possible prototype pollution vulnerability. Validate object keys before assignment."
+    patterns:
+      - "\\[\\s*[^\\]]+\\s*\\]\\s*=\\s*[^;]+\\[\\s*[^\\]]+\\s*\\]"
+      - "__proto__"
+      - "constructor\\s*\\[\\s*[\"']prototype[\"']\\s*\\]"
+      - "Object\\.assign\\s*\\([^,]*,\\s*req\\."
+    metadata:
+      cwe: "CWE-1321"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.prototype-pollution
+
+  # ============================================================================
+  # HARDCODED SECRETS
+  # ============================================================================
+  - id: javascript.lang.security.audit.hardcoded-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Hardcoded secret detected. Use environment variables."
+    patterns:
+      - "(api[_-]?key|apikey)\\s*[:=]\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']"
+      - "(secret[_-]?key|secretkey)\\s*[:=]\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']"
+      - "password\\s*[:=]\\s*[\"'][^\"']{6,}[\"']"
+      - "token\\s*[:=]\\s*[\"'][A-Za-z0-9_\\-\\.]{20,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.hardcoded-secret
+
+  # ============================================================================
+  # JWT SECURITY
+  # ============================================================================
+  - id: javascript.jwt.security.jwt-none-algorithm
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "JWT with 'none' algorithm detected. Always specify a secure algorithm."
+    patterns:
+      - "algorithm\\s*:\\s*[\"']none[\"']"
+      - "algorithms\\s*:\\s*\\[[^\\]]*[\"']none[\"']"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.jwt.security.jwt-none-algorithm
+
+  - id: javascript.jwt.security.jwt-hardcoded-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Hardcoded JWT secret detected. Use environment variables."
+    patterns:
+      - "jwt\\.sign\\s*\\([^,]+,\\s*[\"'][^\"']{8,}[\"']"
+      - "jwt\\.verify\\s*\\([^,]+,\\s*[\"'][^\"']{8,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.jwt.security.jwt-hardcoded-secret
+
+  # ============================================================================
+  # EXPRESS.JS SECURITY
+  # ============================================================================
+  - id: javascript.express.security.helmet-missing
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Express app without helmet. Add helmet() middleware for security headers."
+    patterns:
+      - "express\\s*\\(\\s*\\)"
+    metadata:
+      cwe: "CWE-693"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/javascript.express.security.audit.helmet-missing
+
+  - id: javascript.express.security.cors-wildcard
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "CORS with wildcard origin detected. Restrict to specific origins."
+    patterns:
+      - "cors\\s*\\(\\s*\\)"
+      - "origin\\s*:\\s*[\"']\\*[\"']"
+      - "origin\\s*:\\s*true"
+    metadata:
+      cwe: "CWE-942"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.express.security.audit.cors-wildcard
+
+  - id: javascript.express.security.csrf-disabled
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "CSRF protection may be disabled. Ensure CSRF middleware is configured."
+    patterns:
+      - "csrf\\s*:\\s*false"
+      - "ignoreMethods\\s*:\\s*\\[[^\\]]*[\"']POST[\"']"
+    metadata:
+      cwe: "CWE-352"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.express.security.audit.csrf-disabled
+
+  # ============================================================================
+  # CRYPTOGRAPHY
+  # ============================================================================
+  - id: javascript.lang.security.crypto.insecure-hash-md5
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "MD5 is cryptographically weak. Use SHA-256 or stronger."
+    patterns:
+      - "createHash\\s*\\(\\s*[\"']md5[\"']\\s*\\)"
+      - "crypto\\.createHash\\s*\\(\\s*[\"']md5[\"']\\s*\\)"
+      - "MD5\\s*\\("
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.insecure-hash-function-md5
+
+  - id: javascript.lang.security.crypto.insecure-hash-sha1
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "SHA1 is cryptographically weak. Use SHA-256 or stronger."
+    patterns:
+      - "createHash\\s*\\(\\s*[\"']sha1[\"']\\s*\\)"
+      - "crypto\\.createHash\\s*\\(\\s*[\"']sha1[\"']\\s*\\)"
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.insecure-hash-function-sha1
+
+  - id: javascript.lang.security.crypto.insecure-random
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Math.random() is not cryptographically secure. Use crypto.randomBytes() or crypto.getRandomValues()."
+    patterns:
+      - "Math\\.random\\s*\\(\\s*\\)"
+    metadata:
+      cwe: "CWE-330"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.insecure-random
+
+  # ============================================================================
+  # SSL/TLS
+  # ============================================================================
+  - id: javascript.lang.security.ssl.reject-unauthorized-false
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "SSL certificate verification is disabled. This allows MITM attacks."
+    patterns:
+      - "rejectUnauthorized\\s*:\\s*false"
+      - "NODE_TLS_REJECT_UNAUTHORIZED\\s*=\\s*[\"']0[\"']"
+      - "process\\.env\\.NODE_TLS_REJECT_UNAUTHORIZED\\s*=\\s*[\"']0[\"']"
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.tls-reject-unauthorized-false
+
+  # ============================================================================
+  # OPEN REDIRECT
+  # ============================================================================
+  - id: javascript.express.security.open-redirect
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Possible open redirect vulnerability. Validate redirect URLs."
+    patterns:
+      - "res\\.redirect\\s*\\(\\s*req\\."
+      - "res\\.redirect\\s*\\([^)]*\\+[^)]*\\)"
+      - "location\\s*=\\s*req\\."
+    metadata:
+      cwe: "CWE-601"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.express.security.audit.open-redirect
+
+  # ============================================================================
+  # REGULAR EXPRESSION DOS
+  # ============================================================================
+  - id: javascript.lang.security.audit.regex-dos
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Potentially vulnerable regex pattern (ReDoS). Review for catastrophic backtracking."
+    patterns:
+      - "new\\s+RegExp\\s*\\([^)]*\\([^)]*\\+\\)[^)]*\\+"
+      - "/\\([^)]*\\+\\)[^/]*\\+/"
+    metadata:
+      cwe: "CWE-1333"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.regex-dos
+
+  # ============================================================================
+  # DESERIALIZATION
+  # ============================================================================
+  - id: javascript.lang.security.deserialization.node-serialize
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "node-serialize is vulnerable to RCE. Do not use with untrusted data."
+    patterns:
+      - "serialize\\.unserialize\\s*\\("
+      - "require\\s*\\(\\s*[\"']node-serialize[\"']\\s*\\)"
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.deserialization.node-serialize
+
+  # ============================================================================
+  # LOGGING SENSITIVE DATA
+  # ============================================================================
+  - id: javascript.lang.security.audit.logging-sensitive-data
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Possible sensitive data in log statement. Avoid logging passwords, tokens, or secrets."
+    patterns:
+      - "console\\.(log|info|warn|error|debug)\\s*\\([^)]*password"
+      - "console\\.(log|info|warn|error|debug)\\s*\\([^)]*secret"
+      - "console\\.(log|info|warn|error|debug)\\s*\\([^)]*token"
+      - "console\\.(log|info|warn|error|debug)\\s*\\([^)]*apiKey"
+      - "logger\\.(log|info|warn|error|debug)\\s*\\([^)]*password"
+    metadata:
+      cwe: "CWE-532"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/javascript.lang.security.audit.logging-sensitive-data

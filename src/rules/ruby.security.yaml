@@ -1,0 +1,400 @@
+rules:
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - SQL Injection
+  # =============================================================================
+
+  - id: ruby.rails.security.audit.sql-injection-where
+    languages: [ruby]
+    severity: ERROR
+    message: "SQL Injection in ActiveRecord where clause. Use parameterized queries: where('column = ?', value)"
+    patterns:
+      - "\\.where\\s*\\(\\s*[\"'][^\"']*#\\{"
+      - "\\.where\\s*\\([^)]*\\+\\s*params"
+      - "\\.find_by_sql\\s*\\(\\s*[\"'][^\"']*#\\{"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://rails-sqli.org/
+        - https://semgrep.dev/r/ruby.rails.security.brakeman
+
+  - id: ruby.rails.security.audit.sql-injection-order
+    languages: [ruby]
+    severity: ERROR
+    message: "SQL Injection in order clause. Whitelist allowed columns instead of using user input directly."
+    patterns:
+      - "\\.order\\s*\\(\\s*params"
+      - "\\.order\\s*\\(\\s*[\"'][^\"']*#\\{.*params"
+      - "\\.reorder\\s*\\(\\s*params"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://rails-sqli.org/
+
+  - id: ruby.rails.security.audit.sql-injection-raw
+    languages: [ruby]
+    severity: ERROR
+    message: "Raw SQL with string interpolation. Use sanitize_sql or parameterized queries."
+    patterns:
+      - "execute\\s*\\(\\s*[\"'][^\"']*#\\{"
+      - "select_all\\s*\\(\\s*[\"'][^\"']*#\\{"
+      - "connection\\.execute\\s*\\(\\s*[\"'][^\"']*#\\{"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://api.rubyonrails.org/classes/ActiveRecord/Sanitization/ClassMethods.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Command Injection
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.command-injection-system
+    languages: [ruby]
+    severity: ERROR
+    message: "Command Injection detected. User input in system/exec call. Use array form or Shellwords.escape()."
+    patterns:
+      - "system\\s*\\(\\s*[\"'][^\"']*#\\{.*params"
+      - "system\\s*\\([^)]*params\\["
+      - "`[^`]*#\\{.*params"
+      - "exec\\s*\\(\\s*[\"'][^\"']*#\\{"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/ruby.lang.security.system-call
+
+  - id: ruby.lang.security.audit.command-injection-open
+    languages: [ruby]
+    severity: ERROR
+    message: "Command injection via Open3 or IO.popen. Sanitize user input."
+    patterns:
+      - "Open3\\.(capture|popen|pipeline).*params"
+      - "IO\\.popen\\s*\\([^)]*params"
+      - "Kernel\\.spawn\\s*\\([^)]*params"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://ruby-doc.org/stdlib/libdoc/open3/rdoc/Open3.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - XSS
+  # =============================================================================
+
+  - id: ruby.rails.security.audit.xss-raw
+    languages: [ruby]
+    severity: ERROR
+    message: "XSS vulnerability. raw() or html_safe bypasses escaping. Sanitize user input first."
+    patterns:
+      - "raw\\s*\\(\\s*params"
+      - "raw\\s*\\([^)]*#\\{.*params"
+      - "\\.html_safe"
+      - "<%==.*params"
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://api.rubyonrails.org/classes/ActionView/Helpers/SanitizeHelper.html
+
+  - id: ruby.rails.security.audit.xss-content-tag
+    languages: [ruby]
+    severity: WARNING
+    message: "Potential XSS in content_tag. Ensure user input is sanitized."
+    patterns:
+      - "content_tag\\s*\\([^)]*params\\[.*\\]\\s*,\\s*nil\\s*,.*escape:\\s*false"
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://api.rubyonrails.org/classes/ActionView/Helpers/TagHelper.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Mass Assignment
+  # =============================================================================
+
+  - id: ruby.rails.security.audit.mass-assignment-permit-all
+    languages: [ruby]
+    severity: ERROR
+    message: "Mass assignment vulnerability. permit! allows all parameters. Whitelist specific attributes."
+    patterns:
+      - "params\\.permit!"
+      - "\\.permit\\s*\\(.*:all"
+    metadata:
+      cwe: "CWE-915"
+      owasp: "A04:2021 - Insecure Design"
+      confidence: HIGH
+      references:
+        - https://guides.rubyonrails.org/action_controller_overview.html#strong-parameters
+
+  - id: ruby.rails.security.audit.unscoped-find
+    languages: [ruby]
+    severity: WARNING
+    message: "Unscoped find may expose records from other users. Use scoped queries."
+    patterns:
+      - "Model\\.find\\s*\\(\\s*params"
+      - "\\.find\\s*\\(\\s*params\\[:id\\]\\s*\\)"
+    metadata:
+      cwe: "CWE-639"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/ruby.rails.security.brakeman.check-unscoped-find
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Deserialization
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.unsafe-yaml-load
+    languages: [ruby]
+    severity: ERROR
+    message: "Unsafe YAML deserialization. Use YAML.safe_load() or Psych.safe_load() instead."
+    patterns:
+      - "YAML\\.load\\s*\\("
+      - "Psych\\.load\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://ruby-doc.org/stdlib/libdoc/yaml/rdoc/YAML.html
+
+  - id: ruby.lang.security.audit.unsafe-marshal
+    languages: [ruby]
+    severity: ERROR
+    message: "Unsafe Marshal deserialization. Marshal.load on untrusted data can lead to RCE."
+    patterns:
+      - "Marshal\\.load\\s*\\("
+      - "Marshal\\.restore\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://ruby-doc.org/core/Marshal.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Code Injection
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.eval-usage
+    languages: [ruby]
+    severity: ERROR
+    message: "eval() usage detected. Avoid eval() with user input as it allows arbitrary code execution."
+    patterns:
+      - "\\beval\\s*\\("
+      - "instance_eval\\s*\\("
+      - "class_eval\\s*\\("
+      - "module_eval\\s*\\("
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/ruby.lang.security.eval-usage
+
+  - id: ruby.lang.security.audit.constantize
+    languages: [ruby]
+    severity: ERROR
+    message: "constantize with user input can instantiate arbitrary classes. Whitelist allowed classes."
+    patterns:
+      - "params.*\\.constantize"
+      - "\\.constantize\\s*\\.new"
+    metadata:
+      cwe: "CWE-470"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://api.rubyonrails.org/classes/ActiveSupport/Inflector.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Open Redirect
+  # =============================================================================
+
+  - id: ruby.rails.security.audit.open-redirect
+    languages: [ruby]
+    severity: WARNING
+    message: "Open redirect vulnerability. Validate redirect URLs against a whitelist."
+    patterns:
+      - "redirect_to\\s+params\\["
+      - "redirect_to\\s+[^,]*#\\{.*params"
+    metadata:
+      cwe: "CWE-601"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - CSRF
+  # =============================================================================
+
+  - id: ruby.rails.security.audit.csrf-disabled
+    languages: [ruby]
+    severity: ERROR
+    message: "CSRF protection disabled. Do not skip verify_authenticity_token for non-API controllers."
+    patterns:
+      - "skip_before_action\\s+:verify_authenticity_token"
+      - "skip_before_filter\\s+:verify_authenticity_token"
+      - "protect_from_forgery.*except:"
+    metadata:
+      cwe: "CWE-352"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://guides.rubyonrails.org/security.html#cross-site-request-forgery-csrf
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - SSL/TLS
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.ssl-verify-disabled
+    languages: [ruby]
+    severity: ERROR
+    message: "SSL verification disabled. This allows MITM attacks. Enable SSL verification."
+    patterns:
+      - "verify_mode\\s*=\\s*OpenSSL::SSL::VERIFY_NONE"
+      - "ssl_verify_mode:\\s*:verify_none"
+      - ":verify_ssl\\s*=>\\s*false"
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://ruby-doc.org/stdlib/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - File Operations
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.path-traversal
+    languages: [ruby]
+    severity: ERROR
+    message: "Path traversal vulnerability. User input in file path. Use File.basename() to sanitize."
+    patterns:
+      - "File\\.(read|open|write|delete)\\s*\\([^)]*params"
+      - "FileUtils\\.(rm|mv|cp)\\s*\\([^)]*params"
+      - "send_file\\s+params"
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Hardcoded Secrets
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.hardcoded-secret
+    languages: [ruby]
+    severity: ERROR
+    message: "Hardcoded secret detected. Use environment variables or Rails credentials."
+    patterns:
+      - "secret_key_base\\s*=\\s*[\"'][a-f0-9]{30,}[\"']"
+      - "api_key\\s*=\\s*[\"'][^\"']{20,}[\"']"
+      - "password\\s*=\\s*[\"'][^\"']{4,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://guides.rubyonrails.org/security.html#custom-credentials
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Session Security
+  # =============================================================================
+
+  - id: ruby.rails.security.audit.session-secret-hardcoded
+    languages: [ruby]
+    severity: ERROR
+    message: "Hardcoded session secret. Use Rails.application.credentials or environment variables."
+    patterns:
+      - "secret_key_base:\\s*[\"'][a-f0-9]{30,}[\"']"
+      - "config\\.secret_key_base\\s*=\\s*[\"'][a-f0-9]{30,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/ruby.rails.security.session-secret
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Cryptography
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.weak-hash
+    languages: [ruby]
+    severity: WARNING
+    message: "Weak hash algorithm. Use Digest::SHA256 or stronger for security-sensitive hashing."
+    patterns:
+      - "Digest::MD5"
+      - "Digest::SHA1"
+      - "OpenSSL::Digest::MD5"
+      - "OpenSSL::Digest::SHA1"
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://ruby-doc.org/stdlib/libdoc/digest/rdoc/Digest.html
+
+  - id: ruby.lang.security.audit.weak-cipher
+    languages: [ruby]
+    severity: WARNING
+    message: "Weak cipher algorithm. Use AES-256-GCM or stronger encryption."
+    patterns:
+      - "OpenSSL::Cipher\\.new\\s*\\([\"']DES"
+      - "OpenSSL::Cipher\\.new\\s*\\([\"']RC4"
+      - "OpenSSL::Cipher\\.new\\s*\\([\"'].*ECB"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://ruby-doc.org/stdlib/libdoc/openssl/rdoc/OpenSSL/Cipher.html
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Regex DoS
+  # =============================================================================
+
+  - id: ruby.lang.security.audit.regex-dos
+    languages: [ruby]
+    severity: WARNING
+    message: "Potential ReDoS. Regex with nested quantifiers can cause catastrophic backtracking."
+    patterns:
+      - "/.*\\(.*\\+\\).*\\+/"
+      - "/.*\\(.*\\*\\).*\\*/"
+      - "Regexp\\.new\\s*\\([^)]*\\+\\).*\\+"
+    metadata:
+      cwe: "CWE-1333"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: MEDIUM
+      references:
+        - https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS
+
+  # =============================================================================
+  # RUBY/RAILS SECURITY RULES - Render Vulnerability
+  # =============================================================================
+
+  - id: ruby.rails.security.audit.render-inline
+    languages: [ruby]
+    severity: ERROR
+    message: "Rendering user input as inline template allows code injection. Use render with safe templates."
+    patterns:
+      - "render\\s+inline:\\s*params"
+      - "render\\s+inline:.*#\\{.*params"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://guides.rubyonrails.org/security.html

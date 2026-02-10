@@ -1,0 +1,18 @@
+rules:
+  - id: useless-literal
+    message: key `$X` is uselessly assigned twice
+    languages: [python]
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: |
+              {..., $X: $A, ..., $X: $B, ...}
+          - pattern: |
+              dict(..., ($X, $A), ..., ($X, $B), ...)
+      - focus-metavariable: $X
+    metadata:
+      category: maintainability
+      references:
+        - https://docs.python.org/3/library/stdtypes.html#mapping-types-dict
+      technology:
+        - python
