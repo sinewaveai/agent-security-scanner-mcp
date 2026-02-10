@@ -65,6 +65,13 @@ The scanner works without tree-sitter using regex-based detection, but AST analy
 
 ---
 
+## What's New in v2.0.7
+
+- **SARIF output format** - `scan_security` now supports `output_format: 'sarif'` for GitHub/GitLab Security tab integration
+- **GitHub Code Scanning** - Upload results directly to GitHub Advanced Security
+- **GitLab SAST** - Compatible with GitLab's security dashboard
+- **Full SARIF 2.1.0 compliance** - Includes rules, locations, fix suggestions, CWE/OWASP metadata
+
 ## What's New in v2.0.6
 
 - **fix_security reliability overhaul** - Fixes now validated before applying to prevent malformed code output
@@ -368,6 +375,7 @@ Scan a file for security vulnerabilities and return issues with suggested fixes.
 ```
 Parameters:
   file_path (string): Absolute path to the file to scan
+  output_format (string, optional): 'json' (default) or 'sarif' for GitHub/GitLab integration
 
 Returns:
   - List of security issues
@@ -377,7 +385,7 @@ Returns:
   - Suggested fixes
 ```
 
-**Example output:**
+**Example output (JSON - default):**
 ```json
 {
   "file": "/path/to/file.js",
@@ -400,6 +408,36 @@ Returns:
       }
     }
   ]
+}
+```
+
+**Example output (SARIF - for GitHub/GitLab):**
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [{
+    "tool": {
+      "driver": {
+        "name": "agent-security-scanner-mcp",
+        "version": "2.0.7",
+        "rules": [...]
+      }
+    },
+    "results": [
+      {
+        "ruleId": "sql-injection",
+        "level": "error",
+        "message": { "text": "SQL Injection detected" },
+        "locations": [{
+          "physicalLocation": {
+            "artifactLocation": { "uri": "file.js" },
+            "region": { "startLine": 15 }
+          }
+        }]
+      }
+    ]
+  }]
 }
 ```
 
@@ -637,6 +675,64 @@ Package lists are sourced from [garak-llm](https://huggingface.co/garak-llm) Hug
 | Dart | [garak-llm/dart-20250811](https://huggingface.co/datasets/garak-llm/dart-20250811) | Aug 11, 2025 |
 | Perl | [garak-llm/perl-20250811](https://huggingface.co/datasets/garak-llm/perl-20250811) | Aug 11, 2025 |
 | Raku | [garak-llm/raku-20250811](https://huggingface.co/datasets/garak-llm/raku-20250811) | Aug 11, 2025 |
+
+---
+
+## CI/CD Integration (SARIF)
+
+Upload scan results to GitHub Security tab or GitLab Security Dashboard using SARIF format.
+
+### GitHub Actions Example
+
+```yaml
+name: Security Scan
+on: [push, pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Security Scanner
+        run: |
+          npx agent-security-scanner-mcp scan src/ --format sarif --output results.sarif
+
+      - name: Upload SARIF to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+```
+
+### GitLab CI Example
+
+```yaml
+security_scan:
+  stage: test
+  script:
+    - npx agent-security-scanner-mcp scan src/ --format sarif --output gl-sast-report.json
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+```
+
+### Programmatic Usage
+
+```javascript
+// Use output_format: 'sarif' parameter
+const result = await client.callTool({
+  name: 'scan_security',
+  arguments: {
+    file_path: '/path/to/file.js',
+    output_format: 'sarif'  // Returns SARIF 2.1.0 format
+  }
+});
+```
 
 ---
 

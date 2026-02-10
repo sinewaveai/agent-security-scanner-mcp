@@ -949,14 +949,126 @@ export function createSandboxServer() {
   return server;
 }
 
+// SARIF (Static Analysis Results Interchange Format) conversion
+// Spec: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
+function convertToSarif(filePath, language, issues) {
+  const severityToLevel = {
+    'ERROR': 'error',
+    'WARNING': 'warning',
+    'INFO': 'note',
+    'HINT': 'note'
+  };
+
+  // Build rules from unique rule IDs
+  const rulesMap = new Map();
+  issues.forEach(issue => {
+    if (!rulesMap.has(issue.ruleId)) {
+      rulesMap.set(issue.ruleId, {
+        id: issue.ruleId,
+        name: issue.ruleId.split('.').pop().replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        shortDescription: {
+          text: issue.message.replace(/^\[.*?\]\s*/, '') // Remove [RuleName] prefix
+        },
+        defaultConfiguration: {
+          level: severityToLevel[issue.severity] || 'warning'
+        },
+        properties: {
+          tags: ['security'],
+          ...(issue.metadata?.cwe && { 'security-severity': '7.0' }),
+        },
+        helpUri: issue.metadata?.references?.[0] || `https://cwe.mitre.org/data/definitions/${issue.metadata?.cwe?.replace('CWE-', '')}.html`
+      });
+    }
+  });
+
+  // Build results
+  const results = issues.map(issue => ({
+    ruleId: issue.ruleId,
+    level: severityToLevel[issue.severity] || 'warning',
+    message: {
+      text: issue.message
+    },
+    locations: [{
+      physicalLocation: {
+        artifactLocation: {
+          uri: filePath,
+          uriBaseId: '%SRCROOT%'
+        },
+        region: {
+          startLine: (issue.line || 0) + 1, // SARIF uses 1-indexed lines
+          startColumn: (issue.column || 0) + 1,
+          endLine: (issue.endLine || issue.line || 0) + 1,
+          endColumn: (issue.endColumn || issue.column || 0) + 1,
+          snippet: issue.line_content ? { text: issue.line_content } : undefined
+        }
+      }
+    }],
+    ...(issue.suggested_fix?.fixed && {
+      fixes: [{
+        description: {
+          text: issue.suggested_fix.description
+        },
+        artifactChanges: [{
+          artifactLocation: {
+            uri: filePath
+          },
+          replacements: [{
+            deletedRegion: {
+              startLine: (issue.line || 0) + 1,
+              startColumn: 1,
+              endLine: (issue.line || 0) + 1,
+              endColumn: (issue.suggested_fix.original?.length || 0) + 1
+            },
+            insertedContent: {
+              text: issue.suggested_fix.fixed
+            }
+          }]
+        }]
+      }]
+    }),
+    properties: {
+      ...(issue.metadata?.cwe && { cwe: issue.metadata.cwe }),
+      ...(issue.metadata?.owasp && { owasp: issue.metadata.owasp })
+    }
+  }));
+
+  return {
+    $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
+    version: '2.1.0',
+    runs: [{
+      tool: {
+        driver: {
+          name: 'agent-security-scanner-mcp',
+          version: '2.0.7',
+          informationUri: 'https://github.com/sinewaveai/agent-security-scanner-mcp',
+          rules: Array.from(rulesMap.values())
+        }
+      },
+      results,
+      invocations: [{
+        executionSuccessful: true,
+        endTimeUtc: new Date().toISOString()
+      }],
+      artifacts: [{
+        location: {
+          uri: filePath,
+          uriBaseId: '%SRCROOT%'
+        },
+        sourceLanguage: language
+      }]
+    }]
+  };
+}
+
 // Register scan_security tool
 server.tool(
   "scan_security",
   "Scan a file for security vulnerabilities and return issues with suggested fixes",
   {
-    file_path: z.string().describe("Path to the file to scan")
+    file_path: z.string().describe("Path to the file to scan"),
+    output_format: z.enum(['json', 'sarif']).optional().describe("Output format: 'json' (default) or 'sarif' for GitHub/GitLab integration")
   },
-  async ({ file_path }) => {
+  async ({ file_path, output_format = 'json' }) => {
     if (!existsSync(file_path)) {
       return {
         content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -987,6 +1099,18 @@ server.tool(
       };
     });
 
+    // Return SARIF format if requested (for GitHub/GitLab integration)
+    if (output_format === 'sarif') {
+      const sarif = convertToSarif(file_path, language, enhancedIssues);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(sarif, null, 2)
+        }]
+      };
+    }
+
+    // Default JSON format
     return {
       content: [{
         type: "text",
