@@ -28,7 +28,73 @@ const FIX_TEMPLATES = {
   // ===========================================
   "sql-injection": {
     description: "Use parameterized queries instead of string concatenation",
-    fix: (line) => line.replace(/["']([^"']*)\s*["']\s*\+\s*(\w+)/, '"$1?", [$2]')
+    patterns: [
+      // Python f-strings: cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+      {
+        match: /f["'].*(?:SELECT|INSERT|UPDATE|DELETE).*\{(\w+)\}.*["']/i,
+        fix: (line) => {
+          // Extract the query and variable
+          const match = line.match(/(\w+\.(?:execute|query|run))\s*\(\s*f(["'])(.*?)(?:SELECT|INSERT|UPDATE|DELETE)(.*?)\{(\w+)\}(.*?)\2/i);
+          if (match) {
+            const [, method, quote, prefix, queryStart, varName, suffix] = match;
+            // Reconstruct as parameterized query
+            const cleanPrefix = prefix.replace(/\{[^}]+\}/g, '?');
+            const cleanSuffix = suffix.replace(/\{[^}]+\}/g, '?');
+            return line.replace(
+              /f(["']).*\1/,
+              `"${cleanPrefix}${queryStart.trim().toUpperCase()}${cleanSuffix}?", (${varName},)`
+            );
+          }
+          // Simpler fallback for f-strings
+          return line.replace(/f(["'])(.*?)\{(\w+)\}(.*?)\1/, '"$2?$4", ($3,)');
+        },
+        languages: ['python']
+      },
+      // Python .format(): "SELECT ... WHERE id = {}".format(user_id)
+      {
+        match: /["'].*(?:SELECT|INSERT|UPDATE|DELETE).*\{\}.*["']\.format\s*\(/i,
+        fix: (line) => {
+          return line.replace(
+            /(["'])(.*?)\{\}(.*?)\1\.format\s*\(\s*(\w+)\s*\)/,
+            '"$2?$3", [$4]'
+          );
+        },
+        languages: ['python']
+      },
+      // Python % formatting: "SELECT ... WHERE id = %s" % user_id
+      {
+        match: /["'].*(?:SELECT|INSERT|UPDATE|DELETE).*%s.*["']\s*%\s*\(/i,
+        fix: (line) => {
+          return line.replace(
+            /(["'])(.*?)%s(.*?)\1\s*%\s*\(\s*(\w+)\s*,?\s*\)/,
+            '"$2?$3", [$4]'
+          );
+        },
+        languages: ['python']
+      },
+      // JS template literals: `SELECT * FROM users WHERE id = ${userId}`
+      {
+        match: /`.*(?:SELECT|INSERT|UPDATE|DELETE).*\$\{.*\}.*`/i,
+        fix: (line) => {
+          return line.replace(
+            /`(.*?)\$\{(\w+)\}(.*?)`/,
+            '"$1?$3", [$2]'
+          );
+        },
+        languages: ['javascript', 'typescript']
+      },
+      // Simple concatenation (no quotes inside): "SELECT ... WHERE id = " + userId
+      {
+        match: /["'](?:SELECT|INSERT|UPDATE|DELETE)[^"']+["']\s*\+\s*\w+(?!\s*\+\s*["'])/i,
+        fix: (line) => {
+          return line.replace(
+            /(["'])((?:SELECT|INSERT|UPDATE|DELETE)[^"']+)\1\s*\+\s*(\w+)/i,
+            '"$2?", [$3]'
+          );
+        },
+        languages: ['javascript', 'python', 'java', 'go', 'ruby', 'php']
+      }
+    ]
   },
   "nosql-injection": {
     description: "Sanitize MongoDB query inputs",
@@ -765,17 +831,96 @@ function runAnalyzer(filePath) {
   }
 }
 
+// Validate that a fix produces valid syntax
+function validateFix(original, fixed, language) {
+  // Rule 1: Fix must be different from original
+  if (fixed === original || !fixed) {
+    return { valid: false, reason: 'no_change' };
+  }
+
+  // Rule 2: Balanced quotes (ignore escaped quotes)
+  const unescaped = fixed.replace(/\\["'`]/g, '');
+  const singleQuotes = (unescaped.match(/'/g) || []).length;
+  const doubleQuotes = (unescaped.match(/"/g) || []).length;
+  const backticks = (unescaped.match(/`/g) || []).length;
+  if (singleQuotes % 2 !== 0 || doubleQuotes % 2 !== 0 || backticks % 2 !== 0) {
+    return { valid: false, reason: 'unbalanced_quotes' };
+  }
+
+  // Rule 3: Balanced brackets
+  const brackets = { '(': 0, '[': 0, '{': 0 };
+  const closers = { ')': '(', ']': '[', '}': '{' };
+  for (const char of unescaped) {
+    if (brackets[char] !== undefined) brackets[char]++;
+    if (closers[char]) brackets[closers[char]]--;
+  }
+  if (Object.values(brackets).some(v => v !== 0)) {
+    return { valid: false, reason: 'unbalanced_brackets' };
+  }
+
+  // Rule 4: No obvious syntax errors
+  const badPatterns = [
+    /""[^,\s\]);}]/, // empty string followed by unexpected char
+    /\+\s*[)\]}]/, // + followed by closing bracket
+    /,\s*\+/, // comma followed by +
+    /\(\s*\+/, // open paren followed by +
+  ];
+  for (const pattern of badPatterns) {
+    if (pattern.test(fixed)) {
+      return { valid: false, reason: 'syntax_error' };
+    }
+  }
+
+  return { valid: true };
+}
+
 // Generate fix suggestion for an issue
 function generateFix(issue, line, language) {
   const ruleId = issue.ruleId.toLowerCase();
 
-  for (const [pattern, template] of Object.entries(FIX_TEMPLATES)) {
-    if (ruleId.includes(pattern)) {
-      return {
-        description: template.description,
-        original: line,
-        fixed: template.fix(line, language)
-      };
+  for (const [templateId, template] of Object.entries(FIX_TEMPLATES)) {
+    if (!ruleId.includes(templateId)) continue;
+
+    // New: handle patterns array
+    if (template.patterns && Array.isArray(template.patterns)) {
+      for (const pattern of template.patterns) {
+        // Skip if language doesn't match
+        if (pattern.languages && !pattern.languages.includes(language)) {
+          continue;
+        }
+
+        // Skip if pattern doesn't match the line
+        if (!pattern.match.test(line)) {
+          continue;
+        }
+
+        // Try the fix
+        const candidate = pattern.fix(line, language);
+        const validation = validateFix(line, candidate, language);
+
+        if (validation.valid) {
+          return {
+            description: template.description,
+            original: line,
+            fixed: candidate
+          };
+        }
+        // If invalid, try next pattern
+      }
+    }
+
+    // Fallback: old-style single fix function (backward compatible)
+    if (template.fix && typeof template.fix === 'function') {
+      const candidate = template.fix(line, language);
+      const validation = validateFix(line, candidate, language);
+
+      if (validation.valid) {
+        return {
+          description: template.description,
+          original: line,
+          fixed: candidate
+        };
+      }
     }
   }
 
@@ -1724,7 +1869,10 @@ const CLIENT_CONFIGS = {
     name: 'Claude Code',
     configKey: 'mcpServers',
     configPath: () => join(homedir(), '.claude', 'settings.json'),
-    buildEntry: () => ({ ...MCP_SERVER_ENTRY })
+    buildEntry: () => ({ ...MCP_SERVER_ENTRY }),
+    // Claude Code stores MCP config per-project in ~/.claude.json, not in settings.json
+    // Use the 'claude mcp add' CLI for reliable per-project configuration
+    useCliCommand: true
   },
   'cursor': {
     name: 'Cursor',
@@ -1843,6 +1991,91 @@ function printInitUsage() {
   console.log('    npx agent-security-scanner-mcp init cline --force --name my-scanner\n');
 }
 
+// Special init handler for clients that use CLI commands (e.g., Claude Code)
+async function runCliInit(client, flags) {
+  const serverName = flags.name;
+  const cwd = process.cwd();
+
+  console.log(`\n  Client:  ${client.name}`);
+  console.log(`  Project: ${cwd}`);
+  console.log(`  OS:      ${platform()} (${process.arch})`);
+  console.log(`  Key:     ${serverName}\n`);
+
+  // Check if claude CLI is available
+  const claudeCheck = checkCommand('claude', ['--version']);
+  if (!claudeCheck.ok) {
+    console.log('  ERROR: Claude Code CLI not found.');
+    console.log('  Please install Claude Code first: https://claude.ai/download\n');
+    console.log('  Alternative: Use --path to write to ~/.claude/settings.json directly:\n');
+    console.log(`    npx agent-security-scanner-mcp init claude-code --path ~/.claude/settings.json\n`);
+    process.exit(1);
+  }
+
+  // Check if already configured for this project
+  const listCheck = checkCommand('claude', ['mcp', 'list']);
+  if (listCheck.ok && listCheck.output.includes(serverName)) {
+    if (!flags.force) {
+      console.log(`  ${serverName} is already configured for this project.`);
+      console.log(`  Use --force to reconfigure.\n`);
+      process.exit(0);
+    }
+    // Remove existing entry first if --force
+    console.log(`  Removing existing ${serverName} configuration...`);
+    try {
+      execFileSync('claude', ['mcp', 'remove', serverName], { encoding: 'utf-8', stdio: 'pipe' });
+    } catch {
+      // Ignore errors - might not exist
+    }
+  }
+
+  // Build the CLI command
+  const cliArgs = ['mcp', 'add', serverName, '--', 'npx', '-y', 'agent-security-scanner-mcp'];
+  const fullCommand = `claude ${cliArgs.join(' ')}`;
+
+  if (flags.dryRun) {
+    console.log(`  [dry-run] Would run: ${fullCommand}`);
+    console.log(`  [dry-run] In directory: ${cwd}`);
+    console.log(`\n  No changes made.\n`);
+    process.exit(0);
+  }
+
+  console.log(`  Running: ${fullCommand}`);
+  console.log(`  In directory: ${cwd}\n`);
+
+  try {
+    const result = execFileSync('claude', cliArgs, { encoding: 'utf-8', stdio: 'pipe', cwd });
+    console.log(`  ${result.trim()}\n`);
+  } catch (e) {
+    console.error(`  ERROR: Failed to add MCP server.`);
+    console.error(`  ${e.message}\n`);
+    console.log('  Alternative: Add manually to ~/.claude/settings.json:\n');
+    console.log(`  {
+    "mcpServers": {
+      "${serverName}": {
+        "command": "npx",
+        "args": ["-y", "agent-security-scanner-mcp"]
+      }
+    }
+  }\n`);
+    process.exit(1);
+  }
+
+  // Verify it was added
+  const verifyCheck = checkCommand('claude', ['mcp', 'list']);
+  if (verifyCheck.ok && verifyCheck.output.includes(serverName)) {
+    console.log(`  ✓ Successfully configured ${serverName} for this project!\n`);
+  } else {
+    console.log(`  ⚠ Configuration may have succeeded but verification failed.`);
+    console.log(`  Run 'claude mcp list' to check.\n`);
+  }
+
+  console.log(`  Next steps:`);
+  console.log(`    1. Restart Claude Code in this folder`);
+  console.log(`    2. Verify by asking: "What MCP tools do you have?"`);
+  console.log(`    3. Test: "Scan this file for security issues"\n`);
+  console.log(`  Note: Run this command in each project folder where you want security scanning.\n`);
+}
+
 async function runInit(flags) {
   let clientName = flags.client;
 
@@ -1861,6 +2094,12 @@ async function runInit(flags) {
     console.log(`\n  Unknown client: "${clientName}"\n`);
     printInitUsage();
     process.exit(1);
+  }
+
+  // Special handling for clients that use CLI commands (like Claude Code)
+  if (client.useCliCommand && !flags.path) {
+    await runCliInit(client, flags);
+    return;
   }
 
   const configPath = flags.path || client.configPath();
@@ -2067,6 +2306,53 @@ async function runDoctor(flags) {
   console.log('\n  Client Configurations');
 
   for (const [key, client] of Object.entries(CLIENT_CONFIGS)) {
+    // Special handling for Claude Code - uses per-project config via CLI
+    if (client.useCliCommand) {
+      const claudeCheck = checkCommand('claude', ['--version']);
+      if (!claudeCheck.ok) {
+        console.log(`    \u2014 ${client.name.padEnd(20)} not installed (claude CLI not found)`);
+        continue;
+      }
+
+      // Check if configured for current project using claude mcp list
+      const listCheck = checkCommand('claude', ['mcp', 'list']);
+      if (listCheck.ok && listCheck.output) {
+        const output = listCheck.output.toLowerCase();
+        const hasScanner = output.includes('security-scanner') ||
+                          output.includes('agentic-security') ||
+                          output.includes('agent-security-scanner');
+        if (hasScanner) {
+          // Extract the actual server name from output
+          let serverName = 'security-scanner';
+          if (output.includes('agentic-security')) serverName = 'agentic-security';
+          console.log(`    \u2713 ${client.name.padEnd(20)} configured (${serverName})`);
+        } else if (output.includes('no mcp servers configured')) {
+          console.log(`    \u2717 ${client.name.padEnd(20)} not configured for this project`);
+          if (fix) {
+            try {
+              execFileSync('claude', ['mcp', 'add', 'security-scanner', '--', 'npx', '-y', 'agent-security-scanner-mcp'],
+                { encoding: 'utf-8', stdio: 'pipe' });
+              console.log(`      \u2713 Fixed: added security-scanner via claude mcp add`);
+              fixed++;
+            } catch {
+              console.log(`      \u2717 Auto-fix failed. Run: npx agent-security-scanner-mcp init claude-code`);
+              issues++;
+            }
+          } else {
+            console.log(`      Fix: npx agent-security-scanner-mcp init claude-code`);
+            issues++;
+          }
+        } else {
+          console.log(`    \u2717 ${client.name.padEnd(20)} entry missing from project config`);
+          console.log(`      Fix: npx agent-security-scanner-mcp init claude-code`);
+          issues++;
+        }
+      } else {
+        console.log(`    \u26a0 ${client.name.padEnd(20)} could not check config (run 'claude mcp list' manually)`);
+      }
+      continue;
+    }
+
     let configPath;
     try { configPath = client.configPath(); } catch { continue; }
 

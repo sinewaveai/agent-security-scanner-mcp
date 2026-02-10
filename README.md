@@ -20,6 +20,66 @@ AI coding agents like **Claude Code**, **Cursor**, **Windsurf**, **Cline**, **Co
 
 **359 Semgrep-aligned security rules | 120 auto-fix templates | 6 ecosystems indexed | AI Agent prompt security**
 
+## Installation
+
+### Default Package (Lightweight - 2.7 MB)
+
+```bash
+npm install -g agent-security-scanner-mcp
+```
+
+Includes hallucination detection for: **PyPI, RubyGems, crates.io, pub.dev, CPAN, raku.land** (1M+ packages)
+
+### Full Package (With npm - 8.7 MB)
+
+If you need **npm/JavaScript hallucination detection** (3.3M packages):
+
+```bash
+npm install -g agent-security-scanner-mcp-full
+```
+
+Or run directly with npx:
+
+```bash
+npx agent-security-scanner-mcp
+```
+
+### Prerequisites
+
+- **Node.js >= 18.0.0** (required)
+- **Python 3.x** (required for the analyzer engine)
+- **PyYAML** (`pip install pyyaml`) — required for rule loading
+
+### Enhanced Detection with tree-sitter (Optional)
+
+For maximum detection accuracy, install the AST engine:
+
+```bash
+pip install tree-sitter tree-sitter-python tree-sitter-javascript
+```
+
+The scanner works without tree-sitter using regex-based detection, but AST analysis provides:
+- Fewer false positives through structural understanding
+- Taint tracking across function boundaries
+- Language-aware pattern matching
+
+---
+
+## What's New in v2.0.6
+
+- **fix_security reliability overhaul** - Fixes now validated before applying to prevent malformed code output
+- **Python f-string SQL injection** - Now detects AND fixes `f"SELECT...{var}"` patterns
+- **Python .format() SQL injection** - Now fixes `"SELECT...{}".format(var)` patterns
+- **JavaScript template literal SQL injection** - Now fixes `` `SELECT...${var}` `` patterns
+- **Multi-pattern fix engine** - Each vulnerability type can have multiple language-specific fix patterns
+- **Syntax validation** - Rejects fixes with unbalanced quotes, brackets, or obvious syntax errors
+
+## What's New in v2.0.5
+
+- **Claude Code per-project fix** - `init claude-code` now uses `claude mcp add` CLI for reliable per-project configuration
+- **Doctor command upgrade** - Now correctly checks Claude Code config via `claude mcp list` instead of file-based check
+- **Documentation update** - README clarifies Claude Code's per-project MCP storage (`~/.claude.json` vs `~/.claude/settings.json`)
+
 ## What's New in v2.0.2
 
 - **Prompt injection detection overhaul** - Detection rate improved from 33% to 80%+
@@ -36,19 +96,6 @@ AI coding agents like **Claude Code**, **Cursor**, **Windsurf**, **Cline**, **Co
 - **Graceful fallback** - Works out-of-the-box with regex; enhanced detection when tree-sitter installed
 - **Metavariable patterns** - Semgrep-style `$VAR` patterns for structural matching
 - **Doctor command upgrade** - Now checks for AST engine availability
-
-### Enhanced Detection with tree-sitter (Optional)
-
-For maximum detection accuracy, install the AST engine:
-
-```bash
-pip install tree-sitter tree-sitter-python tree-sitter-javascript
-```
-
-The scanner works without tree-sitter using regex-based detection, but AST analysis provides:
-- Fewer false positives through structural understanding
-- Taint tracking across function boundaries
-- Language-aware pattern matching
 
 ## What's New in v1.5.0
 
@@ -82,37 +129,6 @@ The scanner works without tree-sitter using regex-based detection, but AST analy
 - **CWE & OWASP mapped** - Every rule includes CWE and OWASP references
 - **Hallucination detection** - Detect AI-invented package names across 7 ecosystems via bloom filters and text lists
 
-## Installation
-
-### Default Package (Lightweight - 2.7 MB)
-
-```bash
-npm install -g agent-security-scanner-mcp
-```
-
-Includes hallucination detection for: **PyPI, RubyGems, crates.io, pub.dev, CPAN, raku.land** (1M+ packages)
-
-### Full Package (With npm - 8.7 MB)
-
-If you need **npm/JavaScript hallucination detection** (3.3M packages):
-
-```bash
-npm install -g agent-security-scanner-mcp-full
-```
-
-Or run directly with npx:
-
-```bash
-npx agent-security-scanner-mcp
-```
-
-## Prerequisites
-
-- **Node.js >= 18.0.0** (required)
-- **Python 3.x** (required for the analyzer engine)
-- **PyYAML** (`pip install pyyaml`) — required for rule loading
-- **tree-sitter** (optional, for enhanced AST-based detection): `pip install tree-sitter tree-sitter-python tree-sitter-javascript`
-
 ## Works With All Major AI Coding Tools
 
 | Tool | Integration | Status |
@@ -145,11 +161,13 @@ npx agent-security-scanner-mcp init cursor
 npx agent-security-scanner-mcp init claude-desktop
 npx agent-security-scanner-mcp init windsurf
 npx agent-security-scanner-mcp init cline
-npx agent-security-scanner-mcp init claude-code
+npx agent-security-scanner-mcp init claude-code      # Run in each project folder!
 npx agent-security-scanner-mcp init kilo-code
 npx agent-security-scanner-mcp init opencode
 npx agent-security-scanner-mcp init cody
 ```
+
+> **Claude Code users:** Run `init claude-code` in **each project folder** where you want security scanning. Claude Code uses per-project MCP configuration.
 
 **Interactive mode** — just run `init` with no client to pick from a list:
 
@@ -240,7 +258,17 @@ Add to your `claude_desktop_config.json`:
 
 ### Claude Code
 
-Add to your MCP settings (`~/.claude/settings.json`):
+**Important:** Claude Code stores MCP servers **per-project** in `~/.claude.json`, not in `~/.claude/settings.json`. Use the CLI to configure:
+
+```bash
+# Run this in EACH project folder where you want security scanning:
+claude mcp add security-scanner -- npx -y agent-security-scanner-mcp
+
+# Verify it's configured:
+claude mcp list
+```
+
+**Global configuration** (applies to new projects only) — add to `~/.claude/settings.json`:
 
 ```json
 {
@@ -252,6 +280,8 @@ Add to your MCP settings (`~/.claude/settings.json`):
   }
 }
 ```
+
+> **Note:** Existing projects won't automatically inherit from the global config. You must run `claude mcp add` in each project folder, or use the automated init command which handles this for you.
 
 ### OpenCode.ai
 

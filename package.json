@@ -1,6 +1,6 @@
 {
   "name": "agent-security-scanner-mcp",
-  "version": "2.0.4",
+  "version": "2.0.6",
   "mcpName": "io.github.sinewaveai/agent-security-scanner-mcp",
   "description": "Security scanner MCP server for AI coding agents. Prompt injection firewall, package hallucination detection (4.3M+ packages), 359 vulnerability rules with auto-fix. For Claude Code, Cursor, Windsurf, Cline.",
   "main": "index.js",
