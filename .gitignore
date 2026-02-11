@@ -209,6 +209,9 @@ __marimo__/
 # Reference repositories (not for commit)
 .ref/
 
+# Private application documents
+program_applications/
+
 # VS Code Extension
 node_modules/
 out/
