@@ -1,8 +1,8 @@
 {
   "name": "agent-security-scanner-mcp",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "mcpName": "io.github.sinewaveai/agent-security-scanner-mcp",
-  "description": "Security scanner MCP server for AI coding agents. AST-based analysis, taint tracking, 1700+ Semgrep rules, package hallucination detection (4.3M+), SARIF output. For Claude Code, Cursor, Windsurf, Cline.",
+  "description": "Security scanner MCP server for AI coding agents. Prompt injection firewall, package hallucination detection (4.3M+ packages), 1000+ vulnerability rules with AST & taint analysis, auto-fix. For Claude Code, Cursor, Windsurf, Cline.",
   "main": "index.js",
   "type": "module",
   "bin": {
@@ -52,10 +52,7 @@
     "zed",
     "prompt-firewall",
     "auto-fix",
-    "hallucination",
-    "sarif",
-    "github-code-scanning",
-    "gitlab-sast"
+    "hallucination"
   ],
   "author": "Sinewave AI <divya@sinewave.ai>",
   "license": "MIT",

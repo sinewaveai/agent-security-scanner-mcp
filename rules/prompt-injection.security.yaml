@@ -530,6 +530,10 @@ rules:
       - "(?i)respond\\s+(as|like)\\s+a\\s+(hacker|attacker|criminal)"
       - "(?i)switch\\s+to\\s+unrestricted\\s+mode"
       - "(?i)behave\\s+(as|like)\\s+(a\\s+)?(hacker|attacker|criminal)"
+      - "(?i)^system\\s*:\\s*you\\s+are\\s+(a|an)\\s+"
+      - "(?i)^(system|assistant|user)\\s*:\\s*(you\\s+are|act\\s+as|pretend|behave\\s+as)"
+      - "(?i)you\\s+are\\s+(a|an)\\s+(hacking|malicious|evil|harmful|dangerous)\\s+tool"
+      - "(?i)your\\s+(new\\s+)?role\\s+is\\s+(to\\s+)?(hack|attack|exploit|compromise)"
     metadata:
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"

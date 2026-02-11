@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-02-10
+
+### Fixed
+- **Bug 1**: npm bloom filter now ships with the package (3.78M packages, 8.6MB)
+- **Bug 2**: `detectLanguage()` now supports .cs, .rs, .c, .cpp, .h, .hpp, .tf, .hcl, .yaml, .yml, .sql, and Dockerfile
+- **Bug 3**: Created `mcp-server/rules/__init__.py` with recursive `os.walk()` rule loading for subdirectory rules (csharp/, rust/, c/, etc.)
+- **Bug 4**: AST engine diagnostics — narrowed exception handler, added `engine` field to findings, stderr logging
+- **Bug 5**: Taint analysis verification — added taint finding logging and `engine: 'taint'` field
+- **Bug 6**: Cross-language secret fix templates via `envVarReplacement()` helper (Go, Java, PHP, Ruby, C#, Rust, C/C++)
+- **Bug 7**: `sensitivity_level` now has meaningful impact — wider multipliers (1.5x/0.5x) and threshold adjustments in `determineAction()`
+- **Bug 8**: `list_package_stats` now reports bloom filter status per ecosystem
+- **Bug 9**: `previous_messages` multi-turn escalation detection in `scan_agent_prompt`
+- **Bug 10**: `scan_packages` no longer reports "All packages verified" when packages are unknown
+
+### Added
+- `envVarReplacement()` helper for idiomatic env var access across 9 languages
+- Role-switching attack patterns in prompt injection rules (System: prefix, role reassignment)
+- npm bloom filter generation script (`scripts/fetch-npm-packages.js`)
+- Test fixtures: vuln-csharp.cs, vuln-rust.rs, vuln-go.go, test-packages-npm.js
+- Language detection tests, cross-language fix tests, sensitivity/multi-turn/role-switching prompt tests
+
+### Changed
+- Version bump from 2.0.4 to 3.1.0
+
 ## [2.3.1] - 2026-02-06
 
 ### Added

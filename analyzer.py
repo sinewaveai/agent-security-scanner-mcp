@@ -71,6 +71,7 @@ def analyze_file_regex(file_path):
     try:
         language = detect_language(file_path)
         rules = get_rules_for_language(language)
+        print(f"[REGEX] Language: {language}, rules loaded: {len(rules)}", file=sys.stderr)
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
@@ -90,12 +91,25 @@ def analyze_file_regex(file_path):
                                 'column': match.start() + col_offset,
                                 'length': match.end() - match.start(),
                                 'severity': rule['severity'],
-                                'metadata': rule.get('metadata', {})
+                                'metadata': rule.get('metadata', {}),
+                                'engine': 'regex'
                             })
                     except re.error:
                         continue
     except Exception as e:
         return {'error': str(e)}
+
+    # Also apply regex_fallback for broader coverage (C, Rust, C# etc.)
+    try:
+        from regex_fallback import apply_regex_fallback
+        with open(file_path, 'r', errors='replace') as f:
+            source = f.read()
+        fallback_issues = apply_regex_fallback(source, language, file_path)
+        for issue in fallback_issues:
+            issue['engine'] = 'regex-fallback'
+        issues.extend(fallback_issues)
+    except ImportError:
+        pass
 
     seen = set()
     unique = []
@@ -125,30 +139,51 @@ def analyze_file_ast(file_path):
 
         parse_result = parser.parse_file(file_path)
         if not parse_result.success:
-            # Fall back to regex if AST parse fails
+            print(f"[AST] Parse failed for {file_path}, falling back to regex", file=sys.stderr)
             return analyze_file_regex(file_path)
+
+        print(f"[AST] Engine active, language: {parse_result.language}, "
+              f"rules loaded: {len(rules)}, taint rules: {len(taint_rules)}", file=sys.stderr)
 
         ast = convert_tree(parse_result.tree, parse_result.language, parse_result.source_bytes)
 
+        # Only apply security-relevant rules; exclude non-security and framework-config rules
+        # that produce false positives due to broad pattern matching
+        SECURITY_CATEGORIES = {'security', 'prompt-injection', 'prompt-injection-content',
+                               'prompt-injection-context', 'prompt-injection-delimiter',
+                               'prompt-injection-encoded', 'prompt-injection-extraction',
+                               'prompt-injection-jailbreak', 'prompt-injection-multi-turn',
+                               'prompt-injection-output', 'prompt-injection-privilege', 'unknown'}
+        NOISY_RULES = {
+            'avoid_hardcoded_config_DEBUG', 'avoid_hardcoded_config_ENV',
+            'avoid_hardcoded_config_SECRET_KEY', 'avoid_hardcoded_config_TESTING',
+            'flask-wtf-csrf-disabled', 'context-autoescape-off',
+        }
         applicable_rules = [
             r for r in rules
-            if parse_result.language in r.languages or 'generic' in r.languages
+            if (parse_result.language in r.languages or 'generic' in r.languages)
+            and r.metadata.get('category', 'unknown') in SECURITY_CATEGORIES
+            and r.id not in NOISY_RULES
         ]
 
         findings = engine.apply_rules(applicable_rules, ast)
 
         # Taint analysis
+        taint_findings = []
         if HAS_TAINT_ANALYZER and taint_rules:
             taint = TaintAnalyzer()
             applicable_taint = [
                 r for r in taint_rules
                 if parse_result.language in r.languages or 'generic' in r.languages
             ]
-            findings.extend(taint.analyze(ast, applicable_taint))
+            taint_findings = taint.analyze(ast, applicable_taint)
+            print(f"[TAINT] Taint rules: {len(applicable_taint)}, findings: {len(taint_findings)}", file=sys.stderr)
+            findings.extend(taint_findings)
 
         issues = []
         for f in findings:
             length = f.end_column - f.column if f.line == f.end_line else len(f.text)
+            is_taint = f in taint_findings
             issues.append({
                 'ruleId': f.rule_id,
                 'message': f"[{f.rule_name}] {f.message}",
@@ -157,11 +192,20 @@ def analyze_file_ast(file_path):
                 'length': length,
                 'severity': f.severity,
                 'metadata': f.metadata,
+                'engine': 'taint' if is_taint else 'ast',
             })
 
         # Regex fallback for coverage gaps
         source = parse_result.source_bytes.decode('utf-8', errors='replace')
-        issues.extend(apply_regex_fallback(source, parse_result.language, file_path))
+        regex_fallback_issues = apply_regex_fallback(source, parse_result.language, file_path)
+        for issue in regex_fallback_issues:
+            issue['engine'] = 'regex-fallback'
+        issues.extend(regex_fallback_issues)
+
+        ast_count = sum(1 for i in issues if i.get('engine') == 'ast')
+        taint_count = sum(1 for i in issues if i.get('engine') == 'taint')
+        fallback_count = sum(1 for i in issues if i.get('engine') == 'regex-fallback')
+        print(f"[AST] Findings: {ast_count} ast + {taint_count} taint + {fallback_count} regex-fallback", file=sys.stderr)
 
         seen = set()
         unique = []
@@ -172,8 +216,8 @@ def analyze_file_ast(file_path):
                 unique.append(issue)
         return unique
 
-    except Exception:
-        # Fall back to regex on any AST engine error
+    except Exception as e:
+        print(f"[AST] Error, falling back to regex: {e}", file=sys.stderr)
         return analyze_file_regex(file_path)
 
 

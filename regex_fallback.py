@@ -46,6 +46,10 @@ def apply_regex_fallback(source: str, language: str, file_path: str = "") -> Lis
         return _scan_kubernetes(lines)
     if language == "terraform":
         return _scan_terraform(lines)
+    if language == "rust":
+        return _scan_rust(lines)
+    if language == "csharp":
+        return _scan_csharp(lines)
     if language == "generic":
         return _scan_generic(lines)
 
@@ -439,6 +443,68 @@ def _scan_terraform(lines: List[str]) -> List[Dict]:
         if re.search(r'\bsecret_key\s*=\s*\"[^\"]+\"', stripped):
             findings.append(_make_finding("hardcoded-api-key", i, line))
 
+    return findings
+
+
+def _scan_rust(lines: List[str]) -> List[Dict]:
+    findings: List[Dict] = []
+    for i, line in enumerate(lines):
+        if re.search(r"\bunsafe\s*\{", line):
+            findings.append(_make_finding("unsafe-block", i, line))
+        if re.search(r"\.unwrap\s*\(", line):
+            findings.append(_make_finding("unwrap-usage", i, line))
+        if re.search(r"\bstd::process::Command\b", line):
+            findings.append(_make_finding("command-injection", i, line))
+        if re.search(r"\*const\s+\w|\*mut\s+\w", line):
+            findings.append(_make_finding("raw-pointer-deref", i, line))
+        if re.search(r"\bpassword\b\s*=\s*\"[^\"]+\"", line, re.IGNORECASE):
+            findings.append(_make_finding("hardcoded-password", i, line))
+        if re.search(r"\bapi_key\b\s*=\s*\"[^\"]+\"", line, re.IGNORECASE):
+            findings.append(_make_finding("hardcoded-api-key", i, line))
+        if re.search(r"\bmd5\b", line, re.IGNORECASE):
+            findings.append(_make_finding("weak-hash-md5", i, line))
+        if re.search(r"\bsha1\b", line, re.IGNORECASE) and not re.search(r"\bsha1(28|92|256)\b", line, re.IGNORECASE):
+            findings.append(_make_finding("weak-hash-sha1", i, line))
+        if re.search(r"\blibc::(system|popen)\b", line):
+            findings.append(_make_finding("libc-system-call", i, line))
+        if re.search(r"\bpanic!\s*\(", line):
+            findings.append(_make_finding("panic-usage", i, line))
+    return findings
+
+
+def _scan_csharp(lines: List[str]) -> List[Dict]:
+    findings: List[Dict] = []
+    for i, line in enumerate(lines):
+        if re.search(r"\bSqlCommand\b.*\+\s*\w", line):
+            findings.append(_make_finding("sql-injection-sqlcommand", i, line))
+        if re.search(r"\bSqlQuery\b.*\+\s*\w", line):
+            findings.append(_make_finding("sql-injection-sqlquery", i, line))
+        if re.search(r"\"SELECT\b.*\"\s*\+\s*\w", line, re.IGNORECASE):
+            findings.append(_make_finding("sql-injection-concat", i, line))
+        if re.search(r"\bProcess\.Start\s*\(", line):
+            findings.append(_make_finding("command-injection-process-start", i, line))
+        if re.search(r"\bBinaryFormatter\b", line):
+            findings.append(_make_finding("insecure-deserialization-binaryformatter", i, line))
+        if re.search(r"\bXmlSerializer\b.*\bDeserialize\b", line):
+            findings.append(_make_finding("insecure-deserialization-xmlserializer", i, line))
+        if re.search(r"\.innerHTML\s*=", line):
+            findings.append(_make_finding("xss-innerhtml", i, line))
+        if re.search(r"\bResponse\.Write\s*\(", line):
+            findings.append(_make_finding("xss-response-write", i, line))
+        if re.search(r"\bConnectionString\b\s*=\s*\"[^\"]+\"", line, re.IGNORECASE):
+            findings.append(_make_finding("hardcoded-connection-string", i, line))
+        if re.search(r"\bpassword\b\s*=\s*\"[^\"]+\"", line, re.IGNORECASE):
+            findings.append(_make_finding("hardcoded-password", i, line))
+        if re.search(r"\bMD5\.Create\s*\(", line):
+            findings.append(_make_finding("weak-hash-md5", i, line))
+        if re.search(r"\bSHA1\.Create\s*\(", line):
+            findings.append(_make_finding("weak-hash-sha1", i, line))
+        if re.search(r"\bDirectory\.Delete\s*\(", line):
+            findings.append(_make_finding("path-traversal-directory-delete", i, line))
+        if re.search(r"\bFile\.Delete\s*\(", line):
+            findings.append(_make_finding("path-traversal-file-delete", i, line))
+        if re.search(r"\bFile\.ReadAllText\s*\(.*\+\s*\w", line):
+            findings.append(_make_finding("path-traversal-file-read", i, line))
     return findings
 
 

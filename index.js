@@ -21,6 +21,21 @@ try {
   __dirname = process.cwd();
 }
 
+// Helper: return correct env var access syntax per language
+function envVarReplacement(envName, lang) {
+  switch(lang) {
+    case 'python': return `os.environ.get("${envName}")`;
+    case 'go': return `os.Getenv("${envName}")`;
+    case 'java': return `System.getenv("${envName}")`;
+    case 'php': return `getenv('${envName}')`;
+    case 'ruby': return `ENV["${envName}"]`;
+    case 'csharp': return `Environment.GetEnvironmentVariable("${envName}")`;
+    case 'rust': return `std::env::var("${envName}").unwrap_or_default()`;
+    case 'c': case 'cpp': return `getenv("${envName}")`;
+    default: return `process.env.${envName}`;
+  }
+}
+
 // Security fix templates - comprehensive coverage for 165+ rules
 const FIX_TEMPLATES = {
   // ===========================================
@@ -28,73 +43,7 @@ const FIX_TEMPLATES = {
   // ===========================================
   "sql-injection": {
     description: "Use parameterized queries instead of string concatenation",
-    patterns: [
-      // Python f-strings: cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
-      {
-        match: /f["'].*(?:SELECT|INSERT|UPDATE|DELETE).*\{(\w+)\}.*["']/i,
-        fix: (line) => {
-          // Extract the query and variable
-          const match = line.match(/(\w+\.(?:execute|query|run))\s*\(\s*f(["'])(.*?)(?:SELECT|INSERT|UPDATE|DELETE)(.*?)\{(\w+)\}(.*?)\2/i);
-          if (match) {
-            const [, method, quote, prefix, queryStart, varName, suffix] = match;
-            // Reconstruct as parameterized query
-            const cleanPrefix = prefix.replace(/\{[^}]+\}/g, '?');
-            const cleanSuffix = suffix.replace(/\{[^}]+\}/g, '?');
-            return line.replace(
-              /f(["']).*\1/,
-              `"${cleanPrefix}${queryStart.trim().toUpperCase()}${cleanSuffix}?", (${varName},)`
-            );
-          }
-          // Simpler fallback for f-strings
-          return line.replace(/f(["'])(.*?)\{(\w+)\}(.*?)\1/, '"$2?$4", ($3,)');
-        },
-        languages: ['python']
-      },
-      // Python .format(): "SELECT ... WHERE id = {}".format(user_id)
-      {
-        match: /["'].*(?:SELECT|INSERT|UPDATE|DELETE).*\{\}.*["']\.format\s*\(/i,
-        fix: (line) => {
-          return line.replace(
-            /(["'])(.*?)\{\}(.*?)\1\.format\s*\(\s*(\w+)\s*\)/,
-            '"$2?$3", [$4]'
-          );
-        },
-        languages: ['python']
-      },
-      // Python % formatting: "SELECT ... WHERE id = %s" % user_id
-      {
-        match: /["'].*(?:SELECT|INSERT|UPDATE|DELETE).*%s.*["']\s*%\s*\(/i,
-        fix: (line) => {
-          return line.replace(
-            /(["'])(.*?)%s(.*?)\1\s*%\s*\(\s*(\w+)\s*,?\s*\)/,
-            '"$2?$3", [$4]'
-          );
-        },
-        languages: ['python']
-      },
-      // JS template literals: `SELECT * FROM users WHERE id = ${userId}`
-      {
-        match: /`.*(?:SELECT|INSERT|UPDATE|DELETE).*\$\{.*\}.*`/i,
-        fix: (line) => {
-          return line.replace(
-            /`(.*?)\$\{(\w+)\}(.*?)`/,
-            '"$1?$3", [$2]'
-          );
-        },
-        languages: ['javascript', 'typescript']
-      },
-      // Simple concatenation (no quotes inside): "SELECT ... WHERE id = " + userId
-      {
-        match: /["'](?:SELECT|INSERT|UPDATE|DELETE)[^"']+["']\s*\+\s*\w+(?!\s*\+\s*["'])/i,
-        fix: (line) => {
-          return line.replace(
-            /(["'])((?:SELECT|INSERT|UPDATE|DELETE)[^"']+)\1\s*\+\s*(\w+)/i,
-            '"$2?", [$3]'
-          );
-        },
-        languages: ['javascript', 'python', 'java', 'go', 'ruby', 'php']
-      }
-    ]
+    fix: (line) => line.replace(/["']([^"']*)\s*["']\s*\+\s*(\w+)/, '"$1?", [$2]')
   },
   "nosql-injection": {
     description: "Sanitize MongoDB query inputs",
@@ -170,92 +119,60 @@ const FIX_TEMPLATES = {
   // ===========================================
   "hardcoded": {
     description: "Use environment variables",
-    fix: (line, lang) => {
-      if (lang === 'python') {
-        return line.replace(/=\s*["'][^"']+["']/, '= os.environ.get("SECRET")');
-      }
-      return line.replace(/=\s*["'][^"']+["']/, '= process.env.SECRET');
-    }
+    fix: (line, lang) => line.replace(/=\s*["'][^"']+["']/, `= ${envVarReplacement("SECRET", lang)}`)
   },
   "api-key": {
     description: "Use environment variables for API keys",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["'][^"']+["']/, '= os.environ.get("API_KEY")');
-      if (lang === 'go') return line.replace(/=\s*["'][^"']+["']/, '= os.Getenv("API_KEY")');
-      return line.replace(/=\s*["'][^"']+["']/, '= process.env.API_KEY');
-    }
+    fix: (line, lang) => line.replace(/=\s*["'][^"']+["']/, `= ${envVarReplacement("API_KEY", lang)}`)
   },
   "password": {
     description: "Use environment variables for passwords",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["'][^"']+["']/, '= os.environ.get("PASSWORD")');
-      if (lang === 'go') return line.replace(/=\s*["'][^"']+["']/, '= os.Getenv("PASSWORD")');
-      return line.replace(/=\s*["'][^"']+["']/, '= process.env.PASSWORD');
-    }
+    fix: (line, lang) => line.replace(/=\s*["'][^"']+["']/, `= ${envVarReplacement("PASSWORD", lang)}`)
   },
   "secret-key": {
     description: "Use environment variables for secret keys",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["'][^"']+["']/, '= os.environ.get("SECRET_KEY")');
-      return line.replace(/=\s*["'][^"']+["']/, '= process.env.SECRET_KEY');
-    }
+    fix: (line, lang) => line.replace(/=\s*["'][^"']+["']/, `= ${envVarReplacement("SECRET_KEY", lang)}`)
   },
   "aws-access": {
     description: "Use AWS credentials from environment or IAM roles",
-    fix: (line) => line.replace(/=\s*["']AKIA[^"']+["']/, '= os.environ.get("AWS_ACCESS_KEY_ID")')
+    fix: (line, lang) => line.replace(/=\s*["']AKIA[^"']+["']/, `= ${envVarReplacement("AWS_ACCESS_KEY_ID", lang)}`)
   },
   "aws-secret": {
     description: "Use AWS credentials from environment or IAM roles",
-    fix: (line) => line.replace(/=\s*["'][^"']{40}["']/, '= os.environ.get("AWS_SECRET_ACCESS_KEY")')
+    fix: (line, lang) => line.replace(/=\s*["'][^"']{40}["']/, `= ${envVarReplacement("AWS_SECRET_ACCESS_KEY", lang)}`)
   },
   "stripe": {
     description: "Use environment variables for Stripe keys",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["']sk_(live|test)_[^"']+["']/, '= os.environ.get("STRIPE_SECRET_KEY")');
-      return line.replace(/=\s*["']sk_(live|test)_[^"']+["']/, '= process.env.STRIPE_SECRET_KEY');
-    }
+    fix: (line, lang) => line.replace(/=\s*["']sk_(live|test)_[^"']+["']/, `= ${envVarReplacement("STRIPE_SECRET_KEY", lang)}`)
   },
   "github": {
     description: "Use environment variables for GitHub tokens",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["'](ghp_|github_pat_)[^"']+["']/, '= os.environ.get("GITHUB_TOKEN")');
-      return line.replace(/=\s*["'](ghp_|github_pat_)[^"']+["']/, '= process.env.GITHUB_TOKEN');
-    }
+    fix: (line, lang) => line.replace(/=\s*["'](ghp_|github_pat_)[^"']+["']/, `= ${envVarReplacement("GITHUB_TOKEN", lang)}`)
   },
   "openai": {
     description: "Use environment variables for OpenAI keys",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["']sk-[^"']+["']/, '= os.environ.get("OPENAI_API_KEY")');
-      return line.replace(/=\s*["']sk-[^"']+["']/, '= process.env.OPENAI_API_KEY');
-    }
+    fix: (line, lang) => line.replace(/=\s*["']sk-[^"']+["']/, `= ${envVarReplacement("OPENAI_API_KEY", lang)}`)
   },
   "slack": {
     description: "Use environment variables for Slack tokens",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["']xox[baprs]-[^"']+["']/, '= os.environ.get("SLACK_TOKEN")');
-      return line.replace(/=\s*["']xox[baprs]-[^"']+["']/, '= process.env.SLACK_TOKEN');
-    }
+    fix: (line, lang) => line.replace(/=\s*["']xox[baprs]-[^"']+["']/, `= ${envVarReplacement("SLACK_TOKEN", lang)}`)
   },
   "jwt-token": {
     description: "Use environment variables for JWT secrets",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["'][^"']+["']/, '= os.environ.get("JWT_SECRET")');
-      return line.replace(/=\s*["'][^"']+["']/, '= process.env.JWT_SECRET');
-    }
+    fix: (line, lang) => line.replace(/=\s*["'][^"']+["']/, `= ${envVarReplacement("JWT_SECRET", lang)}`)
   },
   "private-key": {
     description: "Load private keys from secure file or vault",
     fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["']-----BEGIN[^"']+["']/, '= load_key_from_file(os.environ.get("PRIVATE_KEY_PATH"))');
+      if (lang === 'python') return line.replace(/=\s*["']-----BEGIN[^"']+["']/, `= load_key_from_file(${envVarReplacement("PRIVATE_KEY_PATH", lang)})`);
+      if (lang === 'go' || lang === 'java' || lang === 'csharp' || lang === 'rust' || lang === 'c' || lang === 'cpp')
+        return line.replace(/=\s*["']-----BEGIN[^"']+["']/, `= ${envVarReplacement("PRIVATE_KEY_PATH", lang)}`);
       return line.replace(/=\s*["']-----BEGIN[^"']+["']/, '= fs.readFileSync(process.env.PRIVATE_KEY_PATH)');
     }
   },
   "database-url": {
     description: "Use environment variables for database URLs",
-    fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/=\s*["'][^"']+["']/, '= os.environ.get("DATABASE_URL")');
-      return line.replace(/=\s*["'][^"']+["']/, '= process.env.DATABASE_URL');
-    }
+    fix: (line, lang) => line.replace(/=\s*["'][^"']+["']/, `= ${envVarReplacement("DATABASE_URL", lang)}`)
   },
 
   // ===========================================
@@ -805,11 +722,20 @@ const FIX_TEMPLATES = {
 
 // Detect language from file extension
 function detectLanguage(filePath) {
+  // Check basename first for extensionless files like Dockerfile
+  const basename = filePath.split('/').pop().split('\\').pop().toLowerCase();
+  if (basename === 'dockerfile' || basename.startsWith('dockerfile.')) return 'dockerfile';
+
   const ext = filePath.split('.').pop().toLowerCase();
   const langMap = {
     'py': 'python', 'js': 'javascript', 'ts': 'typescript',
     'tsx': 'typescript', 'jsx': 'javascript', 'java': 'java',
     'go': 'go', 'rb': 'ruby', 'php': 'php',
+    'cs': 'csharp', 'rs': 'rust', 'c': 'c', 'cpp': 'cpp',
+    'cc': 'cpp', 'cxx': 'cpp', 'h': 'c', 'hpp': 'cpp',
+    'tf': 'terraform', 'hcl': 'terraform',
+    'yaml': 'generic', 'yml': 'generic',
+    'sql': 'sql',
     // Prompt/text file extensions for prompt injection scanning
     'txt': 'generic', 'md': 'generic', 'prompt': 'generic',
     'jinja': 'generic', 'jinja2': 'generic', 'j2': 'generic'
@@ -831,96 +757,17 @@ function runAnalyzer(filePath) {
   }
 }
 
-// Validate that a fix produces valid syntax
-function validateFix(original, fixed, language) {
-  // Rule 1: Fix must be different from original
-  if (fixed === original || !fixed) {
-    return { valid: false, reason: 'no_change' };
-  }
-
-  // Rule 2: Balanced quotes (ignore escaped quotes)
-  const unescaped = fixed.replace(/\\["'`]/g, '');
-  const singleQuotes = (unescaped.match(/'/g) || []).length;
-  const doubleQuotes = (unescaped.match(/"/g) || []).length;
-  const backticks = (unescaped.match(/`/g) || []).length;
-  if (singleQuotes % 2 !== 0 || doubleQuotes % 2 !== 0 || backticks % 2 !== 0) {
-    return { valid: false, reason: 'unbalanced_quotes' };
-  }
-
-  // Rule 3: Balanced brackets
-  const brackets = { '(': 0, '[': 0, '{': 0 };
-  const closers = { ')': '(', ']': '[', '}': '{' };
-  for (const char of unescaped) {
-    if (brackets[char] !== undefined) brackets[char]++;
-    if (closers[char]) brackets[closers[char]]--;
-  }
-  if (Object.values(brackets).some(v => v !== 0)) {
-    return { valid: false, reason: 'unbalanced_brackets' };
-  }
-
-  // Rule 4: No obvious syntax errors
-  const badPatterns = [
-    /""[^,\s\]);}]/, // empty string followed by unexpected char
-    /\+\s*[)\]}]/, // + followed by closing bracket
-    /,\s*\+/, // comma followed by +
-    /\(\s*\+/, // open paren followed by +
-  ];
-  for (const pattern of badPatterns) {
-    if (pattern.test(fixed)) {
-      return { valid: false, reason: 'syntax_error' };
-    }
-  }
-
-  return { valid: true };
-}
-
 // Generate fix suggestion for an issue
 function generateFix(issue, line, language) {
   const ruleId = issue.ruleId.toLowerCase();
 
-  for (const [templateId, template] of Object.entries(FIX_TEMPLATES)) {
-    if (!ruleId.includes(templateId)) continue;
-
-    // New: handle patterns array
-    if (template.patterns && Array.isArray(template.patterns)) {
-      for (const pattern of template.patterns) {
-        // Skip if language doesn't match
-        if (pattern.languages && !pattern.languages.includes(language)) {
-          continue;
-        }
-
-        // Skip if pattern doesn't match the line
-        if (!pattern.match.test(line)) {
-          continue;
-        }
-
-        // Try the fix
-        const candidate = pattern.fix(line, language);
-        const validation = validateFix(line, candidate, language);
-
-        if (validation.valid) {
-          return {
-            description: template.description,
-            original: line,
-            fixed: candidate
-          };
-        }
-        // If invalid, try next pattern
-      }
-    }
-
-    // Fallback: old-style single fix function (backward compatible)
-    if (template.fix && typeof template.fix === 'function') {
-      const candidate = template.fix(line, language);
-      const validation = validateFix(line, candidate, language);
-
-      if (validation.valid) {
-        return {
-          description: template.description,
-          original: line,
-          fixed: candidate
-        };
-      }
+  for (const [pattern, template] of Object.entries(FIX_TEMPLATES)) {
+    if (ruleId.includes(pattern)) {
+      return {
+        description: template.description,
+        original: line,
+        fixed: template.fix(line, language)
+      };
     }
   }
 
@@ -949,126 +796,14 @@ export function createSandboxServer() {
   return server;
 }
 
-// SARIF (Static Analysis Results Interchange Format) conversion
-// Spec: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
-function convertToSarif(filePath, language, issues) {
-  const severityToLevel = {
-    'ERROR': 'error',
-    'WARNING': 'warning',
-    'INFO': 'note',
-    'HINT': 'note'
-  };
-
-  // Build rules from unique rule IDs
-  const rulesMap = new Map();
-  issues.forEach(issue => {
-    if (!rulesMap.has(issue.ruleId)) {
-      rulesMap.set(issue.ruleId, {
-        id: issue.ruleId,
-        name: issue.ruleId.split('.').pop().replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        shortDescription: {
-          text: issue.message.replace(/^\[.*?\]\s*/, '') // Remove [RuleName] prefix
-        },
-        defaultConfiguration: {
-          level: severityToLevel[issue.severity] || 'warning'
-        },
-        properties: {
-          tags: ['security'],
-          ...(issue.metadata?.cwe && { 'security-severity': '7.0' }),
-        },
-        helpUri: issue.metadata?.references?.[0] || `https://cwe.mitre.org/data/definitions/${issue.metadata?.cwe?.replace('CWE-', '')}.html`
-      });
-    }
-  });
-
-  // Build results
-  const results = issues.map(issue => ({
-    ruleId: issue.ruleId,
-    level: severityToLevel[issue.severity] || 'warning',
-    message: {
-      text: issue.message
-    },
-    locations: [{
-      physicalLocation: {
-        artifactLocation: {
-          uri: filePath,
-          uriBaseId: '%SRCROOT%'
-        },
-        region: {
-          startLine: (issue.line || 0) + 1, // SARIF uses 1-indexed lines
-          startColumn: (issue.column || 0) + 1,
-          endLine: (issue.endLine || issue.line || 0) + 1,
-          endColumn: (issue.endColumn || issue.column || 0) + 1,
-          snippet: issue.line_content ? { text: issue.line_content } : undefined
-        }
-      }
-    }],
-    ...(issue.suggested_fix?.fixed && {
-      fixes: [{
-        description: {
-          text: issue.suggested_fix.description
-        },
-        artifactChanges: [{
-          artifactLocation: {
-            uri: filePath
-          },
-          replacements: [{
-            deletedRegion: {
-              startLine: (issue.line || 0) + 1,
-              startColumn: 1,
-              endLine: (issue.line || 0) + 1,
-              endColumn: (issue.suggested_fix.original?.length || 0) + 1
-            },
-            insertedContent: {
-              text: issue.suggested_fix.fixed
-            }
-          }]
-        }]
-      }]
-    }),
-    properties: {
-      ...(issue.metadata?.cwe && { cwe: issue.metadata.cwe }),
-      ...(issue.metadata?.owasp && { owasp: issue.metadata.owasp })
-    }
-  }));
-
-  return {
-    $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
-    version: '2.1.0',
-    runs: [{
-      tool: {
-        driver: {
-          name: 'agent-security-scanner-mcp',
-          version: '2.0.7',
-          informationUri: 'https://github.com/sinewaveai/agent-security-scanner-mcp',
-          rules: Array.from(rulesMap.values())
-        }
-      },
-      results,
-      invocations: [{
-        executionSuccessful: true,
-        endTimeUtc: new Date().toISOString()
-      }],
-      artifacts: [{
-        location: {
-          uri: filePath,
-          uriBaseId: '%SRCROOT%'
-        },
-        sourceLanguage: language
-      }]
-    }]
-  };
-}
-
 // Register scan_security tool
 server.tool(
   "scan_security",
   "Scan a file for security vulnerabilities and return issues with suggested fixes",
   {
-    file_path: z.string().describe("Path to the file to scan"),
-    output_format: z.enum(['json', 'sarif']).optional().describe("Output format: 'json' (default) or 'sarif' for GitHub/GitLab integration")
+    file_path: z.string().describe("Path to the file to scan")
   },
-  async ({ file_path, output_format = 'json' }) => {
+  async ({ file_path }) => {
     if (!existsSync(file_path)) {
       return {
         content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -1099,18 +834,6 @@ server.tool(
       };
     });
 
-    // Return SARIF format if requested (for GitHub/GitLab integration)
-    if (output_format === 'sarif') {
-      const sarif = convertToSarif(file_path, language, enhancedIssues);
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify(sarif, null, 2)
-        }]
-      };
-    }
-
-    // Default JSON format
     return {
       content: [{
         type: "text",
@@ -1453,7 +1176,9 @@ server.tool(
           all_results: results,
           recommendation: hallucinated.length > 0
             ? `⚠️ Found ${hallucinated.length} potentially hallucinated package(s): ${hallucinated.map(r => r.package).join(', ')}`
-            : "✅ All packages verified as legitimate"
+            : unknown.length > 0
+              ? `⚠️ ${unknown.length} package(s) could not be verified (no data available for ${ecosystem})`
+              : "✅ All packages verified as legitimate"
         }, null, 2)
       }]
     };
@@ -1466,18 +1191,31 @@ server.tool(
   "List statistics about loaded package lists for hallucination detection",
   {},
   async () => {
-    const stats = Object.entries(LEGITIMATE_PACKAGES).map(([ecosystem, packages]) => ({
-      ecosystem,
-      packages_loaded: packages.size,
-      status: packages.size > 0 ? "ready" : "not loaded"
-    }));
+    const stats = Object.entries(LEGITIMATE_PACKAGES).map(([ecosystem, packages]) => {
+      const bloomFilter = BLOOM_FILTERS[ecosystem];
+      const setSize = packages.size;
+      const hasBloom = !!bloomFilter;
+      return {
+        ecosystem,
+        packages_loaded: setSize,
+        bloom_filter_loaded: hasBloom,
+        status: setSize > 0 ? 'ready' : hasBloom ? 'ready (bloom filter)' : 'not loaded'
+      };
+    });
+
+    const totalSet = stats.reduce((sum, s) => sum + s.packages_loaded, 0);
+    const bloomEcosystems = stats.filter(s => s.bloom_filter_loaded).map(s => s.ecosystem);
 
     return {
       content: [{
         type: "text",
         text: JSON.stringify({
           package_lists: stats,
-          total_packages: stats.reduce((sum, s) => sum + s.packages_loaded, 0),
+          total_packages: totalSet,
+          bloom_filter_ecosystems: bloomEcosystems,
+          note: bloomEcosystems.length > 0
+            ? `Bloom filters provide coverage for: ${bloomEcosystems.join(', ')} (not counted in total_packages)`
+            : undefined,
           usage: "Use check_package or scan_packages to detect hallucinated packages"
         }, null, 2)
       }]
@@ -1706,35 +1444,50 @@ function calculateRiskScore(findings, context) {
 
   avgScore = Math.min(100, avgScore);
 
-  // Apply sensitivity adjustment
+  // Apply sensitivity adjustment (wider spread for meaningful impact)
   if (context?.sensitivity_level === 'high') {
-    avgScore = Math.min(100, avgScore * 1.2);
+    avgScore = Math.min(100, avgScore * 1.5);
   } else if (context?.sensitivity_level === 'low') {
-    avgScore = avgScore * 0.8;
+    avgScore = avgScore * 0.5;
   }
 
   return Math.round(avgScore);
 }
 
-// Determine action based on risk score and findings
-function determineAction(riskScore, findings) {
+// Determine action based on risk score, findings, and context
+function determineAction(riskScore, findings, context) {
+  // Adjust thresholds based on sensitivity level
+  let blockThreshold = RISK_THRESHOLDS.HIGH;
+  let warnThreshold = RISK_THRESHOLDS.MEDIUM;
+  let logThreshold = RISK_THRESHOLDS.LOW;
+
+  if (context?.sensitivity_level === 'high') {
+    blockThreshold = 50;
+    warnThreshold = 30;
+    logThreshold = 15;
+  } else if (context?.sensitivity_level === 'low') {
+    blockThreshold = 75;
+    warnThreshold = 50;
+    logThreshold = 30;
+  }
+
   // Check for any BLOCK action findings
   const hasBlockFinding = findings.some(f => f.action === 'BLOCK');
   if (hasBlockFinding || riskScore >= RISK_THRESHOLDS.CRITICAL) {
     return 'BLOCK';
   }
 
-  if (riskScore >= RISK_THRESHOLDS.HIGH) {
+  if (riskScore >= blockThreshold) {
     return 'BLOCK';
   }
 
   const hasWarnFinding = findings.some(f => f.action === 'WARN');
-  if (hasWarnFinding || riskScore >= RISK_THRESHOLDS.MEDIUM) {
+  if (hasWarnFinding || riskScore >= warnThreshold) {
     return 'WARN';
   }
 
   const hasLogFinding = findings.some(f => f.action === 'LOG');
-  if (hasLogFinding || riskScore >= RISK_THRESHOLDS.LOW) {
+  if (hasLogFinding || riskScore >= logThreshold) {
     return 'LOG';
   }
 
@@ -1920,9 +1673,45 @@ server.tool(
       }
     }
 
+    // Multi-turn escalation detection (Bug 9)
+    if (context?.previous_messages && Array.isArray(context.previous_messages) && context.previous_messages.length > 0) {
+      let prevMatchCount = 0;
+      for (const prevMsg of context.previous_messages) {
+        for (const rule of allRules) {
+          for (const pattern of rule.patterns) {
+            try {
+              const regex = new RegExp(pattern, 'i');
+              if (regex.test(prevMsg)) {
+                prevMatchCount++;
+                break;
+              }
+            } catch (e) {
+              // Skip invalid regex
+            }
+          }
+          if (prevMatchCount > 0) break;
+        }
+        if (prevMatchCount > 0) break;
+      }
+
+      // If both previous and current messages have matches, flag escalation
+      if (prevMatchCount > 0 && findings.length > 0) {
+        findings.push({
+          rule_id: 'multi-turn.escalation',
+          category: 'social-engineering',
+          severity: 'WARNING',
+          message: 'Multi-turn escalation detected: suspicious patterns found in both previous and current messages.',
+          matched_text: 'escalation across conversation turns',
+          confidence: 'MEDIUM',
+          risk_score: '70',
+          action: 'WARN'
+        });
+      }
+    }
+
     // Calculate risk score
     const riskScore = calculateRiskScore(findings, context);
-    const action = determineAction(riskScore, findings);
+    const action = determineAction(riskScore, findings, context);
     const riskLevel = getRiskLevel(riskScore);
     const explanation = generateExplanation(findings, action);
     const recommendations = generateRecommendations(findings);
@@ -1993,10 +1782,7 @@ const CLIENT_CONFIGS = {
     name: 'Claude Code',
     configKey: 'mcpServers',
     configPath: () => join(homedir(), '.claude', 'settings.json'),
-    buildEntry: () => ({ ...MCP_SERVER_ENTRY }),
-    // Claude Code stores MCP config per-project in ~/.claude.json, not in settings.json
-    // Use the 'claude mcp add' CLI for reliable per-project configuration
-    useCliCommand: true
+    buildEntry: () => ({ ...MCP_SERVER_ENTRY })
   },
   'cursor': {
     name: 'Cursor',
@@ -2115,91 +1901,6 @@ function printInitUsage() {
   console.log('    npx agent-security-scanner-mcp init cline --force --name my-scanner\n');
 }
 
-// Special init handler for clients that use CLI commands (e.g., Claude Code)
-async function runCliInit(client, flags) {
-  const serverName = flags.name;
-  const cwd = process.cwd();
-
-  console.log(`\n  Client:  ${client.name}`);
-  console.log(`  Project: ${cwd}`);
-  console.log(`  OS:      ${platform()} (${process.arch})`);
-  console.log(`  Key:     ${serverName}\n`);
-
-  // Check if claude CLI is available
-  const claudeCheck = checkCommand('claude', ['--version']);
-  if (!claudeCheck.ok) {
-    console.log('  ERROR: Claude Code CLI not found.');
-    console.log('  Please install Claude Code first: https://claude.ai/download\n');
-    console.log('  Alternative: Use --path to write to ~/.claude/settings.json directly:\n');
-    console.log(`    npx agent-security-scanner-mcp init claude-code --path ~/.claude/settings.json\n`);
-    process.exit(1);
-  }
-
-  // Check if already configured for this project
-  const listCheck = checkCommand('claude', ['mcp', 'list']);
-  if (listCheck.ok && listCheck.output.includes(serverName)) {
-    if (!flags.force) {
-      console.log(`  ${serverName} is already configured for this project.`);
-      console.log(`  Use --force to reconfigure.\n`);
-      process.exit(0);
-    }
-    // Remove existing entry first if --force
-    console.log(`  Removing existing ${serverName} configuration...`);
-    try {
-      execFileSync('claude', ['mcp', 'remove', serverName], { encoding: 'utf-8', stdio: 'pipe' });
-    } catch {
-      // Ignore errors - might not exist
-    }
-  }
-
-  // Build the CLI command
-  const cliArgs = ['mcp', 'add', serverName, '--', 'npx', '-y', 'agent-security-scanner-mcp'];
-  const fullCommand = `claude ${cliArgs.join(' ')}`;
-
-  if (flags.dryRun) {
-    console.log(`  [dry-run] Would run: ${fullCommand}`);
-    console.log(`  [dry-run] In directory: ${cwd}`);
-    console.log(`\n  No changes made.\n`);
-    process.exit(0);
-  }
-
-  console.log(`  Running: ${fullCommand}`);
-  console.log(`  In directory: ${cwd}\n`);
-
-  try {
-    const result = execFileSync('claude', cliArgs, { encoding: 'utf-8', stdio: 'pipe', cwd });
-    console.log(`  ${result.trim()}\n`);
-  } catch (e) {
-    console.error(`  ERROR: Failed to add MCP server.`);
-    console.error(`  ${e.message}\n`);
-    console.log('  Alternative: Add manually to ~/.claude/settings.json:\n');
-    console.log(`  {
-    "mcpServers": {
-      "${serverName}": {
-        "command": "npx",
-        "args": ["-y", "agent-security-scanner-mcp"]
-      }
-    }
-  }\n`);
-    process.exit(1);
-  }
-
-  // Verify it was added
-  const verifyCheck = checkCommand('claude', ['mcp', 'list']);
-  if (verifyCheck.ok && verifyCheck.output.includes(serverName)) {
-    console.log(`  ✓ Successfully configured ${serverName} for this project!\n`);
-  } else {
-    console.log(`  ⚠ Configuration may have succeeded but verification failed.`);
-    console.log(`  Run 'claude mcp list' to check.\n`);
-  }
-
-  console.log(`  Next steps:`);
-  console.log(`    1. Restart Claude Code in this folder`);
-  console.log(`    2. Verify by asking: "What MCP tools do you have?"`);
-  console.log(`    3. Test: "Scan this file for security issues"\n`);
-  console.log(`  Note: Run this command in each project folder where you want security scanning.\n`);
-}
-
 async function runInit(flags) {
   let clientName = flags.client;
 
@@ -2218,12 +1919,6 @@ async function runInit(flags) {
     console.log(`\n  Unknown client: "${clientName}"\n`);
     printInitUsage();
     process.exit(1);
-  }
-
-  // Special handling for clients that use CLI commands (like Claude Code)
-  if (client.useCliCommand && !flags.path) {
-    await runCliInit(client, flags);
-    return;
   }
 
   const configPath = flags.path || client.configPath();
@@ -2430,53 +2125,6 @@ async function runDoctor(flags) {
   console.log('\n  Client Configurations');
 
   for (const [key, client] of Object.entries(CLIENT_CONFIGS)) {
-    // Special handling for Claude Code - uses per-project config via CLI
-    if (client.useCliCommand) {
-      const claudeCheck = checkCommand('claude', ['--version']);
-      if (!claudeCheck.ok) {
-        console.log(`    \u2014 ${client.name.padEnd(20)} not installed (claude CLI not found)`);
-        continue;
-      }
-
-      // Check if configured for current project using claude mcp list
-      const listCheck = checkCommand('claude', ['mcp', 'list']);
-      if (listCheck.ok && listCheck.output) {
-        const output = listCheck.output.toLowerCase();
-        const hasScanner = output.includes('security-scanner') ||
-                          output.includes('agentic-security') ||
-                          output.includes('agent-security-scanner');
-        if (hasScanner) {
-          // Extract the actual server name from output
-          let serverName = 'security-scanner';
-          if (output.includes('agentic-security')) serverName = 'agentic-security';
-          console.log(`    \u2713 ${client.name.padEnd(20)} configured (${serverName})`);
-        } else if (output.includes('no mcp servers configured')) {
-          console.log(`    \u2717 ${client.name.padEnd(20)} not configured for this project`);
-          if (fix) {
-            try {
-              execFileSync('claude', ['mcp', 'add', 'security-scanner', '--', 'npx', '-y', 'agent-security-scanner-mcp'],
-                { encoding: 'utf-8', stdio: 'pipe' });
-              console.log(`      \u2713 Fixed: added security-scanner via claude mcp add`);
-              fixed++;
-            } catch {
-              console.log(`      \u2717 Auto-fix failed. Run: npx agent-security-scanner-mcp init claude-code`);
-              issues++;
-            }
-          } else {
-            console.log(`      Fix: npx agent-security-scanner-mcp init claude-code`);
-            issues++;
-          }
-        } else {
-          console.log(`    \u2717 ${client.name.padEnd(20)} entry missing from project config`);
-          console.log(`      Fix: npx agent-security-scanner-mcp init claude-code`);
-          issues++;
-        }
-      } else {
-        console.log(`    \u26a0 ${client.name.padEnd(20)} could not check config (run 'claude mcp list' manually)`);
-      }
-      continue;
-    }
-
     let configPath;
     try { configPath = client.configPath(); } catch { continue; }
 
