@@ -1,0 +1,258 @@
+{
+    "_comment": "Maps benchmark annotation rule patterns to matching Semgrep rule ID substrings",
+    "strcpy-usage": [
+        "strcpy"
+    ],
+    "strcat-usage": [
+        "strcat"
+    ],
+    "sprintf-usage": [
+        "insecure-use-sprintf-fn"
+    ],
+    "vsprintf-usage": [
+        "insecure-use-vsprintf-fn"
+    ],
+    "gets-usage": [
+        "insecure-use-gets"
+    ],
+    "scanf-usage": [
+        "scanf-usage"
+    ],
+    "format-string-printf": [
+        "format-string-printf"
+    ],
+    "format-string-syslog": [
+        "format-string-syslog"
+    ],
+    "sql-injection": [
+        "sql-injection"
+    ],
+    "sql-injection-db-cursor": [
+        "sql-injection-db-cursor"
+    ],
+    "sql-injection-using-sqlalchemy": [
+        "sql-injection-using-sqlalchemy"
+    ],
+    "sql-injection-where": [
+        "sql-injection-where"
+    ],
+    "sql-injection-order": [
+        "sql-injection-order"
+    ],
+    "sql-injection-raw": [
+        "sql-injection-raw"
+    ],
+    "dangerous-subprocess-use": [
+        "dangerous-subprocess-use"
+    ],
+    "dangerous-system-call": [
+        "os-system",
+        "system-call",
+        "command-injection"
+    ],
+    "command-injection": [
+        "command-injection",
+        "shell",
+        "exec"
+    ],
+    "command-injection-system": [
+        "command-injection-system"
+    ],
+    "command-injection-open": [
+        "command-injection-open"
+    ],
+    "eval-detected": [
+        "eval",
+        "dangerous-eval"
+    ],
+    "exec-detected": [
+        "exec",
+        "dangerous-exec"
+    ],
+    "compile-detected": [
+        "compile"
+    ],
+    "eval-usage": [
+        "eval-usage"
+    ],
+    "hardcoded-password": [
+        "hardcoded-password"
+    ],
+    "hardcoded-secret": [
+        "hardcoded-secret"
+    ],
+    "hardcoded-api-key": [
+        "hardcoded-api-key",
+        "generic-api-key",
+        "detected-stripe-api-key",
+        "stripe-api-key",
+        "aws-access-key-id"
+    ],
+    "aws-access-key-id": [
+        "aws-access",
+        "akia",
+        "access-key-id"
+    ],
+    "aws-secret-access-key": [
+        "aws-secret",
+        "secret-access-key"
+    ],
+    "github-pat": [
+        "github",
+        "ghp_",
+        "pat"
+    ],
+    "stripe-api-key": [
+        "stripe",
+        "sk_live"
+    ],
+    "private-key-rsa": [
+        "private-key",
+        "rsa",
+        "begin-rsa"
+    ],
+    "database-url": [
+        "database-url",
+        "connection-string"
+    ],
+    "jwt-token": [
+        "jwt",
+        "eyj"
+    ],
+    "openai-api-key": [
+        "openai",
+        "sk-"
+    ],
+    "xss": [
+        "xss",
+        "cross-site-scripting",
+        "innerhtml"
+    ],
+    "xss-raw": [
+        "raw",
+        "html-safe",
+        "safe-concat"
+    ],
+    "xss-document-write": [
+        "document-write"
+    ],
+    "xss-inner-html": [
+        "innerhtml",
+        "dangerous-inner-html"
+    ],
+    "path-traversal": [
+        "path-traversal",
+        "directory-traversal"
+    ],
+    "open-redirect": [
+        "open-redirect",
+        "redirect"
+    ],
+    "csrf-disabled": [
+        "csrf",
+        "verify-authenticity"
+    ],
+    "ssl-verify-disabled": [
+        "ssl-verify",
+        "verify-none"
+    ],
+    "unsafe-deserialization": [
+        "pickle",
+        "yaml-load",
+        "marshal",
+        "deserialization"
+    ],
+    "unsafe-yaml-load": [
+        "yaml-load",
+        "unsafe-yaml"
+    ],
+    "unsafe-marshal": [
+        "marshal-load"
+    ],
+    "weak-hash": [
+        "md5",
+        "sha1",
+        "weak-hash"
+    ],
+    "weak-cipher": [
+        "des",
+        "blowfish",
+        "weak-cipher"
+    ],
+    "mass-assignment-permit-all": [
+        "mass-assignment",
+        "permit-all",
+        "permit!"
+    ],
+    "constantize": [
+        "constantize"
+    ],
+    "render-inline": [
+        "render-inline"
+    ],
+    "session-secret-hardcoded": [
+        "session-secret",
+        "secret-key"
+    ],
+    "s3-public-read": [
+        "s3-public",
+        "public-read",
+        "acl-public"
+    ],
+    "security-group-open-ingress": [
+        "security-group",
+        "open-ingress",
+        "0.0.0.0"
+    ],
+    "rds-public-access": [
+        "rds-public",
+        "publicly-accessible"
+    ],
+    "rds-encryption-disabled": [
+        "rds-encrypt",
+        "storage-encrypted-false"
+    ],
+    "rds-deletion-protection": [
+        "deletion-protection"
+    ],
+    "cloudtrail-disabled": [
+        "cloudtrail",
+        "enable-logging"
+    ],
+    "kms-key-rotation": [
+        "kms-rotation",
+        "key-rotation"
+    ],
+    "ebs-encryption-disabled": [
+        "ebs-encrypt"
+    ],
+    "ec2-imdsv1": [
+        "imds",
+        "http-tokens"
+    ],
+    "insecure-communication": [
+        "ssl",
+        "tls",
+        "http-",
+        "insecure-connection"
+    ],
+    "ssrf": [
+        "ssrf",
+        "server-side-request"
+    ],
+    "ldap-injection": [
+        "ldap-injection"
+    ],
+    "xxe": [
+        "xxe",
+        "xml-external-entity"
+    ],
+    "ssti": [
+        "ssti",
+        "template-injection"
+    ],
+    "file-inclusion": [
+        "file-inclusion",
+        "include"
+    ]
+}

@@ -1,0 +1,146 @@
+# Benchmark corpus: Dockerfile security vulnerabilities
+
+# --- Running as Root ---
+
+# VULN: run-as-root
+FROM ubuntu:20.04
+RUN apt-get update
+
+# SAFE: run-as-root
+FROM ubuntu:20.04
+RUN useradd -m appuser
+USER appuser
+
+# --- Secrets in Build ---
+
+# VULN: secret-in-env
+ENV API_KEY=sk_live_12345abcdef
+
+# VULN: secret-in-env
+ENV DATABASE_PASSWORD=SuperSecret123
+
+# VULN: secret-in-arg
+ARG AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
+
+# SAFE: secret-in-env
+# Use runtime environment variables, not build-time
+
+# --- Package Versioning ---
+
+# VULN: apt-get-no-version
+RUN apt-get install -y curl
+
+# VULN: pip-no-version
+RUN pip install requests
+
+# VULN: npm-install-unsafe
+RUN npm install express
+
+# SAFE: apt-get-no-version
+RUN apt-get install -y curl=7.68.0-1ubuntu2
+
+# SAFE: pip-no-version
+RUN pip install requests==2.28.0
+
+# --- Unsafe Downloads ---
+
+# VULN: curl-pipe-bash
+RUN curl -s https://example.com/install.sh | bash
+
+# VULN: curl-insecure
+RUN curl -k https://example.com/file
+
+# VULN: wget-no-check
+RUN wget --no-check-certificate https://example.com/file
+
+# SAFE: curl-pipe-bash
+RUN curl -sL https://example.com/install.sh -o install.sh && \
+    sha256sum -c install.sh.sha256 && \
+    bash install.sh
+
+# --- ADD vs COPY ---
+
+# VULN: add-instead-of-copy
+ADD app.tar.gz /app/
+
+# VULN: add-instead-of-copy
+ADD https://example.com/file.tar.gz /app/
+
+# SAFE: add-instead-of-copy
+COPY app/ /app/
+
+# --- Image Tags ---
+
+# VULN: latest-tag
+FROM node:latest
+
+# VULN: latest-tag
+FROM python
+
+# SAFE: latest-tag
+FROM node:18.17.0-alpine
+
+# SAFE: latest-tag
+FROM python:3.11-slim
+
+# --- Network Exposure ---
+
+# VULN: expose-ssh
+EXPOSE 22
+
+# SAFE: expose-ssh
+EXPOSE 8080
+
+# --- Permissions ---
+
+# VULN: chmod-dangerous
+RUN chmod 777 /app
+
+# VULN: chmod-dangerous
+RUN chmod -R 777 /data
+
+# SAFE: chmod-dangerous
+RUN chmod 755 /app
+
+# --- Package Cleanup ---
+
+# VULN: apt-no-clean
+RUN apt-get update && apt-get install -y vim
+
+# SAFE: apt-no-clean
+RUN apt-get update && \
+    apt-get install -y vim && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# --- Shell Form ---
+
+# VULN: run-shell-form
+ENTRYPOINT python app.py
+
+# SAFE: run-shell-form
+ENTRYPOINT ["python", "app.py"]
+
+# --- Sudo Usage ---
+
+# VULN: sudo-in-dockerfile
+RUN sudo apt-get update
+
+# SAFE: sudo-in-dockerfile
+RUN apt-get update
+
+# --- WORKDIR ---
+
+# VULN: workdir-absolute
+WORKDIR app/
+
+# SAFE: workdir-absolute
+WORKDIR /app
+
+# --- Healthcheck ---
+
+# VULN: missing-healthcheck
+# (no HEALTHCHECK instruction)
+
+# SAFE: missing-healthcheck
+HEALTHCHECK CMD curl --fail http://localhost:8080/health || exit 1

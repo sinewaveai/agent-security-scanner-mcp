@@ -1,0 +1,352 @@
+# Benchmark corpus: Kubernetes security vulnerabilities
+
+# --- Privileged Containers ---
+
+# VULN: privileged-container
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-pod
+spec:
+  containers:
+  - name: privileged
+    image: nginx
+    securityContext:
+      privileged: true
+
+# SAFE: privileged-container
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unprivileged-pod
+spec:
+  containers:
+  - name: unprivileged
+    image: nginx
+    securityContext:
+      privileged: false
+
+# --- Run as Root ---
+
+# VULN: run-as-root
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: root-pod
+spec:
+  containers:
+  - name: root-container
+    image: nginx
+    securityContext:
+      runAsUser: 0
+
+# SAFE: run-as-root
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-pod
+spec:
+  containers:
+  - name: nonroot-container
+    image: nginx
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+
+# --- Host Network/PID ---
+
+# VULN: host-network
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: host-network-pod
+spec:
+  hostNetwork: true
+  containers:
+  - name: app
+    image: nginx
+
+# VULN: host-pid
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: host-pid-pod
+spec:
+  hostPID: true
+  containers:
+  - name: app
+    image: nginx
+
+# SAFE: host-network
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: isolated-pod
+spec:
+  hostNetwork: false
+  hostPID: false
+  containers:
+  - name: app
+    image: nginx
+
+# --- Host Path Mounts ---
+
+# VULN: host-path
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostpath-pod
+spec:
+  volumes:
+  - name: host-volume
+    hostPath:
+      path: /etc
+  containers:
+  - name: app
+    image: nginx
+    volumeMounts:
+    - name: host-volume
+      mountPath: /host-etc
+
+# SAFE: host-path
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: emptydir-pod
+spec:
+  volumes:
+  - name: data
+    emptyDir: {}
+  containers:
+  - name: app
+    image: nginx
+
+# --- Resource Limits ---
+
+# VULN: no-resource-limits
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-limits-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+
+# SAFE: no-resource-limits
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: limits-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+
+# --- Secrets in Environment ---
+
+# VULN: secrets-in-env
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-env-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    env:
+    - name: API_KEY
+      value: "sk_live_12345abcdef"
+
+# VULN: hardcoded-secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hardcoded-secret
+data:
+  password: U3VwZXJTZWNyZXQxMjMh
+
+# SAFE: secrets-in-env
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-ref-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    env:
+    - name: API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: api-secrets
+          key: api-key
+
+# --- RBAC ---
+
+# VULN: cluster-admin-binding
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+
+# VULN: wildcard-rbac
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wildcard-role
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+
+# SAFE: wildcard-rbac
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restricted-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+# --- Network Policies ---
+
+# VULN: allow-all-ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all
+spec:
+  podSelector: {}
+  ingress:
+  - {}
+
+# SAFE: allow-all-ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+
+# --- Capabilities ---
+
+# VULN: capabilities-add
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: caps-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "SYS_ADMIN"]
+
+# SAFE: capabilities-add
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: drop-caps-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+
+# --- Read-only Filesystem ---
+
+# VULN: no-readonly-root
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: writable-root-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      readOnlyRootFilesystem: false
+
+# SAFE: no-readonly-root
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: readonly-root-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      readOnlyRootFilesystem: true
+
+# --- Privilege Escalation ---
+
+# VULN: allow-privilege-escalation
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: escalation-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: true
+
+# SAFE: allow-privilege-escalation
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-escalation-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false

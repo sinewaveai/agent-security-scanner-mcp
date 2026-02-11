@@ -1,0 +1,1250 @@
+{
+  "timestamp": "2026-02-03T22:08:43.183193+00:00",
+  "git_commit": "8fc715d",
+  "git_branch": "benchmarks_fp",
+  "analyzer_name": "src",
+  "overall": {
+    "precision": 0.9796,
+    "recall": 0.3158,
+    "f1": 0.4776,
+    "fp_rate": 0.0147,
+    "annotation_coverage": 0.8448,
+    "tp": 48,
+    "fp": 1,
+    "fn": 104,
+    "tn": 67,
+    "unannotated": 9
+  },
+  "by_language": {
+    "generic": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.7273,
+      "tp": 16,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 6
+    },
+    "javascript": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.8235,
+      "tp": 14,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 3
+    },
+    "python": {
+      "precision": 0.9474,
+      "recall": 1.0,
+      "f1": 0.973,
+      "fp_rate": 1.0,
+      "annotation_coverage": 1.0,
+      "tp": 18,
+      "fp": 1,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    }
+  },
+  "by_rule": {
+    "generic.secrets.security.hardcoded-password": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.75,
+      "tp": 6,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 2
+    },
+    "generic.secrets.security.aws-access-key-id": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.3333,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 2
+    },
+    "generic.secrets.security.hardcoded-api-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.6667,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "generic.secrets.security.aws-secret-access-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "generic.secrets.security.github-pat": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "generic.secrets.security.stripe-api-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.5,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "generic.secrets.security.private-key-rsa": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "generic.secrets.security.database-url": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "generic.secrets.security.jwt-token": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "generic.secrets.security.openai-api-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.lang.security.audit.eval-detected": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.lang.security.audit.function-constructor": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.5,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "javascript.lang.security.audit.setTimeout-string": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.lang.security.audit.child-process-exec": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.lang.security.audit.spawn-shell": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.lang.security.audit.sql-injection": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.lang.security.crypto.insecure-hash-md5": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.5,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "javascript.lang.security.crypto.insecure-hash-sha1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.5,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "javascript.lang.security.crypto.insecure-random": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.browser.security.dom-based-xss.innerHTML": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.browser.security.dom-based-xss.outerHTML": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.browser.security.dom-based-xss.document-write": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.browser.security.dom-based-xss.insertAdjacentHTML": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "javascript.react.security.dangerouslySetInnerHTML": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.crypto.insecure-hash-md5": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.6667,
+      "fp_rate": 1.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 1,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.crypto.insecure-hash-sha1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.crypto.insecure-random": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.ssl.ssl-verify-disabled": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.hardcoded-password": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.hardcoded-api-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.sqli.sql-injection-db-cursor": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.sqli.sql-injection-using-sqlalchemy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.dangerous-subprocess-use": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.dangerous-system-call": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.eval-detected": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.exec-detected": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.audit.compile-detected": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.deserialization.pickle-load": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "python.lang.security.deserialization.yaml-load": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    }
+  },
+  "by_category": {
+    "hardcoded-password": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.75,
+      "tp": 6,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 2
+    },
+    "aws-access-key-id": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.3333,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 2
+    },
+    "hardcoded-api-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.6667,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "aws-secret-access-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "github-pat": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "stripe-api-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.5,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "private-key-rsa": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "database-url": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "jwt-token": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "openai-api-key": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "audit": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 0.9444,
+      "tp": 17,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 1
+    },
+    "crypto": {
+      "precision": 0.875,
+      "recall": 1.0,
+      "f1": 0.9333,
+      "fp_rate": 1.0,
+      "annotation_coverage": 0.8,
+      "tp": 7,
+      "fp": 1,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 2
+    },
+    "dom-based-xss": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "dangerouslySetInnerHTML": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "ssl": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    },
+    "deserialization": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fp_rate": 0.0,
+      "annotation_coverage": 1.0,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "unannotated": 0
+    }
+  },
+  "false_positives": [
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/python_crypto.py",
+      "line": 20,
+      "rule": "python.lang.security.crypto.insecure-hash-md5",
+      "pattern": "insecure-hash-md5"
+    }
+  ],
+  "false_negatives": [
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 10,
+      "pattern": "strcpy-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 13,
+      "pattern": "strcat-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 16,
+      "pattern": "sprintf-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 19,
+      "pattern": "vsprintf-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 22,
+      "pattern": "gets-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 33,
+      "pattern": "format-string-printf"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 36,
+      "pattern": "format-string-printf"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 39,
+      "pattern": "format-string-syslog"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 47,
+      "pattern": "scanf-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 50,
+      "pattern": "scanf-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 58,
+      "pattern": "system-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 61,
+      "pattern": "popen-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 69,
+      "pattern": "weak-hash-md5"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 72,
+      "pattern": "weak-hash-sha1"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 75,
+      "pattern": "weak-cipher-des"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 78,
+      "pattern": "ecb-mode"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 86,
+      "pattern": "weak-random"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 89,
+      "pattern": "weak-random"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 97,
+      "pattern": "hardcoded-password"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 105,
+      "pattern": "insecure-memset"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 110,
+      "pattern": "strtok-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 115,
+      "pattern": "insecure-tempfile"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 118,
+      "pattern": "insecure-tempfile"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 123,
+      "pattern": "unchecked-return"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/c_security.c",
+      "line": 126,
+      "pattern": "unchecked-return"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 9,
+      "pattern": "host-network"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 11,
+      "pattern": "host-pid"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 18,
+      "pattern": "privileged-container"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 20,
+      "pattern": "run-as-root"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 22,
+      "pattern": "run-as-root"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 24,
+      "pattern": "allow-privilege-escalation"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 26,
+      "pattern": "no-readonly-root"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 28,
+      "pattern": "capabilities-add"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 33,
+      "pattern": "secrets-in-env"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 38,
+      "pattern": "hardcoded-secret"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 44,
+      "pattern": "host-path"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 50,
+      "pattern": "wildcard-rbac"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 55,
+      "pattern": "cluster-admin-binding"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/kubernetes_security.yaml",
+      "line": 60,
+      "pattern": "hardcoded-secret"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 7,
+      "pattern": "sql-injection-query"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 10,
+      "pattern": "sql-injection-sprintf"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 18,
+      "pattern": "command-injection-exec"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 21,
+      "pattern": "command-injection-exec"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 24,
+      "pattern": "backticks-exec"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 32,
+      "pattern": "eval-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 35,
+      "pattern": "assert-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 38,
+      "pattern": "preg-code-exec"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 46,
+      "pattern": "file-inclusion"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 49,
+      "pattern": "file-inclusion"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 54,
+      "pattern": "xss-echo"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 57,
+      "pattern": "xss-echo"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 65,
+      "pattern": "unsafe-unserialize"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 70,
+      "pattern": "weak-hash-md5"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 73,
+      "pattern": "weak-hash-sha1"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 76,
+      "pattern": "mcrypt-deprecated"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 84,
+      "pattern": "weak-random"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 87,
+      "pattern": "weak-random"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 95,
+      "pattern": "curl-ssl-disabled"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 100,
+      "pattern": "ssrf"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 105,
+      "pattern": "path-traversal"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 108,
+      "pattern": "path-traversal"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 113,
+      "pattern": "open-redirect"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 129,
+      "pattern": "phpinfo-exposure"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 132,
+      "pattern": "error-display"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/php_security.php",
+      "line": 137,
+      "pattern": "permissive-cors"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 11,
+      "pattern": "sql-injection-where"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 14,
+      "pattern": "sql-injection-where"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 17,
+      "pattern": "sql-injection-order"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 20,
+      "pattern": "sql-injection-raw"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 31,
+      "pattern": "command-injection-system"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 34,
+      "pattern": "command-injection-system"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 37,
+      "pattern": "command-injection-system"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 40,
+      "pattern": "command-injection-open"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 48,
+      "pattern": "xss-raw"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 51,
+      "pattern": "xss-raw"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 59,
+      "pattern": "mass-assignment-permit-all"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 64,
+      "pattern": "unsafe-yaml-load"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 67,
+      "pattern": "unsafe-marshal"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 75,
+      "pattern": "eval-usage"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 78,
+      "pattern": "constantize"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 86,
+      "pattern": "open-redirect"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 91,
+      "pattern": "csrf-disabled"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 96,
+      "pattern": "ssl-verify-disabled"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 101,
+      "pattern": "path-traversal"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 104,
+      "pattern": "path-traversal"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 112,
+      "pattern": "hardcoded-secret"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 115,
+      "pattern": "session-secret-hardcoded"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 123,
+      "pattern": "weak-hash"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 126,
+      "pattern": "weak-hash"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 129,
+      "pattern": "weak-cipher"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/ruby_security.rb",
+      "line": 137,
+      "pattern": "render-inline"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 6,
+      "pattern": "s3-public-read"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 9,
+      "pattern": "s3-public-read"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 17,
+      "pattern": "security-group-open-ingress"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 25,
+      "pattern": "rds-public-access"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 28,
+      "pattern": "rds-encryption-disabled"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 31,
+      "pattern": "rds-deletion-protection"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 39,
+      "pattern": "cloudtrail-disabled"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 42,
+      "pattern": "cloudtrail-disabled"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 50,
+      "pattern": "kms-key-rotation"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 58,
+      "pattern": "ebs-encryption-disabled"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 66,
+      "pattern": "ec2-imdsv1"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 80,
+      "pattern": "hardcoded-api-key"
+    },
+    {
+      "file": "/Users/dheeraj/Documents/Workspace/Dev/sec_tool/agent-security-layer-fork/benchmarks/corpus/terraform_security.tf",
+      "line": 83,
+      "pattern": "hardcoded-api-key"
+    }
+  ]
+}
