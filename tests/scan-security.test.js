@@ -76,10 +76,8 @@ describe('scan_security tool', () => {
     });
     const issues = result.issues || result.findings || [];
     const cmdIssues = issues.filter(i =>
-      i.ruleId?.includes('exec') || i.ruleId?.includes('child-process') || i.ruleId?.includes('child_process') ||
-      i.ruleId?.includes('detect-child') || i.ruleId?.includes('command') ||
-      i.message?.toLowerCase().includes('exec') || i.message?.toLowerCase().includes('child_process') ||
-      i.message?.toLowerCase().includes('command')
+      i.ruleId?.includes('exec') || i.ruleId?.includes('child-process') ||
+      i.message?.toLowerCase().includes('exec') || i.message?.toLowerCase().includes('child_process')
     );
     expect(cmdIssues.length).toBeGreaterThan(0);
   });
@@ -91,9 +89,7 @@ describe('scan_security tool', () => {
     const issues = result.issues || result.findings || [];
     const xssIssues = issues.filter(i =>
       i.ruleId?.includes('xss') || i.ruleId?.includes('innerhtml') || i.ruleId?.includes('innerHTML') ||
-      i.ruleId?.includes('document-method') || i.ruleId?.includes('mustache-escape') ||
-      i.message?.toLowerCase().includes('xss') || i.message?.toLowerCase().includes('innerhtml') ||
-      i.message?.toLowerCase().includes('document.write') || i.message?.toLowerCase().includes('escaping')
+      i.message?.toLowerCase().includes('xss') || i.message?.toLowerCase().includes('innerhtml')
     );
     expect(xssIssues.length).toBeGreaterThan(0);
   });
@@ -106,21 +102,13 @@ describe('scan_security tool', () => {
     expect(issues.length).toBeGreaterThanOrEqual(5);
   });
 
-  // Clean file - with expanded Semgrep rules, we filter for actual security vulnerabilities
+  // Clean file
   it('should report no issues for clean Python file', async () => {
     const result = await client.callTool('scan_security', {
       file_path: fixturePath('clean-python.py')
     });
     const issues = result.issues || result.findings || [];
-    // Filter to only actual vulnerabilities (SQL injection, command injection, etc)
-    // Exclude framework-specific warnings and best-practice rules
-    const securityIssues = issues.filter(i =>
-      (i.ruleId?.includes('sql-injection') || i.ruleId?.includes('command-injection') ||
-       i.ruleId?.includes('xss') || i.ruleId?.includes('hardcoded-secret') ||
-       i.ruleId?.includes('pickle') || i.ruleId?.includes('eval-detected')) &&
-      !i.ruleId?.includes('hardcoded_config')  // Exclude config warnings
-    );
-    expect(securityIssues.length).toBe(0);
+    expect(issues.length).toBe(0);
   });
 
   // Error handling
