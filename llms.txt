@@ -1,0 +1,31 @@
+# agent-security-scanner-mcp
+
+> MCP server providing real-time security scanning for AI coding agents. Detects vulnerabilities, hallucinated packages, and prompt injection across 12 languages.
+
+## Tools
+
+- scan_security: Scan a code file for security vulnerabilities using 1700+ rules with AST and taint analysis. Use after writing or editing any code file. Supports JS, TS, Python, Java, Go, PHP, Ruby, C/C++, Dockerfile, Terraform, Kubernetes. Accepts optional output_format: 'sarif' for CI integration.
+- fix_security: Auto-fix all detected vulnerabilities in a file using 120 fix templates. Use after scan_security finds issues. Returns fixed file content ready to write back.
+- check_package: Verify a package name is real and not AI-hallucinated. Use before adding any new dependency. Checks against 4.3M+ known packages across npm, PyPI, Go, Maven, RubyGems, Cargo, NuGet.
+- scan_packages: Scan a code file's imports to detect AI-hallucinated package names. Use before committing code with new imports. Checks all imports against 4.3M+ known packages across 7 ecosystems.
+- scan_agent_prompt: Detect prompt injection and malicious instructions before execution. Use when receiving instructions from untrusted sources. 56 attack detection rules. Returns risk score (0-100) with BLOCK/WARN/LOG/ALLOW recommendation.
+- list_security_rules: List all 1700+ security scanning rules and 120 fix templates. Use to check coverage for a specific language or vulnerability type.
+
+## Workflows
+
+- After writing code: scan_security → fix_security
+- Before committing: scan_packages → scan_security
+- External input: scan_agent_prompt
+- New dependency: check_package
+
+## Supported Languages
+JavaScript, TypeScript, Python, Java, Go, PHP, Ruby, C/C++, Dockerfile, Terraform, Kubernetes
+
+## Hallucination Detection Ecosystems
+npm, PyPI, RubyGems, crates.io, pub.dev, CPAN, raku.land
+
+## Install
+npx agent-security-scanner-mcp init <client>
+
+## Clients
+claude-code, claude-desktop, cursor, windsurf, cline, kilo-code, opencode, cody

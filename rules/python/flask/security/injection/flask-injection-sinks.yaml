@@ -1,0 +1,352 @@
+rules:
+# Flask SQL Injection - Direct Execution
+- id: flask-sql-injection-execute
+  message: >-
+    SQL Injection vulnerability detected. User input from Flask request flows
+    directly to database query execution. An attacker could manipulate the query
+    to access, modify, or delete data. Use parameterized queries instead:
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+  metadata:
+    cwe:
+    - 'CWE-89: SQL Injection'
+    owasp:
+    - A03:2021 - Injection
+    - A05:2025 - Injection
+    category: security
+    technology:
+    - flask
+    - sqlite3
+    - mysql
+    - postgresql
+    subcategory:
+    - vuln
+    impact: HIGH
+    likelihood: HIGH
+    confidence: HIGH
+    fix: |
+      Use parameterized queries:
+      cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+  severity: ERROR
+  languages:
+  - python
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern-either:
+      - pattern: request.args.get(...)
+      - pattern: request.args[...]
+      - pattern: request.form.get(...)
+      - pattern: request.form[...]
+      - pattern: request.json
+      - pattern: request.json.get(...)
+      - pattern: request.json[...]
+      - pattern: request.data
+      - pattern: request.values.get(...)
+      - pattern: request.values[...]
+      - pattern: request.cookies.get(...)
+      - pattern: request.headers.get(...)
+      - pattern: flask.request.args.get(...)
+      - pattern: flask.request.form[...]
+      - pattern: flask.request.json
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: $CURSOR.execute(...)
+      - pattern: $CURSOR.executemany(...)
+      - pattern: $CONN.execute(...)
+      - pattern: $DB.execute(...)
+      - pattern: $SESSION.execute(...)
+  pattern-sanitizers:
+  - patterns:
+    - pattern-either:
+      - pattern: $CURSOR.execute($QUERY, (...))
+      - pattern: $CURSOR.execute($QUERY, [...])
+
+# Flask Command Injection - os.system
+- id: flask-command-injection-system
+  message: >-
+    Command Injection vulnerability detected. User input from Flask request flows
+    to os.system() which executes shell commands. An attacker could execute arbitrary
+    system commands. Use subprocess with shell=False and argument lists instead.
+  metadata:
+    cwe:
+    - 'CWE-78: OS Command Injection'
+    owasp:
+    - A03:2021 - Injection
+    - A05:2025 - Injection
+    category: security
+    technology:
+    - flask
+    subcategory:
+    - vuln
+    impact: CRITICAL
+    likelihood: HIGH
+    confidence: HIGH
+    fix: |
+      Use subprocess with shell=False:
+      subprocess.run(['ping', '-c', '1', host], shell=False)
+  severity: ERROR
+  languages:
+  - python
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern-either:
+      - pattern: request.args.get(...)
+      - pattern: request.args[...]
+      - pattern: request.form.get(...)
+      - pattern: request.form[...]
+      - pattern: request.json
+      - pattern: request.json.get(...)
+      - pattern: request.json[...]
+      - pattern: flask.request.args.get(...)
+      - pattern: flask.request.form[...]
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+      - pattern: os.spawn(...)
+      - pattern: os.spawnl(...)
+      - pattern: os.spawnle(...)
+      - pattern: os.spawnlp(...)
+      - pattern: os.spawnlpe(...)
+      - pattern: os.spawnv(...)
+      - pattern: os.spawnve(...)
+      - pattern: os.spawnvp(...)
+      - pattern: os.spawnvpe(...)
+  pattern-sanitizers:
+  - patterns:
+    - pattern-either:
+      - pattern: shlex.quote(...)
+      - pattern: shlex.split(...)
+
+# Flask Command Injection - subprocess
+- id: flask-command-injection-subprocess
+  message: >-
+    Command Injection vulnerability detected. User input from Flask request flows
+    to subprocess with shell=True. An attacker could execute arbitrary system commands.
+    Use subprocess with shell=False and pass arguments as a list.
+  metadata:
+    cwe:
+    - 'CWE-78: OS Command Injection'
+    owasp:
+    - A03:2021 - Injection
+    - A05:2025 - Injection
+    category: security
+    technology:
+    - flask
+    subcategory:
+    - vuln
+    impact: CRITICAL
+    likelihood: HIGH
+    confidence: HIGH
+    fix: |
+      Use subprocess with shell=False:
+      subprocess.run(['command', arg1, arg2], shell=False)
+  severity: ERROR
+  languages:
+  - python
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern-either:
+      - pattern: request.args.get(...)
+      - pattern: request.form[...]
+      - pattern: request.json
+      - pattern: request.json[...]
+      - pattern: flask.request.args.get(...)
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: subprocess.call(..., shell=True, ...)
+      - pattern: subprocess.run(..., shell=True, ...)
+      - pattern: subprocess.Popen(..., shell=True, ...)
+      - pattern: subprocess.check_output(..., shell=True, ...)
+      - pattern: subprocess.check_call(..., shell=True, ...)
+  pattern-sanitizers:
+  - patterns:
+    - pattern: shlex.quote(...)
+
+# Flask Path Traversal
+- id: flask-path-traversal
+  message: >-
+    Path Traversal vulnerability detected. User input from Flask request is used
+    in file operations without validation. An attacker could access files outside
+    the intended directory using '../' sequences. Validate and sanitize file paths.
+  metadata:
+    cwe:
+    - 'CWE-22: Path Traversal'
+    owasp:
+    - A01:2021 - Broken Access Control
+    - A01:2025 - Broken Access Control
+    category: security
+    technology:
+    - flask
+    subcategory:
+    - vuln
+    impact: HIGH
+    likelihood: MEDIUM
+    confidence: HIGH
+    fix: |
+      Use secure_filename and validate paths:
+      from werkzeug.utils import secure_filename
+      filename = secure_filename(user_input)
+      safe_path = os.path.join(base_dir, filename)
+      if not safe_path.startswith(base_dir):
+          abort(403)
+  severity: ERROR
+  languages:
+  - python
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern-either:
+      - pattern: request.args.get(...)
+      - pattern: request.form[...]
+      - pattern: request.json[...]
+      - pattern: flask.request.args.get(...)
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: open(...)
+      - pattern: os.path.join(...)
+      - pattern: pathlib.Path(...)
+      - pattern: send_file(...)
+      - pattern: send_from_directory(...)
+  pattern-sanitizers:
+  - patterns:
+    - pattern-either:
+      - pattern: secure_filename(...)
+      - pattern: os.path.basename(...)
+
+# Flask XSS via Template Injection
+- id: flask-template-injection
+  message: >-
+    Server-Side Template Injection (SSTI) vulnerability detected. User input flows
+    to render_template_string() which can execute arbitrary Python code. Use
+    render_template() with separate template files and proper escaping instead.
+  metadata:
+    cwe:
+    - 'CWE-79: Cross-site Scripting'
+    - 'CWE-94: Code Injection'
+    owasp:
+    - A03:2021 - Injection
+    - A05:2025 - Injection
+    category: security
+    technology:
+    - flask
+    - jinja2
+    subcategory:
+    - vuln
+    impact: CRITICAL
+    likelihood: HIGH
+    confidence: HIGH
+    fix: |
+      Use render_template with separate files:
+      return render_template('greeting.html', name=name)
+      # In greeting.html: <h1>Hello, {{ name }}!</h1>
+  severity: ERROR
+  languages:
+  - python
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern-either:
+      - pattern: request.args.get(...)
+      - pattern: request.form[...]
+      - pattern: request.json[...]
+      - pattern: flask.request.args.get(...)
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: render_template_string(...)
+      - pattern: flask.render_template_string(...)
+      - pattern: jinja2.Template(...).render(...)
+
+# Flask Insecure Deserialization
+- id: flask-insecure-deserialization
+  message: >-
+    Insecure deserialization vulnerability detected. User input flows to pickle.loads()
+    which can execute arbitrary code. Never deserialize untrusted data with pickle.
+    Use JSON or other safe serialization formats.
+  metadata:
+    cwe:
+    - 'CWE-502: Deserialization of Untrusted Data'
+    owasp:
+    - A08:2021 - Software and Data Integrity Failures
+    - A08:2025 - Software or Data Integrity Failures
+    category: security
+    technology:
+    - flask
+    subcategory:
+    - vuln
+    impact: CRITICAL
+    likelihood: MEDIUM
+    confidence: HIGH
+    fix: |
+      Use JSON instead of pickle:
+      data = json.loads(user_input)
+  severity: ERROR
+  languages:
+  - python
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern-either:
+      - pattern: request.data
+      - pattern: request.get_data(...)
+      - pattern: request.json
+      - pattern: flask.request.data
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: yaml.load(...)
+      - pattern: yaml.unsafe_load(...)
+  pattern-sanitizers:
+  - patterns:
+    - pattern: yaml.safe_load(...)
+
+# Flask Eval Injection
+- id: flask-eval-injection
+  message: >-
+    Code injection vulnerability detected. User input flows to eval() or exec()
+    which can execute arbitrary Python code. Never use eval/exec with user input.
+  metadata:
+    cwe:
+    - 'CWE-94: Code Injection'
+    owasp:
+    - A03:2021 - Injection
+    - A05:2025 - Injection
+    category: security
+    technology:
+    - flask
+    subcategory:
+    - vuln
+    impact: CRITICAL
+    likelihood: HIGH
+    confidence: HIGH
+    fix: |
+      Avoid eval/exec entirely. Use safer alternatives like:
+      - ast.literal_eval() for simple data structures
+      - JSON parsing for data exchange
+  severity: ERROR
+  languages:
+  - python
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern-either:
+      - pattern: request.args.get(...)
+      - pattern: request.form[...]
+      - pattern: request.json[...]
+      - pattern: request.data
+      - pattern: flask.request.args.get(...)
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: compile(...)
