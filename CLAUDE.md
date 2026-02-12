@@ -30,42 +30,60 @@ Press `F5` in VS Code to launch an Extension Development Host with the extension
 
 ## Architecture Overview
 
-This is a VS Code extension that performs security vulnerability analysis using a hybrid TypeScript/Python architecture:
+This is an MCP (Model Context Protocol) server that provides security scanning tools for AI coding agents.
 
-### Core Components
+### Directory Structure
 
-1. **TypeScript Layer** (`src/extension.ts`, `src/securityProvider.ts`)
-   - VS Code extension entry point and command registration
-   - Spawns Python analyzer via `child_process.exec`
-   - Manages diagnostics collection and sidebar tree view
-   - Parses JSON output from Python analyzer
+```
+mcp-server/
+├── index.js                 # Entry point, MCP server setup, tool registration (185 lines)
+├── src/
+│   ├── fix-patterns.js      # 165 security fix templates (698 lines)
+│   ├── utils.js             # Shared utilities (153 lines)
+│   ├── tools/
+│   │   ├── scan-security.js # scan_security MCP tool
+│   │   ├── fix-security.js  # fix_security MCP tool
+│   │   ├── check-package.js # check_package MCP tool + hallucination detection
+│   │   ├── scan-packages.js # scan_packages MCP tool
+│   │   └── scan-prompt.js   # scan_agent_prompt MCP tool (535 lines)
+│   └── cli/
+│       ├── init.js          # Client setup command (288 lines)
+│       ├── doctor.js        # Diagnostics command (273 lines)
+│       └── demo.js          # Demo generation command (238 lines)
+├── analyzer.py              # Python analysis engine
+├── ast_parser.py            # Tree-sitter AST parsing
+├── taint_analyzer.py        # Dataflow taint analysis
+├── rules/                   # 1700+ YAML security rules
+└── packages/                # Package lists for hallucination detection
+```
 
-2. **Python Analysis Engine** (`src/analyzer.py`)
-   - Core security scanning logic using regex-based pattern matching
-   - Reads YAML rule files and matches patterns against source code
-   - Outputs JSON array of security issues (ruleId, message, line, column, severity)
-   - Language detection based on file extension
+### MCP Tools
 
-3. **Security Rules** (`src/rules/`)
-   - YAML files following Semgrep registry format
-   - Rules organized by language: `python.security.yaml`, `javascript.security.yaml`, `java.security.yaml`, `go.security.yaml`, `dockerfile.security.yaml`, `generic.secrets.yaml`
-   - Each rule has: id, patterns (regex), message, severity, languages, metadata (CWE, OWASP)
-   - Rule loader in `src/rules/__init__.py` with fallback rules if PyYAML unavailable
+| Tool | File | Description |
+|------|------|-------------|
+| `scan_security` | `src/tools/scan-security.js` | Scan code for vulnerabilities |
+| `fix_security` | `src/tools/fix-security.js` | Auto-fix vulnerabilities |
+| `check_package` | `src/tools/check-package.js` | Verify single package |
+| `scan_packages` | `src/tools/scan-packages.js` | Check all imports in file |
+| `scan_agent_prompt` | `src/tools/scan-prompt.js` | Detect prompt injection |
+| `list_security_rules` | `index.js` | List available rules |
+
+### CLI Commands
+
+| Command | File | Description |
+|---------|------|-------------|
+| `init <client>` | `src/cli/init.js` | Setup MCP for AI client |
+| `doctor` | `src/cli/doctor.js` | Check environment |
+| `demo --lang <lang>` | `src/cli/demo.js` | Generate demo file |
 
 ### Data Flow
 
-1. VS Code triggers scan (on save or command)
-2. `extension.ts` calls Python: `python src/analyzer.py <filepath>`
-3. `analyzer.py` detects language, loads applicable rules, runs regex matching
-4. JSON output parsed by TypeScript, converted to VS Code diagnostics
-5. `SecurityTreeDataProvider` updates sidebar with findings
-
-### Extension Configuration
-
-Settings defined in `package.json` under `contributes.configuration`:
-- `agentSecurity.enabledRules`: Array of rule IDs to enable
-- `agentSecurity.severity`: Default severity level
-- `agentSecurity.autoScan`: Auto-scan on file save
+1. MCP client sends tool call (e.g., `scan_security`)
+2. `index.js` routes to tool handler in `src/tools/`
+3. Tool calls Python analyzer via `execFileSync`
+4. `analyzer.py` uses AST + taint analysis
+5. Results enhanced with fix suggestions
+6. JSON/SARIF response returned to client
 
 ### Adding New Rules
 
@@ -133,7 +151,7 @@ element.innerHTML = DOMPurify.sanitize(userInput);
 **Hardcoded Secret Fix:**
 ```python
 # BEFORE (vulnerable)
-api_key = "sk_live_abc123..."
+api_key = "stripe_test_FAKE123..."
 
 # AFTER (safe)
 api_key = os.environ.get("API_KEY")

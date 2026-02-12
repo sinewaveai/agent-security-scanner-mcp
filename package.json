@@ -76,6 +76,7 @@
     "LICENSE",
     "server.json",
     "index.js",
+    "src/**",
     "analyzer.py",
     "ast_parser.py",
     "generic_ast.py",
