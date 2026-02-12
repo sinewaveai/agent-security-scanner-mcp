@@ -160,7 +160,7 @@ $xml = simplexml_load_string($xmlData);
 $password = "SuperSecret123!";
 
 // VULN: hardcoded-api-key
-$api_key = "sk_live_12345abcdef";
+$api_key = "test_FAKEFAKEFAKE1234";
 
 // SAFE: hardcoded-password
 $password = getenv("DB_PASSWORD");

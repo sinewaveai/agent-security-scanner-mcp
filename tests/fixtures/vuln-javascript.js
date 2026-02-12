@@ -18,7 +18,7 @@ function runCommand(userInput) {
 }
 
 // 4. Hardcoded API key
-const API_KEY = "sk_live_abc123def456ghi789";
+const API_KEY = "stripe_test_FAKEFAKEFAKEFAKE1234";
 
 // 5. Weak crypto (MD5)
 function hashPassword(password) {

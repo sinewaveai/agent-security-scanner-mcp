@@ -20,7 +20,7 @@ def run_command(user_input):
     return result
 
 # 3. Hardcoded secret
-API_KEY = "sk_live_abc123def456ghi789"
+API_KEY = "stripe_test_FAKEFAKEFAKEFAKE1234"
 
 # 4. Weak crypto (MD5)
 def hash_password(password):

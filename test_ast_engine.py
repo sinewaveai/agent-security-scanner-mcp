@@ -89,7 +89,7 @@ void process(char *input) {
 
 def test_analyzer_backward_compat_output_format():
     """Output format must have ruleId, message, line, column, severity keys."""
-    vuln_code = 'API_KEY = "sk_live_abc123def456"\n'
+    vuln_code = 'API_KEY = "test_FAKEFAKEFAKE1234"\n'
     with tempfile.NamedTemporaryFile(suffix='.py', mode='w', delete=False) as f:
         f.write(vuln_code)
         f.flush()

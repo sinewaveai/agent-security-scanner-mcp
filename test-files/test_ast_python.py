@@ -14,7 +14,7 @@ app = Flask(__name__)
 # Test 1: Hardcoded credentials (AST should detect variable assignment patterns)
 API_KEY = "sk-proj-abc123xyz789"
 DATABASE_PASSWORD = "super_secret_password"
-AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
+AWS_ACCESS_KEY = "AKIAFAKEACCESSKEYID00"
 
 # Test 2: SQL Injection (AST should detect string concatenation in execute)
 @app.route('/user/<user_id>')
