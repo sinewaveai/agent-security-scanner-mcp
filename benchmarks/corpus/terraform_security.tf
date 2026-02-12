@@ -206,7 +206,7 @@ variable "db_password" {
 
 # VULN: hardcoded-api-key
 locals {
-  api_key = "sk_live_12345abcdef"
+  api_key = "test_FAKEFAKEFAKE1234"
 }
 
 # SAFE: hardcoded-password

@@ -52,7 +52,7 @@ db_password = os.environ.get("DB_PASSWORD")
 
 # VULN: python.lang.security.audit.hardcoded-api-key
 # VULN: generic.secrets.security.hardcoded-api-key
-api_key = "sk_live_abcdef1234567890abcdef"
+api_key = "stripe_test_FAKEFAKEFAKEFAKE1234"
 
 # SAFE: hardcoded-api-key
 api_key = os.environ.get("API_KEY")

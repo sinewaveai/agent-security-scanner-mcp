@@ -1,6 +1,6 @@
 // JavaScript vulnerabilities for SARIF testing
 
-const API_KEY = "sk_live_abc123xyz789";
+const API_KEY = "stripe_test_FAKEFAKEFAKEFAKE1234";
 const AWS_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 
 // SQL injection

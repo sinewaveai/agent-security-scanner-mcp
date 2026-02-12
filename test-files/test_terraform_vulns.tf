@@ -114,11 +114,11 @@ resource "aws_db_instance" "hardcoded_creds" {
 }
 
 variable "api_key" {
-  default = "sk_test_EXAMPLE_DO_NOT_USE_fake123"
+  default = "test_FAKEFAKEFAKEFAKE1234"
 }
 
 # AWS Access Key Hardcoded - should be detected
 provider "aws" {
-  access_key = "AKIAIOSFODNN7EXAMPLE"
-  secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  access_key = "AKIAFAKEACCESSKEYID00"
+  secret_key = "fakesecretkeyFAKE00000000000000000000"
 }

@@ -2,6 +2,7 @@
 
 Security scanner MCP server for AI coding agents. Scans code for vulnerabilities, detects hallucinated packages, and blocks prompt injection — all in real-time via the Model Context Protocol.
 
+[![npm downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

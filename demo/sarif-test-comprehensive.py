@@ -16,7 +16,7 @@ def delete_user(user_id):
 
 # 3. Hardcoded secrets
 API_KEY = "sk-proj-abc123xyz789secretkey"
-AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
+AWS_ACCESS_KEY = "AKIAFAKEACCESSKEYID00"
 DATABASE_PASSWORD = "super_secret_password_123"
 
 # 4. Command injection
