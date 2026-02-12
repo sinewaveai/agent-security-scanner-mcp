@@ -1,0 +1,33 @@
+name: Publish to GitHub Packages
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-gpr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@sinewaveai'
+
+      - name: Update package name for GPR
+        run: |
+          node -e "
+          const pkg = require('./package.json');
+          pkg.name = '@sinewaveai/agent-security-scanner-mcp';
+          pkg.publishConfig = { registry: 'https://npm.pkg.github.com' };
+          require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
