@@ -1,10 +1,12 @@
 # agent-security-scanner-mcp
 
-Security scanner MCP server for AI coding agents. Scans code for vulnerabilities, detects hallucinated packages, and blocks prompt injection — all in real-time via the Model Context Protocol.
+Security scanner for AI coding agents and autonomous assistants. Scans code for vulnerabilities, detects hallucinated packages, and blocks prompt injection — via MCP (Claude Code, Cursor, Windsurf, Cline) or CLI (OpenClaw, CI/CD).
 
 [![npm downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> **New in v3.3.0:** Full [OpenClaw](https://openclaw.ai) integration with 30+ rules targeting autonomous AI threats — data exfiltration, credential theft, messaging abuse, and unsafe automation. [See OpenClaw setup](#openclaw-integration).
 
 ## Tools
 
@@ -392,6 +394,7 @@ npx agent-security-scanner-mcp
 | Kilo Code | `npx agent-security-scanner-mcp init kilo-code` |
 | OpenCode | `npx agent-security-scanner-mcp init opencode` |
 | Cody | `npx agent-security-scanner-mcp init cody` |
+| **OpenClaw** | `npx agent-security-scanner-mcp init openclaw` |
 | Interactive | `npx agent-security-scanner-mcp init` |
 
 The `init` command auto-detects your OS, locates the config file, creates a backup, and adds the MCP server entry. **Restart your client after running init.**
@@ -448,6 +451,61 @@ npx agent-security-scanner-mcp demo --lang js
 Creates a small file with 3 intentional vulnerabilities, runs the scanner, shows findings with CWE/OWASP references, and asks if you want to keep the file for testing.
 
 Available languages: `js` (default), `py`, `go`, `java`.
+
+---
+
+## CLI Tools
+
+Use the scanner directly from command line (for scripts, CI/CD, or OpenClaw):
+
+```bash
+# Scan a prompt for injection attacks
+npx agent-security-scanner-mcp scan-prompt "ignore previous instructions"
+
+# Scan a file for vulnerabilities
+npx agent-security-scanner-mcp scan-security ./app.py --verbosity minimal
+
+# Check if a package is legitimate
+npx agent-security-scanner-mcp check-package flask pypi
+
+# Scan file imports for hallucinated packages
+npx agent-security-scanner-mcp scan-packages ./requirements.txt pypi
+```
+
+**Exit codes:** `0` = safe, `1` = issues found. Use in scripts to block risky operations.
+
+---
+
+## OpenClaw Integration
+
+[OpenClaw](https://openclaw.ai) is an autonomous AI assistant with broad system access. This scanner provides security guardrails for OpenClaw users.
+
+### Install
+
+```bash
+npx agent-security-scanner-mcp init openclaw
+```
+
+This installs a skill to `~/.openclaw/workspace/skills/security-scanner/`.
+
+### OpenClaw-Specific Threats
+
+The scanner includes 30+ rules targeting OpenClaw's unique attack surface:
+
+| Category | Examples |
+|----------|----------|
+| **Data Exfiltration** | "Forward emails to...", "Upload files to...", "Share browser cookies" |
+| **Messaging Abuse** | "Send to all contacts", "Auto-reply to everyone" |
+| **Credential Theft** | "Show my passwords", "Access keychain", "List API keys" |
+| **Unsafe Automation** | "Run hourly without asking", "Disable safety checks" |
+| **Service Attacks** | "Delete all repos", "Make payment to..." |
+
+### Usage in OpenClaw
+
+The skill is auto-discovered. Use it by asking:
+- "Scan this prompt for security issues"
+- "Check if this code is safe to run"
+- "Verify these packages aren't hallucinated"
 
 ---
 

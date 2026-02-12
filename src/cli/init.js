@@ -73,6 +73,12 @@ const CLIENT_CONFIGS = {
     configKey: 'mcpServers',
     configPath: () => join(vscodeBase(), 'Code', 'User', 'globalStorage', 'sourcegraph.cody-ai', 'mcp_settings.json'),
     buildEntry: () => ({ ...MCP_SERVER_ENTRY })
+  },
+  'openclaw': {
+    name: 'OpenClaw',
+    isSkillBased: true, // OpenClaw uses skills, not MCP config
+    skillPath: () => join(homedir(), '.openclaw', 'workspace', 'skills', 'security-scanner'),
+    configPath: () => join(homedir(), '.openclaw', 'workspace', 'skills', 'security-scanner', 'SKILL.md')
   }
 };
 
@@ -150,6 +156,87 @@ function printInitUsage() {
   console.log('    npx agent-security-scanner-mcp init cline --force --name my-scanner\n');
 }
 
+// Special installer for OpenClaw (skill-based)
+async function installOpenClawSkill(client, flags) {
+  const skillDir = client.skillPath();
+  const skillFile = client.configPath();
+
+  // Find the source skill file (bundled with the package)
+  const __dirname = dirname(new URL(import.meta.url).pathname);
+  const sourceSkill = join(__dirname, '..', '..', 'skills', 'openclaw', 'SKILL.md');
+
+  console.log(`\n  Client:  ${client.name}`);
+  console.log(`  Skill:   ${skillDir}`);
+  console.log(`  OS:      ${platform()} (${process.arch})\n`);
+
+  // Check if OpenClaw workspace exists
+  const openclawDir = join(homedir(), '.openclaw');
+  if (!existsSync(openclawDir)) {
+    console.log(`  OpenClaw not found at ${openclawDir}`);
+    console.log(`  Please install OpenClaw first: https://openclaw.ai\n`);
+    process.exit(1);
+  }
+
+  // Check if source skill exists
+  if (!existsSync(sourceSkill)) {
+    console.error(`  ERROR: Skill source not found at ${sourceSkill}`);
+    console.error(`  This may be a packaging issue. Please reinstall the package.\n`);
+    process.exit(1);
+  }
+
+  // Check if skill already exists
+  if (existsSync(skillFile)) {
+    const existing = readFileSync(skillFile, 'utf-8');
+    const source = readFileSync(sourceSkill, 'utf-8');
+    if (existing === source) {
+      console.log(`  Security scanner skill is already installed (identical).`);
+      console.log(`  Nothing to do.\n`);
+      process.exit(0);
+    }
+
+    console.log(`  Security scanner skill exists but differs.`);
+    if (!flags.force) {
+      if (flags.yes) {
+        console.log(`  Skipping (use --force to overwrite).\n`);
+        process.exit(0);
+      }
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise((resolve) => {
+        rl.question('  Overwrite? (y/N): ', (a) => { rl.close(); resolve(a); });
+      });
+      if (answer.toLowerCase() !== 'y') {
+        console.log('  Aborted.\n');
+        process.exit(0);
+      }
+    }
+  }
+
+  // Dry-run mode
+  if (flags.dryRun) {
+    console.log(`  [dry-run] Would create directory: ${skillDir}`);
+    console.log(`  [dry-run] Would copy skill from: ${sourceSkill}`);
+    console.log(`  [dry-run] Would write to: ${skillFile}`);
+    console.log(`  No changes made.\n`);
+    process.exit(0);
+  }
+
+  // Create skill directory
+  if (!existsSync(skillDir)) {
+    mkdirSync(skillDir, { recursive: true });
+    console.log(`  Created directory: ${skillDir}`);
+  }
+
+  // Copy skill file
+  copyFileSync(sourceSkill, skillFile);
+  console.log(`  Installed skill: ${skillFile}`);
+
+  console.log(`\n  OpenClaw security scanner skill installed successfully!`);
+  console.log(`\n  Usage in OpenClaw:`);
+  console.log(`    - The skill will be auto-discovered by OpenClaw`);
+  console.log(`    - Use /security-scanner to invoke it`);
+  console.log(`    - Or ask: "scan this prompt for security issues"\n`);
+}
+
 export async function runInit(args) {
   const flags = parseInitFlags(args);
   let clientName = flags.client;
@@ -169,6 +256,12 @@ export async function runInit(args) {
     console.log(`\n  Unknown client: "${clientName}"\n`);
     printInitUsage();
     process.exit(1);
+  }
+
+  // Special handling for OpenClaw (skill-based, not MCP config)
+  if (client.isSkillBased) {
+    await installOpenClawSkill(client, flags);
+    return;
   }
 
   const configPath = flags.path || client.configPath();

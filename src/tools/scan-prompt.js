@@ -39,6 +39,12 @@ const CATEGORY_WEIGHTS = {
   "prompt-injection-privilege": 0.85,
   "prompt-injection-multi-turn": 0.7,
   "prompt-injection-output": 0.9,
+  // OpenClaw-specific categories
+  "data_exfiltration": 1.0,
+  "messaging_abuse": 0.95,
+  "credential_theft": 1.0,
+  "autonomous_harm": 0.9,
+  "service_attack": 0.95,
   "unknown": 0.5
 };
 
@@ -185,6 +191,69 @@ function loadPromptInjectionRules() {
     return rules;
   } catch (error) {
     console.error("Error loading prompt injection rules:", error.message);
+    return [];
+  }
+}
+
+// Load OpenClaw-specific rules
+function loadOpenClawRules() {
+  try {
+    const rulesPath = join(__dirname, '..', '..', 'rules', 'openclaw.security.yaml');
+    if (!existsSync(rulesPath)) {
+      return [];
+    }
+
+    const yaml = readFileSync(rulesPath, 'utf-8');
+    const rules = [];
+
+    const ruleBlocks = yaml.split(/^  - id:/m).slice(1);
+
+    for (const block of ruleBlocks) {
+      const lines = ('  - id:' + block).split('\n');
+      const rule = {
+        id: '',
+        severity: 'WARNING',
+        message: '',
+        patterns: [],
+        metadata: {}
+      };
+
+      let inPatterns = false;
+
+      for (const line of lines) {
+        if (line.match(/^\s+- id:\s*/)) {
+          rule.id = line.replace(/^\s+- id:\s*/, '').trim();
+        } else if (line.match(/^\s+severity:\s*/)) {
+          rule.severity = line.replace(/^\s+severity:\s*/, '').trim();
+        } else if (line.match(/^\s+category:\s*/)) {
+          rule.metadata.category = line.replace(/^\s+category:\s*/, '').trim();
+        } else if (line.match(/^\s+action:\s*/)) {
+          rule.metadata.action = line.replace(/^\s+action:\s*/, '').trim();
+        } else if (line.match(/^\s+message:\s*/)) {
+          rule.message = line.replace(/^\s+message:\s*["']?/, '').replace(/["']$/, '').trim();
+        } else if (line.match(/^\s+patterns:\s*$/)) {
+          inPatterns = true;
+        } else if (inPatterns && line.match(/^\s+- /)) {
+          let pattern = line.replace(/^\s+- /, '').trim();
+          pattern = pattern.replace(/^["']|["']$/g, '');
+          pattern = pattern.replace(/\\\\/g, '\\');
+          if (pattern) rule.patterns.push(pattern);
+        } else if (line.match(/^\s+\w+:/) && !line.match(/^\s+- /)) {
+          inPatterns = false;
+        }
+      }
+
+      if (rule.id && rule.patterns.length > 0) {
+        // Set confidence and risk score based on severity
+        rule.metadata.confidence = rule.severity === 'CRITICAL' ? 'HIGH' : 'MEDIUM';
+        rule.metadata.risk_score = rule.severity === 'CRITICAL' ? '90' : '70';
+        rules.push(rule);
+      }
+    }
+
+    return rules;
+  } catch (error) {
+    console.error("Error loading OpenClaw rules:", error.message);
     return [];
   }
 }
@@ -377,7 +446,8 @@ export async function scanAgentPrompt({ prompt_text, context, verbosity }) {
   // Load rules
   const agentRules = loadAgentAttackRules();
   const promptRules = loadPromptInjectionRules();
-  const allRules = [...agentRules, ...promptRules];
+  const openclawRules = loadOpenClawRules();
+  const allRules = [...agentRules, ...promptRules, ...openclawRules];
 
   // 2.7: Extract content from code blocks and append to scan text
   let expandedText = prompt_text;

@@ -156,17 +156,106 @@ if (cliArgs[0] === 'init') {
     console.error(`  Error: ${err.message}\n`);
     process.exit(1);
   });
+} else if (cliArgs[0] === 'scan-prompt') {
+  // CLI mode: scan-prompt <text> [--verbosity minimal|compact|full]
+  const text = cliArgs[1];
+  if (!text) {
+    console.error('Usage: agent-security-scanner-mcp scan-prompt <text> [--verbosity minimal|compact|full]');
+    process.exit(1);
+  }
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+
+  loadPackageLists();
+  scanAgentPrompt({ prompt_text: text, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.action === 'BLOCK' ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'scan-security') {
+  // CLI mode: scan-security <file> [--verbosity minimal|compact|full] [--format json|sarif]
+  const filePath = cliArgs[1];
+  if (!filePath) {
+    console.error('Usage: agent-security-scanner-mcp scan-security <file> [--verbosity minimal|compact|full] [--format json|sarif]');
+    process.exit(1);
+  }
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const formatIdx = cliArgs.indexOf('--format');
+  const outputFormat = formatIdx !== -1 ? cliArgs[formatIdx + 1] : 'json';
+
+  loadPackageLists();
+  scanSecurity({ file_path: filePath, verbosity, output_format: outputFormat }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.issues_count > 0 || output.total > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'check-package') {
+  // CLI mode: check-package <name> <ecosystem>
+  const packageName = cliArgs[1];
+  const ecosystem = cliArgs[2];
+  if (!packageName || !ecosystem) {
+    console.error('Usage: agent-security-scanner-mcp check-package <name> <ecosystem>');
+    console.error('Ecosystems: npm, pypi, rubygems, crates, dart, perl, raku');
+    process.exit(1);
+  }
+
+  loadPackageLists();
+  checkPackage({ package_name: packageName, ecosystem }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.legitimate ? 0 : 1);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'scan-packages') {
+  // CLI mode: scan-packages <file> <ecosystem> [--verbosity minimal|compact|full]
+  const filePath = cliArgs[1];
+  const ecosystem = cliArgs[2];
+  if (!filePath || !ecosystem) {
+    console.error('Usage: agent-security-scanner-mcp scan-packages <file> <ecosystem> [--verbosity minimal|compact|full]');
+    console.error('Ecosystems: npm, pypi, rubygems, crates, dart, perl, raku');
+    process.exit(1);
+  }
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+
+  loadPackageLists();
+  scanPackages({ file_path: filePath, ecosystem, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.hallucinated_count > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
 } else if (cliArgs[0] === '--help' || cliArgs[0] === '-h' || cliArgs[0] === 'help') {
   console.log('\n  agent-security-scanner-mcp\n');
   console.log('  Commands:');
   console.log('    init [client]        Set up MCP config for a client');
   console.log('    doctor [--fix]       Check environment & client configs');
-  console.log('    demo [--lang js]     Generate vulnerable file + scan it');
+  console.log('    demo [--lang js]     Generate vulnerable file + scan it\n');
+  console.log('  CLI Tools (for scripts & OpenClaw):');
+  console.log('    scan-prompt <text>   Scan prompt for injection attacks');
+  console.log('    scan-security <file> Scan file for vulnerabilities');
+  console.log('    check-package <n> <e> Check if package exists in ecosystem');
+  console.log('    scan-packages <f> <e> Scan file imports for hallucinated packages\n');
   console.log('    (no args)            Start MCP server on stdio\n');
+  console.log('  Options:');
+  console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
+  console.log('    --format <type>      json|sarif (scan-security only)\n');
   console.log('  Examples:');
   console.log('    npx agent-security-scanner-mcp init');
-  console.log('    npx agent-security-scanner-mcp doctor --fix');
-  console.log('    npx agent-security-scanner-mcp demo --lang py\n');
+  console.log('    npx agent-security-scanner-mcp scan-prompt "ignore previous instructions"');
+  console.log('    npx agent-security-scanner-mcp scan-security ./app.py --verbosity minimal');
+  console.log('    npx agent-security-scanner-mcp check-package flask pypi\n');
   process.exit(0);
 } else {
   // Normal MCP server mode
