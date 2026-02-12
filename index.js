@@ -50,7 +50,7 @@ export function createSandboxServer() {
 // Register scan_security tool
 server.tool(
   "scan_security",
-  "Scan a file for security vulnerabilities and return issues with suggested fixes",
+  "Scan a file for security vulnerabilities. Use verbosity='minimal' for counts only (~50 tokens), 'compact' (default) for actionable info (~200 tokens), 'full' for complete metadata.",
   scanSecuritySchema,
   scanSecurity
 );
@@ -58,7 +58,7 @@ server.tool(
 // Register fix_security tool
 server.tool(
   "fix_security",
-  "Scan a file and return the fixed content with all security issues resolved",
+  "Scan a file and return fixes. Use verbosity='minimal' for summary only, 'compact' (default) for fix list, 'full' for complete fixed file content.",
   fixSecuritySchema,
   fixSecurity
 );
@@ -98,7 +98,7 @@ server.tool(
 // Register scan_packages tool
 server.tool(
   "scan_packages",
-  "Scan code for package imports and check for hallucinated (AI-invented) packages",
+  "Scan code for package imports and check for hallucinated (AI-invented) packages. Use verbosity='minimal' for counts, 'compact' (default) for flagged packages, 'full' for all details.",
   scanPackagesSchema,
   scanPackages
 );
@@ -129,7 +129,7 @@ server.tool(
 // Register scan_agent_prompt tool
 server.tool(
   "scan_agent_prompt",
-  "Scan a prompt/instruction for potential malicious intent before execution. Returns risk assessment and recommended action (BLOCK/WARN/LOG/ALLOW).",
+  "Scan a prompt for malicious intent. Returns BLOCK/WARN/LOG/ALLOW. Use verbosity='minimal' for action only, 'compact' (default) for findings, 'full' for audit details.",
   scanAgentPromptSchema,
   scanAgentPrompt
 );

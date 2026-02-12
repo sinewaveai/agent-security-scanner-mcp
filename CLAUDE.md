@@ -160,3 +160,40 @@ api_key = os.environ.get("API_KEY")
 ### Slash Command
 
 Use `/fix-security` to automatically scan the current file and apply all security fixes.
+
+## Context Optimization
+
+All MCP tools support a `verbosity` parameter to minimize context window consumption:
+
+| Level | Tokens | Use Case |
+|-------|--------|----------|
+| `minimal` | ~50 | Quick checks, CI pipelines, batch scans |
+| `compact` | ~200 | Normal development (default) |
+| `full` | ~2000 | Debugging, compliance reports |
+
+### Example Usage
+
+```javascript
+// Minimal - just counts
+scan_security({ file_path: "app.py", verbosity: "minimal" })
+// Returns: { total: 5, critical: 2, warning: 3, message: "Found 5 issue(s)" }
+
+// Compact - actionable info (default)
+scan_security({ file_path: "app.py", verbosity: "compact" })
+// Returns: { issues: [{ line, ruleId, severity, message, fix }] }
+
+// Full - complete metadata
+scan_security({ file_path: "app.py", verbosity: "full" })
+// Returns: { issues: [{ ...all fields including metadata, CWE, OWASP }] }
+```
+
+## Subagent Skills
+
+For context-efficient security scanning in Claude Code, use the provided skills in `skills/`:
+
+| Skill | Use Case |
+|-------|----------|
+| `security-scanner` | Single file scan with concise summary (~200 tokens output) |
+| `security-scan-batch` | Multi-file parallel scanning with consolidated results |
+
+These skills run full analysis internally and return only actionable summaries, reducing context consumption by 80-90%.

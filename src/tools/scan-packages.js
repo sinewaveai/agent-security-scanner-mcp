@@ -61,11 +61,12 @@ export function extractPackages(code, ecosystem) {
 // Schema for scan_packages tool
 export const scanPackagesSchema = {
   file_path: z.string().describe("Path to the file to scan"),
-  ecosystem: z.enum(["dart", "perl", "raku", "npm", "pypi", "rubygems", "crates"]).describe("The package ecosystem (dart=pub.dev, perl=CPAN, raku=raku.land, npm=npmjs, pypi=PyPI, rubygems=RubyGems, crates=crates.io)")
+  ecosystem: z.enum(["dart", "perl", "raku", "npm", "pypi", "rubygems", "crates"]).describe("The package ecosystem (dart=pub.dev, perl=CPAN, raku=raku.land, npm=npmjs, pypi=PyPI, rubygems=RubyGems, crates=crates.io)"),
+  verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (counts only), 'compact' (default), 'full' (all details)")
 };
 
 // Handler for scan_packages tool
-export async function scanPackages({ file_path, ecosystem }) {
+export async function scanPackages({ file_path, ecosystem, verbosity }) {
   if (!existsSync(file_path)) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -94,10 +95,30 @@ export async function scanPackages({ file_path, ecosystem }) {
   const unknown = results.filter(r => r.status === "unknown");
   const totalKnown = getTotalPackages(ecosystem);
 
-  return {
-    content: [{
-      type: "text",
-      text: JSON.stringify({
+  // Determine verbosity (default: compact)
+  const level = verbosity || 'compact';
+
+  const recommendation = hallucinated.length > 0
+    ? `Found ${hallucinated.length} potentially hallucinated package(s): ${hallucinated.map(r => r.package).join(', ')}`
+    : unknown.length > 0
+      ? `${unknown.length} package(s) could not be verified (no data available for ${ecosystem})`
+      : "All packages verified as legitimate";
+
+  let result;
+  switch (level) {
+    case 'minimal':
+      result = {
+        file: file_path,
+        ecosystem,
+        total: packages.length,
+        hallucinated: hallucinated.length,
+        legitimate: legitimate.length,
+        unknown: unknown.length,
+        message: recommendation
+      };
+      break;
+    case 'full':
+      result = {
         file: file_path,
         ecosystem,
         total_packages_found: packages.length,
@@ -108,12 +129,26 @@ export async function scanPackages({ file_path, ecosystem }) {
         hallucinated_packages: hallucinated.map(r => r.package),
         legitimate_packages: legitimate.map(r => r.package),
         all_results: results,
-        recommendation: hallucinated.length > 0
-          ? `⚠️ Found ${hallucinated.length} potentially hallucinated package(s): ${hallucinated.map(r => r.package).join(', ')}`
-          : unknown.length > 0
-            ? `⚠️ ${unknown.length} package(s) could not be verified (no data available for ${ecosystem})`
-            : "✅ All packages verified as legitimate"
-      }, null, 2)
+        recommendation
+      };
+      break;
+    case 'compact':
+    default:
+      result = {
+        file: file_path,
+        ecosystem,
+        total_packages_found: packages.length,
+        hallucinated_count: hallucinated.length,
+        hallucinated_packages: hallucinated.map(r => r.package),
+        legitimate_count: legitimate.length,
+        recommendation
+      };
+  }
+
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify(result, null, 2)
     }]
   };
 }

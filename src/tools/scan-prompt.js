@@ -366,11 +366,12 @@ export const scanAgentPromptSchema = {
   context: z.object({
     previous_messages: z.array(z.string()).optional().describe("Previous conversation messages for multi-turn detection"),
     sensitivity_level: z.enum(["high", "medium", "low"]).optional().describe("Sensitivity level - high means more strict, low means more permissive")
-  }).optional().describe("Optional context for better analysis")
+  }).optional().describe("Optional context for better analysis"),
+  verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (action only), 'compact' (default), 'full' (all details)")
 };
 
 // Export handler function
-export async function scanAgentPrompt({ prompt_text, context }) {
+export async function scanAgentPrompt({ prompt_text, context, verbosity }) {
   const findings = [];
 
   // Load rules
@@ -510,10 +511,23 @@ export async function scanAgentPrompt({ prompt_text, context }) {
     context_provided: !!context
   };
 
-  return {
-    content: [{
-      type: "text",
-      text: JSON.stringify({
+  // Determine verbosity (default: compact)
+  const level = verbosity || 'compact';
+
+  let result;
+  switch (level) {
+    case 'minimal':
+      result = {
+        action,
+        risk_level: riskLevel,
+        findings_count: findings.length,
+        message: findings.length > 0
+          ? `${action}: ${findings.length} concern(s) detected. Use verbosity='compact' for details.`
+          : "ALLOW: No security concerns detected."
+      };
+      break;
+    case 'full':
+      result = {
         action,
         risk_score: riskScore,
         risk_level: riskLevel,
@@ -529,7 +543,28 @@ export async function scanAgentPrompt({ prompt_text, context }) {
         explanation,
         recommendations,
         audit
-      }, null, 2)
+      };
+      break;
+    case 'compact':
+    default:
+      result = {
+        action,
+        risk_score: riskScore,
+        risk_level: riskLevel,
+        findings_count: findings.length,
+        findings: findings.map(f => ({
+          rule_id: f.rule_id,
+          severity: f.severity,
+          message: f.message
+        })),
+        recommendations
+      };
+  }
+
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify(result, null, 2)
     }]
   };
 }
