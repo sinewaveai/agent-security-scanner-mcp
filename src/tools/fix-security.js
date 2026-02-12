@@ -4,10 +4,43 @@ import { existsSync, readFileSync } from "fs";
 import { detectLanguage, runAnalyzer, generateFix } from '../utils.js';
 
 export const fixSecuritySchema = {
-  file_path: z.string().describe("Path to the file to fix")
+  file_path: z.string().describe("Path to the file to fix"),
+  verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (summary only), 'compact' (default), 'full' (includes fixed_content)")
 };
 
-export async function fixSecurity({ file_path }) {
+// Verbosity formatters
+function formatFixMinimal(file_path, fixes) {
+  return {
+    file: file_path,
+    fixes_applied: fixes.length,
+    message: fixes.length > 0
+      ? `Applied ${fixes.length} fix(es). Use verbosity='compact' for details.`
+      : "No fixes needed."
+  };
+}
+
+function formatFixCompact(file_path, fixes) {
+  return {
+    file: file_path,
+    fixes_applied: fixes.length,
+    fixes: fixes.map(f => ({
+      line: f.line,
+      rule: f.rule,
+      description: f.description
+    }))
+  };
+}
+
+function formatFixFull(file_path, fixes, fixedContent) {
+  return {
+    file: file_path,
+    fixes_applied: fixes.length,
+    fixes: fixes,
+    fixed_content: fixedContent
+  };
+}
+
+export async function fixSecurity({ file_path, verbosity }) {
   if (!existsSync(file_path)) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -56,15 +89,27 @@ export async function fixSecurity({ file_path }) {
     }
   }
 
+  // Determine verbosity (default: compact)
+  const level = verbosity || 'compact';
+  const fixedContent = lines.join('\n');
+
+  let result;
+  switch (level) {
+    case 'minimal':
+      result = formatFixMinimal(file_path, fixes);
+      break;
+    case 'full':
+      result = formatFixFull(file_path, fixes, fixedContent);
+      break;
+    case 'compact':
+    default:
+      result = formatFixCompact(file_path, fixes);
+  }
+
   return {
     content: [{
       type: "text",
-      text: JSON.stringify({
-        file: file_path,
-        fixes_applied: fixes.length,
-        fixes: fixes,
-        fixed_content: lines.join('\n')
-      }, null, 2)
+      text: JSON.stringify(result, null, 2)
     }]
   };
 }
