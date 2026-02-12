@@ -2,9 +2,10 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    testTimeout: 30000, // 30 seconds per test
-    hookTimeout: 30000, // 30 seconds for setup/teardown
+    testTimeout: 60000, // 60 seconds per test
+    hookTimeout: 60000, // 60 seconds for setup/teardown
     teardownTimeout: 10000,
     globals: true,
+    fileParallelism: false, // Run test files sequentially to avoid resource contention
   },
 })

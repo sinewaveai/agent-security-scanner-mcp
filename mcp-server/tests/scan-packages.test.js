@@ -37,7 +37,8 @@ describe('scan_packages tool', () => {
   it('should include unknown_count in results', async () => {
     const result = await client.callTool('scan_packages', {
       file_path: fixturePath('test-packages.py'),
-      ecosystem: 'pypi'
+      ecosystem: 'pypi',
+      verbosity: 'full'
     });
     expect(result.unknown_count).toBeDefined();
   });

@@ -35,7 +35,8 @@ describe('edge cases', () => {
   it('should handle very long prompt without crashing', async () => {
     const longPrompt = 'A'.repeat(50000);
     const result = await client.callTool('scan_agent_prompt', {
-      prompt_text: longPrompt
+      prompt_text: longPrompt,
+      verbosity: 'full'
     });
     expect(result.action).toBe('ALLOW');
     expect(result.audit.prompt_length).toBe(50000);
