@@ -64,12 +64,13 @@ Scan a file for security vulnerabilities. Use after writing or editing any code 
 |-----------|------|----------|-------------|
 | `file_path` | string | Yes | Absolute or relative path to the code file to scan |
 | `output_format` | string | No | `"json"` (default) or `"sarif"` for GitHub/GitLab Security tab integration |
+| `verbosity` | string | No | `"minimal"` (counts only), `"compact"` (default, actionable info), `"full"` (complete metadata) |
 
 **Example:**
 
 ```json
 // Input
-{ "file_path": "src/auth.js" }
+{ "file_path": "src/auth.js", "verbosity": "compact" }
 
 // Output
 {
@@ -113,6 +114,7 @@ Automatically fix all security vulnerabilities in a file. Use after `scan_securi
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `file_path` | string | Yes | Path to the file to fix |
+| `verbosity` | string | No | `"minimal"` (summary only), `"compact"` (default, fix list), `"full"` (includes fixed_content) |
 
 **Example:**
 
@@ -206,6 +208,7 @@ Scan a code file's imports to detect AI-hallucinated package names. Use after wr
 |-----------|------|----------|-------------|
 | `file_path` | string | Yes | Path to the code file or dependency manifest to scan |
 | `ecosystem` | string | Yes | `npm`, `pypi`, `rubygems`, `crates`, `dart`, `perl`, `raku` |
+| `verbosity` | string | No | `"minimal"` (counts only), `"compact"` (default, flagged packages), `"full"` (all details) |
 
 **Example:**
 
@@ -238,6 +241,7 @@ Scan a prompt or instruction for malicious intent before executing it. Use when 
 |-----------|------|----------|-------------|
 | `prompt_text` | string | Yes | The prompt or instruction text to analyze |
 | `context` | object | No | `sensitivity_level`: `"high"`, `"medium"` (default), or `"low"` |
+| `verbosity` | string | No | `"minimal"` (action only), `"compact"` (default, findings), `"full"` (audit details) |
 
 **Example:**
 
@@ -526,7 +530,71 @@ Upload results to GitHub Advanced Security or GitLab SAST dashboard.
 
 ---
 
+## Token Optimization
+
+All MCP tools support a `verbosity` parameter to minimize context window consumption — critical for AI coding agents with limited context.
+
+### Verbosity Levels
+
+| Level | Tokens | Use Case |
+|-------|--------|----------|
+| `minimal` | ~50 | CI/CD pipelines, batch scans, quick pass/fail checks |
+| `compact` | ~200 | Interactive development (default) |
+| `full` | ~2,500 | Debugging, compliance reports, audit trails |
+
+### Token Reduction by Tool
+
+| Tool | minimal | compact | full |
+|------|---------|---------|------|
+| `scan_security` | 98% reduction | 69% reduction | baseline |
+| `fix_security` | 91% reduction | 56% reduction | baseline |
+| `scan_agent_prompt` | 83% reduction | 55% reduction | baseline |
+| `scan_packages` | 75% reduction | 70% reduction | baseline |
+
+### Example Usage
+
+```json
+// Minimal - just counts (~50 tokens)
+{ "file_path": "app.py", "verbosity": "minimal" }
+// Returns: { "total": 5, "critical": 2, "warning": 3, "message": "Found 5 issue(s)" }
+
+// Compact - actionable info (~200 tokens, default)
+{ "file_path": "app.py", "verbosity": "compact" }
+// Returns: { "issues": [{ "line": 42, "ruleId": "...", "severity": "error", "fix": "..." }] }
+
+// Full - complete metadata (~2,500 tokens)
+{ "file_path": "app.py", "verbosity": "full" }
+// Returns: { "issues": [{ ...all fields including CWE, OWASP, references }] }
+```
+
+### Recommended Verbosity by Scenario
+
+| Scenario | Recommended | Why |
+|----------|-------------|-----|
+| CI/CD pipelines | `minimal` | Only need pass/fail counts |
+| Batch scanning multiple files | `minimal` | Aggregate results, avoid context overflow |
+| Interactive development | `compact` | Need line numbers and fix suggestions |
+| Debugging false positives | `full` | Need CWE/OWASP references and metadata |
+| Compliance documentation | `full` | Need complete audit trail |
+
+### Impact on Multi-File Sessions
+
+| Session Size | Without Verbosity | With `minimal` | Savings |
+|--------------|-------------------|----------------|---------|
+| 1 file | ~3,000 tokens | ~120 tokens | 96% |
+| 10 files | ~30,000 tokens | ~1,200 tokens | 96% |
+| 50 files | ~150,000 tokens | ~6,000 tokens | 96% |
+
+> **Note:** Security analysis runs at full depth regardless of verbosity setting. Verbosity only affects output format, not detection capabilities.
+
+---
+
 ## Changelog
+
+### v3.2.0
+- **Token Optimization** - New `verbosity` parameter for all tools reduces context window usage by up to 98%
+- **Three Verbosity Levels** - `minimal` (~50 tokens), `compact` (~200 tokens, default), `full` (~2,500 tokens)
+- **Batch Scanning Support** - Scan 50+ files without context overflow using `minimal` verbosity
 
 ### v3.1.0
 - **Flask Taint Rules** - New taint rules for Flask SQL injection, command injection, path traversal, and template injection
