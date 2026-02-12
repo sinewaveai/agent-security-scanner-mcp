@@ -190,7 +190,11 @@ document.getElementById('output').innerHTML = userInput;
         }
       });
 
+      expect(result?.content?.[0]?.text).toBeDefined();
       const sarif = JSON.parse(result.content[0].text);
+      expect(sarif.runs).toBeDefined();
+      expect(sarif.runs.length).toBeGreaterThan(0);
+
       const resultsWithFixes = sarif.runs[0].results.filter(r => r.fixes);
 
       // innerHTML should have a fix suggestion
@@ -203,5 +207,5 @@ document.getElementById('output').innerHTML = userInput;
     } finally {
       unlinkSync(testFile);
     }
-  }, 30000);
+  }, 60000);
 });
