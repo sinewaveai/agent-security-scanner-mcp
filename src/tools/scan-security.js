@@ -2,11 +2,15 @@
 import { z } from "zod";
 import { existsSync, readFileSync } from "fs";
 import { detectLanguage, runAnalyzer, generateFix, toSarif } from '../utils.js';
+import { deduplicateFindings } from '../dedup.js';
+import { applyContextFilter, detectFrameworks, applyFrameworkAdjustments } from '../context.js';
+import { loadConfig, shouldExcludeFile, applyConfig } from '../config.js';
 
 export const scanSecuritySchema = {
   file_path: z.string().describe("Path to the file to scan"),
   output_format: z.enum(['json', 'sarif']).optional().describe("Output format: 'json' (default) or 'sarif' for GitHub/GitLab integration"),
-  verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (counts only), 'compact' (default, actionable info), 'full' (complete metadata)")
+  verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (counts only), 'compact' (default, actionable info), 'full' (complete metadata)"),
+  engine: z.enum(['auto', 'ast', 'regex']).optional().describe("Analysis engine: 'auto' (default, AST with regex fallback), 'ast' (tree-sitter only), 'regex' (regex only)")
 };
 
 // Verbosity formatters
@@ -35,6 +39,7 @@ function formatCompact(file_path, language, issues) {
       line: i.line + 1,
       ruleId: i.ruleId,
       severity: i.severity,
+      confidence: i.confidence || 'MEDIUM',
       message: i.message,
       fix: i.suggested_fix?.fixed ? i.suggested_fix.fixed.trim() : null
     }))
@@ -50,25 +55,48 @@ function formatFull(file_path, language, issues) {
   };
 }
 
-export async function scanSecurity({ file_path, output_format, verbosity }) {
+export async function scanSecurity({ file_path, output_format, verbosity, engine }) {
   if (!existsSync(file_path)) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
     };
   }
 
-  const issues = runAnalyzer(file_path);
+  // Load project configuration
+  const config = loadConfig(file_path);
 
-  if (issues.error) {
+  // Check file exclusion
+  if (shouldExcludeFile(file_path, config)) {
     return {
-      content: [{ type: "text", text: JSON.stringify(issues) }]
+      content: [{ type: "text", text: JSON.stringify({ file: file_path, message: "File excluded by configuration", issues_count: 0 }) }]
     };
   }
+
+  const rawIssues = runAnalyzer(file_path, engine || 'auto');
+
+  if (rawIssues.error) {
+    return {
+      content: [{ type: "text", text: JSON.stringify(rawIssues) }]
+    };
+  }
+
+  // Cross-engine deduplication
+  const dedupedIssues = deduplicateFindings(rawIssues);
 
   // Read file content for fix suggestions
   const content = readFileSync(file_path, 'utf-8');
   const lines = content.split('\n');
   const language = detectLanguage(file_path);
+
+  // Context-aware filtering (suppress known module imports)
+  const contextFiltered = applyContextFilter(dedupedIssues, file_path, language);
+
+  // Framework-aware severity adjustment
+  const frameworks = detectFrameworks(file_path, language);
+  const frameworkAdjusted = applyFrameworkAdjustments(contextFiltered, frameworks);
+
+  // Apply .scannerrc configuration (rule suppression, severity/confidence thresholds)
+  const issues = applyConfig(frameworkAdjusted, file_path, config);
 
   // Enhance issues with fix suggestions
   const enhancedIssues = issues.map(issue => {

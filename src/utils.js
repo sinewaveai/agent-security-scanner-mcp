@@ -36,10 +36,14 @@ export function detectLanguage(filePath) {
 }
 
 // Run the Python analyzer
-export function runAnalyzer(filePath) {
+export function runAnalyzer(filePath, engine = 'auto') {
   try {
     const analyzerPath = join(__dirname, '..', 'analyzer.py');
-    const result = execFileSync('python3', [analyzerPath, filePath], {
+    const args = [analyzerPath, filePath];
+    if (engine !== 'auto') {
+      args.push('--engine', engine);
+    }
+    const result = execFileSync('python3', args, {
       encoding: 'utf-8',
       timeout: 30000
     });
@@ -49,17 +53,62 @@ export function runAnalyzer(filePath) {
   }
 }
 
+// Validate that a fix produces syntactically reasonable output
+export function validateFix(original, fixed) {
+  if (!fixed || fixed === original) return false;
+
+  // Strip escaped quotes for bracket/quote counting
+  const unescaped = fixed.replace(/\\["'`]/g, '');
+
+  // Check balanced quotes (single pass)
+  const singleQ = (unescaped.match(/'/g) || []).length;
+  const doubleQ = (unescaped.match(/"/g) || []).length;
+  const backtickQ = (unescaped.match(/`/g) || []).length;
+  if (singleQ % 2 !== 0 || doubleQ % 2 !== 0 || backtickQ % 2 !== 0) return false;
+
+  // Check balanced brackets
+  const brackets = { '(': 0, '[': 0, '{': 0 };
+  const closers = { ')': '(', ']': '[', '}': '{' };
+  for (const char of unescaped) {
+    if (brackets[char] !== undefined) brackets[char]++;
+    if (closers[char]) {
+      brackets[closers[char]]--;
+      if (brackets[closers[char]] < 0) return false;
+    }
+  }
+  if (Object.values(brackets).some(v => v !== 0)) return false;
+
+  return true;
+}
+
 // Generate fix suggestion for an issue
 export function generateFix(issue, line, language) {
   const ruleId = issue.ruleId.toLowerCase();
 
   for (const [pattern, template] of Object.entries(FIX_TEMPLATES)) {
     if (ruleId.includes(pattern)) {
-      return {
-        description: template.description,
-        original: line,
-        fixed: template.fix(line, language)
-      };
+      try {
+        const fixed = template.fix(line, language);
+        // Validate the fix produces reasonable output
+        if (fixed && !validateFix(line, fixed)) {
+          return {
+            description: template.description + " (manual fix required)",
+            original: line,
+            fixed: null
+          };
+        }
+        return {
+          description: template.description,
+          original: line,
+          fixed: fixed
+        };
+      } catch {
+        return {
+          description: template.description + " (manual fix required)",
+          original: line,
+          fixed: null
+        };
+      }
     }
   }
 
@@ -68,6 +117,26 @@ export function generateFix(issue, line, language) {
     original: line,
     fixed: null
   };
+}
+
+// Run cross-file taint analysis
+export function runCrossFileAnalyzer(filePaths) {
+  try {
+    const analyzerPath = join(__dirname, '..', 'cross_file_analyzer.py');
+    if (!existsSync(analyzerPath)) return [];
+    const result = execFileSync('python3', [analyzerPath, ...filePaths], {
+      encoding: 'utf-8',
+      timeout: 120000,
+      maxBuffer: 10 * 1024 * 1024
+    });
+    const parsed = JSON.parse(result);
+    // Return only cross-file warnings (per-file findings are handled by scanSecurity)
+    return Array.isArray(parsed)
+      ? parsed.filter(f => f.ruleId === 'cross-file-taint-warning')
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 // Convert issues to SARIF 2.1.0 format

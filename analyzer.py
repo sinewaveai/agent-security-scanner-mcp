@@ -11,6 +11,7 @@ import sys
 import json
 import os
 import re
+import argparse
 from typing import List, Dict, Any
 
 # Add the directory containing this script to the path
@@ -91,6 +92,7 @@ def analyze_file_regex(file_path):
                                 'column': match.start() + col_offset,
                                 'length': match.end() - match.start(),
                                 'severity': rule['severity'],
+                                'confidence': rule.get('metadata', {}).get('confidence', 'MEDIUM'),
                                 'metadata': rule.get('metadata', {}),
                                 'engine': 'regex'
                             })
@@ -191,6 +193,7 @@ def analyze_file_ast(file_path):
                 'column': f.column,
                 'length': length,
                 'severity': f.severity,
+                'confidence': f.metadata.get('confidence', getattr(f, 'confidence', 'MEDIUM')),
                 'metadata': f.metadata,
                 'engine': 'taint' if is_taint else 'ast',
             })
@@ -229,16 +232,30 @@ def analyze_file(file_path):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({'error': 'No file path provided'}))
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Security Analyzer - AST-based with regex fallback')
+    parser.add_argument('file_path', help='Path to the file to analyze')
+    parser.add_argument('--engine', choices=['auto', 'ast', 'regex'], default='auto',
+                        help='Analysis engine: auto (default), ast (tree-sitter only), regex (regex only)')
+    args = parser.parse_args()
 
-    file_path = sys.argv[1]
+    file_path = args.file_path
     if not os.path.exists(file_path):
         print(json.dumps({'error': f'File not found: {file_path}'}))
         sys.exit(1)
 
-    results = analyze_file(file_path)
+    engine = args.engine
+
+    if engine == 'regex':
+        results = analyze_file_regex(file_path)
+    elif engine == 'ast':
+        if not HAS_AST_ENGINE:
+            print(json.dumps({'error': 'AST engine requested but tree-sitter is not available. Install dependencies: python3 -m pip install -r requirements.txt'}))
+            sys.exit(1)
+        results = analyze_file_ast(file_path)
+    else:
+        # auto: use AST if available, otherwise regex
+        results = analyze_file(file_path)
+
     print(json.dumps(results))
 
 

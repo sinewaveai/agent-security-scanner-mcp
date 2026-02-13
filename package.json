@@ -10,9 +10,11 @@
   },
   "scripts": {
     "start": "node index.js",
+    "postinstall": "node scripts/postinstall.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "benchmark": "python3 benchmarks/benchmark_runner.py --save --compare-latest"
   },
   "keywords": [
     "mcp",
@@ -82,6 +84,9 @@
     "src/cli/*.js",
     "src/fix-patterns.js",
     "src/utils.js",
+    "src/dedup.js",
+    "src/context.js",
+    "src/config.js",
     "analyzer.py",
     "ast_parser.py",
     "generic_ast.py",
@@ -92,7 +97,9 @@
     "requirements.txt",
     "rules/**",
     "packages/**",
-    "skills/**"
+    "skills/**",
+    "scripts/postinstall.js",
+    "cross_file_analyzer.py"
   ],
   "devDependencies": {
     "all-the-package-names": "^2.0.2349",

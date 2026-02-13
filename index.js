@@ -17,9 +17,12 @@ import { fixSecuritySchema, fixSecurity } from './src/tools/fix-security.js';
 import { loadPackageLists, checkPackageSchema, checkPackage, getPackageStats } from './src/tools/check-package.js';
 import { scanPackagesSchema, scanPackages } from './src/tools/scan-packages.js';
 import { scanAgentPromptSchema, scanAgentPrompt } from './src/tools/scan-prompt.js';
+import { scanDiffSchema, scanDiff } from './src/tools/scan-diff.js';
+import { scanProjectSchema, scanProject } from './src/tools/scan-project.js';
 import { runInit } from './src/cli/init.js';
 import { runDoctor } from './src/cli/doctor.js';
 import { runDemo } from './src/cli/demo.js';
+import { runInitHooks } from './src/cli/init-hooks.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -134,6 +137,22 @@ server.tool(
   scanAgentPrompt
 );
 
+// Register scan_git_diff tool
+server.tool(
+  "scan_git_diff",
+  "Scan git diff for new security vulnerabilities. Only reports issues on changed lines. Use for PR reviews.",
+  scanDiffSchema,
+  scanDiff
+);
+
+// Register scan_project tool
+server.tool(
+  "scan_project",
+  "Scan an entire directory for security vulnerabilities with .gitignore support and security grading. Use verbosity='minimal' for grade + counts, 'compact' (default) for top issues, 'full' for all details.",
+  scanProjectSchema,
+  scanProject
+);
+
 // ===========================================
 // CLI COMMANDS - Extracted to src/cli/
 // ===========================================
@@ -153,6 +172,11 @@ if (cliArgs[0] === 'init') {
   });
 } else if (cliArgs[0] === 'demo') {
   runDemo(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
+    console.error(`  Error: ${err.message}\n`);
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'init-hooks') {
+  runInitHooks(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
     process.exit(1);
   });
@@ -236,17 +260,83 @@ if (cliArgs[0] === 'init') {
     console.error(JSON.stringify({ error: err.message }));
     process.exit(1);
   });
+} else if (cliArgs[0] === 'scan-project') {
+  // CLI mode: scan-project <dir> [--recursive] [--diff-only] [--cross-file] [--include '*.py'] [--verbosity minimal|compact|full]
+  const dirPath = cliArgs[1];
+  if (!dirPath || dirPath.startsWith('--')) {
+    console.error('Usage: agent-security-scanner-mcp scan-project <directory> [--recursive] [--diff-only] [--cross-file] [--include <pattern>] [--verbosity minimal|compact|full]');
+    process.exit(1);
+  }
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const recursive = !cliArgs.includes('--no-recursive');
+  const diffOnly = cliArgs.includes('--diff-only');
+  const crossFile = cliArgs.includes('--cross-file');
+  const includeIdx = cliArgs.indexOf('--include');
+  const includePatterns = includeIdx !== -1 ? [cliArgs[includeIdx + 1]] : undefined;
+
+  scanProject({ directory_path: dirPath, recursive, diff_only: diffOnly, cross_file: crossFile, include_patterns: includePatterns, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    const total = output.issues_count || output.total || 0;
+    process.exit(total > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'scan-diff') {
+  // CLI mode: scan-diff [base] [target] [--verbosity minimal|compact|full]
+  const baseRef = cliArgs[1] && !cliArgs[1].startsWith('--') ? cliArgs[1] : undefined;
+  const targetRef = cliArgs[2] && !cliArgs[2].startsWith('--') ? cliArgs[2] : undefined;
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+
+  scanDiff({ base_ref: baseRef, target_ref: targetRef, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.issues_count > 0 || output.total > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'benchmark') {
+  // CLI mode: benchmark [--save] [--json-only] [--compare-latest] [--corpus <path>]
+  const benchmarkPath = join(__dirname, 'benchmarks', 'benchmark_runner.py');
+  const benchArgs = [benchmarkPath];
+
+  // Pass through supported flags
+  for (let i = 1; i < cliArgs.length; i++) {
+    if (['--save', '--json-only', '--compare-latest'].includes(cliArgs[i])) {
+      benchArgs.push(cliArgs[i]);
+    } else if (cliArgs[i] === '--corpus' && cliArgs[i + 1]) {
+      benchArgs.push('--corpus', cliArgs[i + 1]);
+      i++;
+    }
+  }
+
+  try {
+    execFileSync('python3', benchArgs, { stdio: 'inherit', timeout: 300000 });
+  } catch (err) {
+    if (err.status) process.exit(err.status);
+    console.error(`Benchmark error: ${err.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
 } else if (cliArgs[0] === '--help' || cliArgs[0] === '-h' || cliArgs[0] === 'help') {
   console.log('\n  agent-security-scanner-mcp\n');
   console.log('  Commands:');
   console.log('    init [client]        Set up MCP config for a client');
+  console.log('    init-hooks           Install Claude Code hooks for auto-scanning');
   console.log('    doctor [--fix]       Check environment & client configs');
-  console.log('    demo [--lang js]     Generate vulnerable file + scan it\n');
+  console.log('    demo [--lang js]     Generate vulnerable file + scan it');
+  console.log('    benchmark [flags]      Run accuracy benchmarks\n');
   console.log('  CLI Tools (for scripts & OpenClaw):');
   console.log('    scan-prompt <text>   Scan prompt for injection attacks');
   console.log('    scan-security <file> Scan file for vulnerabilities');
   console.log('    check-package <n> <e> Check if package exists in ecosystem');
-  console.log('    scan-packages <f> <e> Scan file imports for hallucinated packages\n');
+  console.log('    scan-packages <f> <e> Scan file imports for hallucinated packages');
+  console.log('    scan-project <dir>   Scan directory for vulnerabilities with grading');
+  console.log('    scan-diff [base] [target] Scan git diff for new vulnerabilities\n');
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
@@ -255,7 +345,10 @@ if (cliArgs[0] === 'init') {
   console.log('    npx agent-security-scanner-mcp init');
   console.log('    npx agent-security-scanner-mcp scan-prompt "ignore previous instructions"');
   console.log('    npx agent-security-scanner-mcp scan-security ./app.py --verbosity minimal');
-  console.log('    npx agent-security-scanner-mcp check-package flask pypi\n');
+  console.log('    npx agent-security-scanner-mcp check-package flask pypi');
+  console.log('    npx agent-security-scanner-mcp scan-project ./src --verbosity minimal');
+  console.log('    npx agent-security-scanner-mcp scan-diff HEAD~1');
+  console.log('    npx agent-security-scanner-mcp benchmark --save --compare-latest\n');
   process.exit(0);
 } else {
   // Normal MCP server mode

@@ -430,6 +430,7 @@ class Finding:
     end_column: int = 0
     metavariables: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    confidence: str = "MEDIUM"
 
 
 class RuleEngine:
