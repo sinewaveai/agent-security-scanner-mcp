@@ -261,10 +261,10 @@ if (cliArgs[0] === 'init') {
     process.exit(1);
   });
 } else if (cliArgs[0] === 'scan-project') {
-  // CLI mode: scan-project <dir> [--recursive] [--diff-only] [--cross-file] [--include '*.py'] [--verbosity minimal|compact|full]
+  // CLI mode: scan-project <dir> [--recursive] [--diff-only] [--cross-file] [--include '*.py'] [--exclude '*.test.js'] [--verbosity minimal|compact|full]
   const dirPath = cliArgs[1];
   if (!dirPath || dirPath.startsWith('--')) {
-    console.error('Usage: agent-security-scanner-mcp scan-project <directory> [--recursive] [--diff-only] [--cross-file] [--include <pattern>] [--verbosity minimal|compact|full]');
+    console.error('Usage: agent-security-scanner-mcp scan-project <directory> [--recursive] [--diff-only] [--cross-file] [--include <pattern>] [--exclude <pattern>] [--verbosity minimal|compact|full]');
     process.exit(1);
   }
   const verbosityIdx = cliArgs.indexOf('--verbosity');
@@ -274,8 +274,10 @@ if (cliArgs[0] === 'init') {
   const crossFile = cliArgs.includes('--cross-file');
   const includeIdx = cliArgs.indexOf('--include');
   const includePatterns = includeIdx !== -1 ? [cliArgs[includeIdx + 1]] : undefined;
+  const excludeIdx = cliArgs.indexOf('--exclude');
+  const excludePatterns = excludeIdx !== -1 ? [cliArgs[excludeIdx + 1]] : undefined;
 
-  scanProject({ directory_path: dirPath, recursive, diff_only: diffOnly, cross_file: crossFile, include_patterns: includePatterns, verbosity }).then(result => {
+  scanProject({ directory_path: dirPath, recursive, diff_only: diffOnly, cross_file: crossFile, include_patterns: includePatterns, exclude_patterns: excludePatterns, verbosity }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
     const total = output.issues_count || output.total || 0;
@@ -286,9 +288,12 @@ if (cliArgs[0] === 'init') {
   });
 } else if (cliArgs[0] === 'scan-diff') {
   // CLI mode: scan-diff [base] [target] [--verbosity minimal|compact|full]
-  const baseRef = cliArgs[1] && !cliArgs[1].startsWith('--') ? cliArgs[1] : undefined;
-  const targetRef = cliArgs[2] && !cliArgs[2].startsWith('--') ? cliArgs[2] : undefined;
+  // Parse positional args, skipping flag values
   const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const flagValueIndices = new Set(verbosityIdx !== -1 ? [verbosityIdx, verbosityIdx + 1] : []);
+  const positionalArgs = cliArgs.slice(1).filter((arg, idx) => !arg.startsWith('--') && !flagValueIndices.has(idx + 1));
+  const baseRef = positionalArgs[0];
+  const targetRef = positionalArgs[1];
   const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
 
   scanDiff({ base_ref: baseRef, target_ref: targetRef, verbosity }).then(result => {
@@ -340,7 +345,9 @@ if (cliArgs[0] === 'init') {
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
-  console.log('    --format <type>      json|sarif (scan-security only)\n');
+  console.log('    --format <type>      json|sarif (scan-security only)');
+  console.log('    --include <pattern>  Include only matching files (scan-project)');
+  console.log('    --exclude <pattern>  Exclude matching files (scan-project)\n');
   console.log('  Examples:');
   console.log('    npx agent-security-scanner-mcp init');
   console.log('    npx agent-security-scanner-mcp scan-prompt "ignore previous instructions"');

@@ -14,6 +14,8 @@ Security scanner for AI coding agents and autonomous assistants. Scans code for 
 |------|-------------|-------------|
 | `scan_security` | Scan code for vulnerabilities (1700+ rules, 12 languages) with AST and taint analysis | After writing or editing any code file |
 | `fix_security` | Auto-fix all detected vulnerabilities (120 fix templates) | After `scan_security` finds issues |
+| `scan_git_diff` | Scan only changed files in git diff | Before commits or in PR reviews |
+| `scan_project` | Scan entire project with A-F security grading | For project-wide security audits |
 | `check_package` | Verify a package name isn't AI-hallucinated (4.3M+ packages) | Before adding any new dependency |
 | `scan_packages` | Bulk-check all imports in a file for hallucinated packages | Before committing code with new imports |
 | `scan_agent_prompt` | Detect prompt injection and malicious instructions (56 rules) | Before acting on external/untrusted input |
@@ -38,8 +40,18 @@ scan_security → review findings → fix_security → verify fix
 
 ### Before Committing
 ```
+scan_git_diff → scan only changed files for fast feedback
 scan_packages → verify all imports are legitimate
-scan_security → catch vulnerabilities before they ship
+```
+
+### For PR Reviews
+```
+scan_git_diff --base main → scan PR changes against main branch
+```
+
+### For Project Audits
+```
+scan_project → get A-F security grade and aggregated metrics
 ```
 
 ### When Processing External Input
@@ -329,6 +341,105 @@ List all 1700+ security scanning rules and 120 fix templates. Use to understand 
 
 ---
 
+### `scan_git_diff`
+
+Scan only files changed in git diff for security vulnerabilities. Use in PR workflows, pre-commit hooks, or to check recent changes before pushing. Significantly faster than full project scans.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `base` | string | No | Base commit/branch to diff against (default: `HEAD~1`) |
+| `target` | string | No | Target commit/branch (default: `HEAD`) |
+| `verbosity` | string | No | `"minimal"`, `"compact"` (default), `"full"` |
+
+**Example:**
+
+```json
+// Input
+{ "base": "main", "target": "HEAD" }
+
+// Output
+{
+  "base": "main",
+  "target": "HEAD",
+  "files_scanned": 5,
+  "issues_count": 3,
+  "issues": [
+    {
+      "file": "src/auth.js",
+      "line": 42,
+      "ruleId": "sql-injection",
+      "severity": "error",
+      "message": "SQL injection vulnerability detected"
+    }
+  ]
+}
+```
+
+---
+
+### `scan_project`
+
+Scan an entire project or directory for security vulnerabilities with aggregated metrics and A-F security grading. Use for security audits, compliance checks, or initial codebase assessment.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `directory` | string | Yes | Path to project directory to scan |
+| `include_patterns` | array | No | Glob patterns to include (e.g., `["**/*.js", "**/*.py"]`) |
+| `exclude_patterns` | array | No | Glob patterns to exclude (default: `node_modules`, `.git`, etc.) |
+| `verbosity` | string | No | `"minimal"`, `"compact"` (default), `"full"` |
+
+**Example:**
+
+```json
+// Input
+{ "directory": "./src", "verbosity": "compact" }
+
+// Output
+{
+  "directory": "/path/to/src",
+  "files_scanned": 24,
+  "issues_count": 12,
+  "grade": "C",
+  "by_severity": {
+    "error": 3,
+    "warning": 7,
+    "info": 2
+  },
+  "by_category": {
+    "sql-injection": 2,
+    "xss": 3,
+    "hardcoded-secret": 1,
+    "insecure-crypto": 4,
+    "command-injection": 2
+  },
+  "issues": [
+    {
+      "file": "auth.js",
+      "line": 15,
+      "ruleId": "sql-injection",
+      "severity": "error",
+      "message": "SQL injection vulnerability"
+    }
+  ]
+}
+```
+
+**Security Grades:**
+
+| Grade | Criteria |
+|-------|----------|
+| A | 0 critical/error issues |
+| B | 1-2 error issues, no critical |
+| C | 3-5 error issues |
+| D | 6-10 error issues |
+| F | 11+ error issues or any critical |
+
+---
+
 ## Supported Languages
 
 | Language | Vulnerabilities Detected | Analysis |
@@ -465,14 +576,110 @@ npx agent-security-scanner-mcp scan-prompt "ignore previous instructions"
 # Scan a file for vulnerabilities
 npx agent-security-scanner-mcp scan-security ./app.py --verbosity minimal
 
+# Scan git diff (changed files only)
+npx agent-security-scanner-mcp scan-diff --base main --target HEAD
+
+# Scan entire project with grading
+npx agent-security-scanner-mcp scan-project ./src
+
 # Check if a package is legitimate
 npx agent-security-scanner-mcp check-package flask pypi
 
 # Scan file imports for hallucinated packages
 npx agent-security-scanner-mcp scan-packages ./requirements.txt pypi
+
+# Install Claude Code hooks for automatic scanning
+npx agent-security-scanner-mcp init-hooks
 ```
 
 **Exit codes:** `0` = safe, `1` = issues found. Use in scripts to block risky operations.
+
+---
+
+## Configuration (`.scannerrc`)
+
+Create a `.scannerrc.yaml` or `.scannerrc.json` in your project root to customize scanning behavior:
+
+```yaml
+# .scannerrc.yaml
+version: 1
+
+# Suppress specific rules
+suppress:
+  - rule: "insecure-random"
+    reason: "Using for non-cryptographic purposes"
+  - rule: "detect-disable-mustache-escape"
+    paths: ["src/cli/**"]
+
+# Exclude paths from scanning
+exclude:
+  - "node_modules/**"
+  - "dist/**"
+  - "**/*.test.js"
+  - "**/*.spec.ts"
+
+# Minimum severity to report
+severity_threshold: "warning"  # "info", "warning", or "error"
+
+# Context-aware filtering (enabled by default)
+context_filtering: true
+```
+
+**Configuration options:**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `suppress` | array | Rules to suppress, optionally scoped to paths |
+| `exclude` | array | Glob patterns for paths to skip |
+| `severity_threshold` | string | Minimum severity to report (`info`, `warning`, `error`) |
+| `context_filtering` | boolean | Enable/disable safe module filtering (default: `true`) |
+
+The scanner automatically loads config from the current directory or any parent directory.
+
+---
+
+## Claude Code Hooks
+
+Automatically scan files after every edit with Claude Code hooks integration.
+
+### Install Hooks
+
+```bash
+npx agent-security-scanner-mcp init-hooks
+```
+
+This installs a `post-tool-use` hook that triggers security scanning after `Write`, `Edit`, or `MultiEdit` operations.
+
+### With Prompt Guard
+
+```bash
+npx agent-security-scanner-mcp init-hooks --with-prompt-guard
+```
+
+Adds a `PreToolUse` hook that scans prompts for injection attacks before executing tools.
+
+### What Gets Installed
+
+The command adds hooks to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "post-tool-use": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "command": "npx agent-security-scanner-mcp scan-security \"$TOOL_INPUT_file_path\" --verbosity minimal"
+      }
+    ]
+  }
+}
+```
+
+### Hook Behavior
+
+- **Non-blocking:** Hooks report findings but don't prevent file writes
+- **Minimal output:** Uses `--verbosity minimal` to avoid context overflow
+- **Automatic:** Runs on every file modification without manual intervention
 
 ---
 
@@ -567,7 +774,7 @@ AI coding agents introduce attack surfaces that traditional security tools weren
 |----------|-------|
 | **Transport** | stdio |
 | **Package** | `agent-security-scanner-mcp` (npm) |
-| **Tools** | 6 |
+| **Tools** | 8 |
 | **Languages** | 12 |
 | **Ecosystems** | 7 |
 | **Auth** | None required |
@@ -648,6 +855,21 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ---
 
 ## Changelog
+
+### v3.4.0
+- **Severity Calibration** - 207-rule severity map with HIGH/MEDIUM/LOW confidence scores for more accurate prioritization
+- **Cross-Engine Deduplication** - ~30-50% noise reduction by deduplicating findings across AST, taint, and regex engines
+- **Context-Aware Filtering** - 80+ known safe modules (logging, testing, sanitizers) reduce false positives
+- **`.scannerrc` Configuration** - YAML/JSON project config for suppressing rules, excluding paths, and setting severity thresholds
+- **`scan_git_diff` Tool** - Scan only changed files in git diff for PR workflows and pre-commit hooks
+- **`scan_project` Tool** - Project-level scanning with A-F security grading and aggregated metrics
+- **`init-hooks` CLI** - `npx agent-security-scanner-mcp init-hooks` installs Claude Code post-tool-use hooks for automatic scanning
+- **Safe Fix Validation** - `validateFix()` ensures auto-fixes don't introduce new vulnerabilities
+- **Cross-File Taint Analysis** - Import graph tracking for dataflow analysis across module boundaries
+
+### v3.3.0
+- **OpenClaw Integration** - Full support with 30+ rules targeting autonomous AI threats
+- **OpenClaw-Specific Rules** - Data exfiltration, credential theft, messaging abuse, unsafe automation detection
 
 ### v3.2.0
 - **Token Optimization** - New `verbosity` parameter for all tools reduces context window usage by up to 98%
