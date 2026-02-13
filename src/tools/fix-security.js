@@ -2,6 +2,9 @@
 import { z } from "zod";
 import { existsSync, readFileSync } from "fs";
 import { detectLanguage, runAnalyzer, generateFix } from '../utils.js';
+import { deduplicateFindings } from '../dedup.js';
+import { applyContextFilter, detectFrameworks, applyFrameworkAdjustments } from '../context.js';
+import { loadConfig, shouldExcludeFile, applyConfig } from '../config.js';
 
 export const fixSecuritySchema = {
   file_path: z.string().describe("Path to the file to fix"),
@@ -47,24 +50,48 @@ export async function fixSecurity({ file_path, verbosity }) {
     };
   }
 
-  const issues = runAnalyzer(file_path);
+  // Load project configuration
+  const config = loadConfig(file_path);
 
-  if (issues.error || !Array.isArray(issues) || issues.length === 0) {
+  // Check file exclusion
+  if (shouldExcludeFile(file_path, config)) {
+    return {
+      content: [{ type: "text", text: JSON.stringify({ file: file_path, message: "File excluded by configuration", fixes_applied: 0 }) }]
+    };
+  }
+
+  const rawIssues = runAnalyzer(file_path);
+
+  if (rawIssues.error || !Array.isArray(rawIssues) || rawIssues.length === 0) {
     return {
       content: [{
         type: "text",
         text: JSON.stringify({
-          message: issues.error ? "Error scanning file" : "No security issues found",
-          details: issues
+          message: rawIssues.error ? "Error scanning file" : "No security issues found",
+          details: rawIssues
         })
       }]
     };
   }
 
+  // Cross-engine deduplication
+  const dedupedIssues = deduplicateFindings(rawIssues);
+
   // Read and fix the file
   const content = readFileSync(file_path, 'utf-8');
   const lines = content.split('\n');
   const language = detectLanguage(file_path);
+
+  // Context-aware filtering (suppress known module imports)
+  const contextFiltered = applyContextFilter(dedupedIssues, file_path, language);
+
+  // Framework-aware severity adjustment
+  const frameworks = detectFrameworks(file_path, language);
+  const frameworkAdjusted = applyFrameworkAdjustments(contextFiltered, frameworks);
+
+  // Apply .scannerrc configuration (rule suppression, severity/confidence thresholds)
+  const issues = applyConfig(frameworkAdjusted, file_path, config);
+
   const fixes = [];
 
   // Apply fixes (process in reverse order to preserve line numbers)

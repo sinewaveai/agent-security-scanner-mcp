@@ -63,20 +63,56 @@ export const FIX_TEMPLATES = {
   // COMMAND INJECTION
   // ===========================================
   "child-process-exec": {
-    description: "Use execFile() or spawn() with shell: false",
-    fix: (line) => line.replace(/\bexec\s*\(/, 'execFile(')
+    description: "Use execFile() with separate command and arguments array",
+    fix: (line) => {
+      // Match: exec("cmd " + arg) -> execFile("cmd", [arg])
+      const concatMatch = line.match(/\bexec\s*\(\s*["'](\S+)\s+["']\s*\+\s*(\w+)/);
+      if (concatMatch) {
+        return line.replace(/\bexec\s*\(\s*["'](\S+)\s+["']\s*\+\s*(\w+)\s*\)/, 'execFile("$1", [$2])');
+      }
+      // Match: exec(`cmd ${arg}`) -> execFile("cmd", [arg])
+      const templateMatch = line.match(/\bexec\s*\(\s*`(\S+)\s+\$\{(\w+)\}`/);
+      if (templateMatch) {
+        return line.replace(/\bexec\s*\(\s*`(\S+)\s+\$\{(\w+)\}`\s*\)/, 'execFile("$1", [$2])');
+      }
+      // Match: exec(variable) -> execFile with guidance
+      const varMatch = line.match(/\bexec\s*\(\s*(\w+)\s*\)/);
+      if (varMatch) {
+        return line.replace(/\bexec\s*\(\s*(\w+)\s*\)/, 'execFile($1.split(" ")[0], $1.split(" ").slice(1))');
+      }
+      // Fallback: comment with guidance
+      return '// SECURITY: Use execFile(command, [args]) instead of exec() - ' + line.trim();
+    }
   },
   "spawn-shell": {
     description: "Use spawn with shell: false",
     fix: (line) => line.replace(/shell\s*:\s*true/i, 'shell: false')
   },
   "dangerous-subprocess": {
-    description: "Use subprocess.run with list arguments",
-    fix: (line) => line.replace(/subprocess\.(call|run|Popen)\s*\(\s*["'](.+?)["']\s*,\s*shell\s*=\s*True/, 'subprocess.$1(["$2".split()], shell=False')
+    description: "Use subprocess.run with list arguments and shell=False",
+    fix: (line) => {
+      // Replace shell=True with shell=False
+      let fixed = line.replace(/shell\s*=\s*True/, 'shell=False');
+      // Replace string command with shlex.split() for safe list form
+      fixed = fixed.replace(
+        /subprocess\.(call|run|Popen)\s*\(\s*["'](.+?)["']/,
+        'subprocess.$1(shlex.split("$2")'
+      );
+      return fixed;
+    }
   },
   "dangerous-system-call": {
     description: "Use subprocess.run instead of os.system",
-    fix: (line) => line.replace(/os\.system\s*\(/, 'subprocess.run([')
+    fix: (line) => {
+      const match = line.match(/os\.system\s*\(\s*(.+?)\s*\)/);
+      if (match) {
+        return line.replace(
+          /os\.system\s*\(\s*(.+?)\s*\)/,
+          'subprocess.run(shlex.split($1), shell=False)'
+        );
+      }
+      return '# SECURITY: Replace os.system() with subprocess.run(shlex.split(cmd), shell=False)\n# ' + line.trim();
+    }
   },
   "command-injection-exec": {
     description: "Use exec.Command with separate arguments",
@@ -197,8 +233,11 @@ export const FIX_TEMPLATES = {
   // INSECURE DESERIALIZATION
   // ===========================================
   "pickle": {
-    description: "Use JSON instead of pickle",
-    fix: (line) => line.replace(/pickle\.(load|loads)\s*\(/, 'json.$1(')
+    description: "Use JSON instead of pickle for untrusted data",
+    fix: (line) => {
+      const fixed = line.replace(/pickle\.(load|loads)\s*\(/, 'json.$1(');
+      return fixed + '  # NOTE: data must be JSON-formatted';
+    }
   },
   "yaml-load": {
     description: "Use yaml.safe_load()",
@@ -209,8 +248,8 @@ export const FIX_TEMPLATES = {
     fix: (line) => line.replace(/marshal\.(load|loads)\s*\(/, 'json.$1(')
   },
   "shelve": {
-    description: "Use JSON or SQLite instead of shelve",
-    fix: (line) => line.replace(/shelve\.open\s*\(/, 'json.load(open(')
+    description: "Use JSON or SQLite instead of shelve for safe storage",
+    fix: (line) => '# SECURITY: Replace shelve with json or sqlite3 for safe storage\n# ' + line.trim()
   },
   "node-serialize": {
     description: "Use JSON.parse instead of node-serialize",
@@ -257,12 +296,12 @@ export const FIX_TEMPLATES = {
   // PATH TRAVERSAL
   // ===========================================
   "path-traversal": {
-    description: "Sanitize file paths and use basename",
+    description: "Resolve real path and validate prefix to prevent traversal",
     fix: (line, lang) => {
-      if (lang === 'python') return line.replace(/open\s*\(\s*(\w+)/, 'open(os.path.basename($1)');
-      if (lang === 'go') return line.replace(/os\.Open\s*\(\s*(\w+)/, 'os.Open(filepath.Base($1)');
-      if (lang === 'java') return line.replace(/new File\s*\(\s*(\w+)/, 'new File(new File($1).getName()');
-      return line.replace(/readFileSync\s*\(\s*(\w+)/, 'readFileSync(path.basename($1)');
+      if (lang === 'python') return line.replace(/open\s*\(\s*(\w+)/, 'open(os.path.realpath($1)  # TODO: validate path prefix');
+      if (lang === 'go') return line.replace(/os\.Open\s*\(\s*(\w+)/, 'os.Open(filepath.Clean($1)  // TODO: validate path prefix');
+      if (lang === 'java') return line.replace(/new File\s*\(\s*(\w+)/, 'new File($1).getCanonicalFile(  // TODO: validate path prefix');
+      return line.replace(/readFileSync\s*\(\s*(\w+)/, 'readFileSync(path.resolve($1)  // TODO: validate path prefix');
     }
   },
 
@@ -407,7 +446,14 @@ export const FIX_TEMPLATES = {
   // ===========================================
   "prototype-pollution": {
     description: "Validate object keys before assignment",
-    fix: (line) => line.replace(/(\w+)\[(\w+)\]\s*=/, 'if (!["__proto__", "constructor", "prototype"].includes($2)) $1[$2] =')
+    fix: (line) => {
+      // Only fix simple single-line assignments like: obj[key] = value
+      // Reject lines with multiple bracket accesses or chained assignments
+      if (/^\s*\w+\[\w+\]\s*=\s*[^[=]+$/.test(line)) {
+        return line.replace(/(\w+)\[(\w+)\]\s*=/, 'if (!["__proto__", "constructor", "prototype"].includes($2)) $1[$2] =');
+      }
+      return '// SECURITY: Validate key is not __proto__/constructor/prototype before assignment\n// ' + line.trim();
+    }
   },
 
   // ===========================================
@@ -443,7 +489,7 @@ export const FIX_TEMPLATES = {
   // ===========================================
   "helmet-missing": {
     description: "Add helmet middleware for security headers",
-    fix: (line) => 'app.use(helmet()); // Add security headers\n' + line
+    fix: (line) => '// TODO: Add app.use(helmet()) after Express app initialization\n' + line
   },
 
   // ===========================================
@@ -495,7 +541,10 @@ export const FIX_TEMPLATES = {
   },
   "run-shell-form": {
     description: "Use exec form for RUN commands",
-    fix: (line) => line.replace(/RUN\s+(.+)$/, 'RUN ["/bin/sh", "-c", "$1"]')
+    fix: (line) => line.replace(/RUN\s+(.+)$/, (_, cmd) => {
+      const escaped = cmd.replace(/"/g, '\\"');
+      return `RUN ["/bin/sh", "-c", "${escaped}"]`;
+    })
   },
   "sudo-in-dockerfile": {
     description: "Avoid sudo in Dockerfile - use USER directive",
