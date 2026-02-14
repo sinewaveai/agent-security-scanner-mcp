@@ -11,6 +11,7 @@ export const scanProjectSchema = {
   directory_path: z.string().describe("Path to the directory to scan"),
   recursive: z.boolean().optional().describe("Scan subdirectories recursively (default: true)"),
   include_patterns: z.array(z.string()).optional().describe("Glob patterns to include (e.g. ['**/*.py', '**/*.js'])"),
+  exclude_patterns: z.array(z.string()).optional().describe("Glob patterns to exclude (e.g. ['*test*', 'vendor/**'])"),
   diff_only: z.boolean().optional().describe("Only scan git-changed files"),
   cross_file: z.boolean().optional().describe("Enable cross-file taint analysis (max 50 files)"),
   verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level")
@@ -51,7 +52,7 @@ function isGitignored(filePath, patterns) {
 
 // Recursively walk a directory, respecting exclusions
 function walkDirectory(dirPath, options = {}) {
-  const { recursive = true, includePatterns = [], gitignorePatterns = [], config } = options;
+  const { recursive = true, includePatterns = [], excludePatterns = [], gitignorePatterns = [], config } = options;
   const files = [];
 
   function walk(currentDir) {
@@ -104,6 +105,12 @@ function walkDirectory(dirPath, options = {}) {
           if (!matches) continue;
         }
 
+        // Check exclude patterns (if specified, skip matching files)
+        if (excludePatterns.length > 0) {
+          const excluded = excludePatterns.some(p => matchGlob(relativePath, p) || relativePath.includes(p) || entry.includes(p));
+          if (excluded) continue;
+        }
+
         files.push(fullPath);
       }
     }
@@ -144,7 +151,7 @@ function calculateGrade(totalIssues, totalFiles, errorCount) {
   return 'F';
 }
 
-export async function scanProject({ directory_path, recursive, include_patterns, diff_only, cross_file, verbosity }) {
+export async function scanProject({ directory_path, recursive, include_patterns, exclude_patterns, diff_only, cross_file, verbosity }) {
   const dirPath = resolve(directory_path);
 
   if (!existsSync(dirPath)) {
@@ -165,6 +172,7 @@ export async function scanProject({ directory_path, recursive, include_patterns,
     files = walkDirectory(dirPath, {
       recursive: recursive !== false,
       includePatterns: include_patterns || [],
+      excludePatterns: exclude_patterns || [],
       gitignorePatterns,
       config
     });
