@@ -1,4 +1,5 @@
 import { execFileSync } from "child_process";
+import { createHash } from "crypto";
 import { readFileSync, existsSync } from "fs";
 import { dirname, join, extname, basename } from "path";
 import { fileURLToPath } from "url";
@@ -11,6 +12,16 @@ try {
 } catch {
   __dirname = process.cwd();
 }
+
+// Read version from package.json at module load time
+const _packageVersion = (() => {
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+    return pkg.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 // Detect language from file extension
 export function detectLanguage(filePath) {
@@ -35,6 +46,34 @@ export function detectLanguage(filePath) {
   return langMap[ext] || 'generic';
 }
 
+// Detect which analysis engine is available
+export function detectEngineMode() {
+  try {
+    execFileSync('python3', ['-c', 'import tree_sitter; print("ast")'], {
+      encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return 'ast';
+  } catch {
+    try {
+      execFileSync('python3', ['--version'], {
+        encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe']
+      });
+      return 'regex';
+    } catch {
+      return 'regex-only';
+    }
+  }
+}
+
+// Cached engine mode (detected once per process)
+let _cachedEngineMode = null;
+export function getEngineMode() {
+  if (_cachedEngineMode === null) {
+    _cachedEngineMode = detectEngineMode();
+  }
+  return _cachedEngineMode;
+}
+
 // Run the Python analyzer
 export function runAnalyzer(filePath, engine = 'auto') {
   try {
@@ -53,7 +92,20 @@ export function runAnalyzer(filePath, engine = 'auto') {
   }
 }
 
-// Validate that a fix produces syntactically reasonable output
+// Patterns that indicate an unsafe fix (user input still concatenated into dangerous sinks)
+const UNSAFE_FIX_PATTERNS = [
+  // execFile/exec with string concatenation of user input
+  /\bexecFile\s*\(\s*["'][^"']*["']\s*\+\s*\w+/,
+  /\bexecFile\s*\(\s*`[^`]*\$\{/,
+  // spawn/exec with shell: true still present alongside user input
+  /\bspawn\s*\(.*shell\s*:\s*true/,
+  // subprocess.run with shell=True still present
+  /subprocess\.\w+\(.*shell\s*=\s*True/,
+  // os.system still in a "fix"
+  /\bos\.system\s*\(/,
+];
+
+// Validate that a fix produces syntactically reasonable and safe output
 export function validateFix(original, fixed) {
   if (!fixed || fixed === original) return false;
 
@@ -77,6 +129,11 @@ export function validateFix(original, fixed) {
     }
   }
   if (Object.values(brackets).some(v => v !== 0)) return false;
+
+  // Reject fixes that still contain unsafe patterns
+  for (const pattern of UNSAFE_FIX_PATTERNS) {
+    if (pattern.test(fixed)) return false;
+  }
 
   return true;
 }
@@ -182,6 +239,55 @@ export function toSarif(file_path, language, issues) {
       }]
     };
 
+    // Add partial fingerprints for cross-run deduplication
+    if (issue.line_content) {
+      result.partialFingerprints = {
+        primaryLocationLineHash: createHash('sha256')
+          .update(issue.line_content)
+          .digest('hex')
+      };
+    }
+
+    // Add code flows for taint analysis findings
+    if (issue.taint_source && issue.taint_sink) {
+      result.codeFlows = [{
+        threadFlows: [{
+          locations: [
+            {
+              location: {
+                physicalLocation: {
+                  artifactLocation: { uri: file_path },
+                  region: { startLine: issue.taint_source.line || 1 }
+                },
+                message: { text: issue.taint_source.label || 'Source' }
+              }
+            },
+            {
+              location: {
+                physicalLocation: {
+                  artifactLocation: { uri: file_path },
+                  region: { startLine: issue.taint_sink.line || 1 }
+                },
+                message: { text: issue.taint_sink.label || 'Sink' }
+              }
+            }
+          ]
+        }]
+      }];
+    }
+
+    // Add related locations if present
+    if (issue.related_file) {
+      result.relatedLocations = [{
+        id: 0,
+        physicalLocation: {
+          artifactLocation: { uri: issue.related_file },
+          region: { startLine: issue.related_line || 1 }
+        },
+        message: { text: issue.related_message || 'Related location' }
+      }];
+    }
+
     // Add fix if available
     if (issue.suggested_fix && issue.suggested_fix.fixed) {
       result.fixes = [{
@@ -211,7 +317,7 @@ export function toSarif(file_path, language, issues) {
       tool: {
         driver: {
           name: 'agent-security-scanner-mcp',
-          version: '3.1.0',
+          version: _packageVersion,
           informationUri: 'https://github.com/sinewaveai/agent-security-scanner-mcp',
           rules: Array.from(rulesMap.values())
         }

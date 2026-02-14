@@ -1,0 +1,225 @@
+# =============================================================================
+# GitLab CI Template: agent-security-scanner-mcp
+# =============================================================================
+#
+# Include this template in your .gitlab-ci.yml to add security scanning:
+#
+#   include:
+#     - project: 'your-group/agent-security-scanner-mcp'
+#       file: 'templates/gitlab-ci-security.yml'
+#
+# Or via remote URL:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sinewaveai/agent-security-scanner-mcp/main/templates/gitlab-ci-security.yml'
+#
+# Override variables to customize behavior:
+#
+#   variables:
+#     SECURITY_SEVERITY_THRESHOLD: "error"    # Only block on errors
+#     SECURITY_SCAN_VERBOSITY: "full"         # More detailed output
+#
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Configurable variables
+# ---------------------------------------------------------------------------
+variables:
+  # Minimum severity to block the pipeline: "error", "warning", or "info"
+  SECURITY_SEVERITY_THRESHOLD: "warning"
+  # Verbosity of scan output: "minimal", "compact", or "full"
+  SECURITY_SCAN_VERBOSITY: "compact"
+  # Node.js version to use
+  NODE_VERSION: "18"
+
+# ---------------------------------------------------------------------------
+# Define the security-scan stage
+# ---------------------------------------------------------------------------
+stages:
+  - security-scan
+
+# ---------------------------------------------------------------------------
+# Job: security-scan
+#
+# Scans the entire project for security vulnerabilities using
+# agent-security-scanner-mcp. Results are saved as artifacts and the job
+# exit code is determined by the severity threshold.
+# ---------------------------------------------------------------------------
+security-scan:
+  stage: security-scan
+  image: node:${NODE_VERSION}
+
+  before_script:
+    # Install Python (needed by the analyzer engine)
+    - apt-get update -qq && apt-get install -y -qq python3 python3-pip > /dev/null 2>&1
+    - pip3 install pyyaml --break-system-packages > /dev/null 2>&1
+    # Install the scanner
+    - npm install -g agent-security-scanner-mcp > /dev/null 2>&1
+
+  script:
+    - echo "Running security scan with verbosity=${SECURITY_SCAN_VERBOSITY}, threshold=${SECURITY_SEVERITY_THRESHOLD}"
+    - |
+      # Run the project scan and capture output
+      set +e
+      agent-security-scanner-mcp scan-project . \
+        --verbosity "${SECURITY_SCAN_VERBOSITY}" > scan-results.json 2>&1
+      SCAN_EXIT=$?
+      set -e
+
+      # Display the results
+      cat scan-results.json
+
+      # Parse results and evaluate against the threshold
+      python3 <<PYEOF
+      import json, sys
+
+      try:
+          data = json.load(open("scan-results.json"))
+      except Exception as e:
+          print(f"Could not parse scan results: {e}")
+          sys.exit(0)
+
+      total = data.get("issues_count", data.get("total", 0))
+      grade = data.get("grade", "?")
+
+      # Count issues by severity
+      error_count = 0
+      warning_count = 0
+      info_count = 0
+
+      for f in data.get("files", []):
+          for issue in f.get("issues", []):
+              sev = issue.get("severity", "").upper()
+              if sev == "ERROR":
+                  error_count += 1
+              elif sev == "WARNING":
+                  warning_count += 1
+              else:
+                  info_count += 1
+
+      # Also handle flat issue lists (from scan-diff)
+      for issue in data.get("issues", []):
+          sev = issue.get("severity", "").upper()
+          if sev == "ERROR":
+              error_count += 1
+          elif sev == "WARNING":
+              warning_count += 1
+          else:
+              info_count += 1
+
+      print(f"\n{'='*60}")
+      print(f"Security Scan Summary")
+      print(f"{'='*60}")
+      print(f"Grade:    {grade}")
+      print(f"Total:    {total}")
+      print(f"Errors:   {error_count}")
+      print(f"Warnings: {warning_count}")
+      print(f"Info:     {info_count}")
+      print(f"{'='*60}\n")
+
+      threshold = "${SECURITY_SEVERITY_THRESHOLD}"
+
+      if threshold == "error" and error_count > 0:
+          print(f"FAILED: {error_count} error-level issue(s) found (threshold: error)")
+          sys.exit(1)
+      elif threshold == "warning" and (error_count > 0 or warning_count > 0):
+          print(f"FAILED: {error_count} error(s), {warning_count} warning(s) (threshold: warning)")
+          sys.exit(1)
+      elif threshold == "info" and total > 0:
+          print(f"FAILED: {total} issue(s) found (threshold: info)")
+          sys.exit(1)
+      else:
+          print(f"PASSED: No issues at or above '{threshold}' severity.")
+          sys.exit(0)
+      PYEOF
+
+  # Save scan results as a downloadable artifact
+  artifacts:
+    when: always
+    paths:
+      - scan-results.json
+    reports:
+      # If you generate a JUnit-compatible report, you can add it here:
+      # junit: scan-results-junit.xml
+      codequality: scan-results.json
+    expire_in: 30 days
+
+  # Allow warnings to pass the pipeline; only block on errors when threshold is "error"
+  allow_failure:
+    exit_codes:
+      - 1
+
+  rules:
+    # Run on merge requests
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # Run on pushes to default branch
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    # Run on manual trigger
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    # Allow running on schedules (e.g., nightly scans)
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+# ---------------------------------------------------------------------------
+# Job: security-scan-diff (merge requests only)
+#
+# A lighter-weight job that only scans changed files in merge requests.
+# This runs in addition to the full scan above, giving quick feedback.
+# ---------------------------------------------------------------------------
+security-scan-diff:
+  stage: security-scan
+  image: node:${NODE_VERSION}
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq python3 python3-pip > /dev/null 2>&1
+    - pip3 install pyyaml --break-system-packages > /dev/null 2>&1
+    - npm install -g agent-security-scanner-mcp > /dev/null 2>&1
+
+  script:
+    - echo "Running diff-only security scan"
+    - |
+      set +e
+      agent-security-scanner-mcp scan-diff \
+        "origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}" HEAD \
+        --verbosity "${SECURITY_SCAN_VERBOSITY}" > scan-diff-results.json 2>&1
+      SCAN_EXIT=$?
+      set -e
+
+      cat scan-diff-results.json
+
+      # Evaluate: block only on errors for the diff scan
+      python3 <<PYEOF
+      import json, sys
+
+      try:
+          data = json.load(open("scan-diff-results.json"))
+      except Exception:
+          sys.exit(0)
+
+      total = data.get("issues_count", data.get("total", 0))
+      error_count = sum(
+          1 for issue in data.get("issues", [])
+          if issue.get("severity", "").upper() == "ERROR"
+      )
+
+      print(f"Diff scan found {total} issue(s), {error_count} error(s)")
+
+      if error_count > 0:
+          print(f"BLOCKED: {error_count} error-level issue(s) in changed code")
+          sys.exit(1)
+      elif total > 0:
+          print(f"WARNING: {total} issue(s) found, but none are error-level. Allowing.")
+          sys.exit(0)
+      else:
+          print("PASSED: No issues found in changed files.")
+          sys.exit(0)
+      PYEOF
+
+  artifacts:
+    when: always
+    paths:
+      - scan-diff-results.json
+    expire_in: 7 days
+
+  rules:
+    # Only run on merge requests
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

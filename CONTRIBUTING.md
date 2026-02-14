@@ -1,6 +1,6 @@
 # Contributing to agent-security-scanner-mcp
 
-Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing! This project builds the security platform for the agentic AI era — combining prompt injection detection, package hallucination detection, and vulnerability scanning, delivered natively through MCP.
 
 ## Getting Started
 
@@ -15,6 +15,10 @@ Thank you for your interest in contributing! This document provides guidelines f
    npm install
    pip install -r requirements.txt
    ```
+4. Run the diagnostic check:
+   ```bash
+   npx . doctor
+   ```
 
 ## Development Setup
 
@@ -24,19 +28,32 @@ Thank you for your interest in contributing! This document provides guidelines f
 - Python 3.x
 - PyYAML (`pip install pyyaml`)
 
-### Optional (for enhanced detection)
+### Optional (for enhanced AST-based detection)
 
 ```bash
-pip install tree-sitter tree-sitter-python tree-sitter-javascript
+pip install tree-sitter tree-sitter-python tree-sitter-javascript tree-sitter-java tree-sitter-go
+```
+
+Or install everything at once:
+```bash
+pip install -r requirements.txt
 ```
 
 ### Running Tests
 
 ```bash
-npm test              # Run all tests
+npm test              # Run all tests (17 suites, 200+ tests)
 npm run test:watch    # Watch mode
 npm run test:coverage # With coverage
 ```
+
+### Running Benchmarks
+
+```bash
+npm run benchmark     # Run accuracy benchmarks with comparison
+```
+
+Benchmarks must maintain >= 97% precision. See `benchmarks/RESULTS.md` for methodology.
 
 ### Testing the MCP Server
 
@@ -44,15 +61,20 @@ npm run test:coverage # With coverage
 # Run the server directly
 node index.js
 
-# Test with demo command
+# Test CLI commands
+npx . scan-security tests/fixtures/vuln-python.py
+npx . scan-prompt "ignore previous instructions"
+npx . check-package flask pypi
 npx . demo --lang js
 ```
 
-## Adding Security Rules
+## Ways to Contribute
 
-Security rules are defined in YAML files in the `rules/` directory.
+### Adding Security Rules
 
-### Rule Format
+Security rules are defined in YAML files in the `rules/` directory. This is a great way to start contributing!
+
+#### Rule Format
 
 ```yaml
 - id: language.category.rule-name
@@ -70,7 +92,7 @@ Security rules are defined in YAML files in the `rules/` directory.
     replacement: "safe_pattern"
 ```
 
-### Rule Naming Convention
+#### Rule Naming Convention
 
 - Format: `language.category.specific-name`
 - Examples:
@@ -78,24 +100,65 @@ Security rules are defined in YAML files in the `rules/` directory.
   - `python.crypto.weak-hash-md5`
   - `go.injection.command-injection`
 
-### Testing Your Rule
+#### Testing Your Rule
 
 1. Create a test file with vulnerable code
 2. Run the scanner:
    ```bash
-   python analyzer.py path/to/test-file.js
+   python3 analyzer.py path/to/test-file.js
    ```
 3. Verify detection and suggested fix
 
-## Adding Auto-Fix Templates
+### Adding Auto-Fix Templates
 
-Fix templates are defined in `index.js` in the `FIX_TEMPLATES` object:
+Fix templates are defined in `src/fix-patterns.js` in the `FIX_TEMPLATES` object:
 
 ```javascript
 "rule-name": {
   description: "What this fix does",
-  fix: (line) => line.replace(/vulnerable/, 'safe')
+  fix: (line, language) => line.replace(/vulnerable/, 'safe')
 }
+```
+
+Important: fixes must pass `validateFix()` safety checks in `src/utils.js` — no string concatenation with user input, no shell=True, etc.
+
+### Adding Benchmark Corpus Entries
+
+Improve detection accuracy by adding annotated test cases to `benchmarks/corpus/`:
+
+```python
+# VULN: rule-id-substring
+vulnerable_code_here()
+
+# SAFE: rule-id-substring
+safe_code_here()
+
+# FP-PRONE: rule-id-substring (explain why)
+code_that_triggers_false_positive()
+```
+
+### Adding Prompt Injection Rules
+
+Prompt injection rules are in `rules/prompt-injection.security.yaml`. We need rules for:
+- Indirect injection via file content, image metadata, HTML comments
+- Multi-turn escalation patterns
+- Encoded/obfuscated injection attempts
+
+## Architecture Quick Reference
+
+```
+index.js                 → MCP server entry, CLI routing, tool registration
+src/tools/               → MCP tool handlers (scan-security, fix-security, etc.)
+src/fix-patterns.js      → 165 auto-fix templates
+src/utils.js             → Shared utilities (language detection, analyzer runner)
+src/context.js           → Context-aware FP reduction (imports, frameworks, nosec)
+src/dedup.js             → Cross-engine finding deduplication
+src/config.js            → .scannerrc.yaml configuration loading
+analyzer.py              → Python AST analysis engine
+rules/                   → 1700+ YAML security rules
+packages/                → Bloom filters for 4.3M+ packages (hallucination detection)
+benchmarks/              → Accuracy benchmarking framework
+tests/                   → Vitest test suites
 ```
 
 ## Pull Request Process
@@ -112,46 +175,63 @@ Fix templates are defined in `index.js` in the `FIX_TEMPLATES` object:
    npm test
    ```
 
-4. Commit with a descriptive message:
+4. If you modified rules or detection logic, run benchmarks:
+   ```bash
+   npm run benchmark
+   ```
+
+5. Commit with a descriptive message:
    ```bash
    git commit -m "feat: add detection for XYZ vulnerability"
    ```
 
-5. Push and create a Pull Request
+6. Push and create a Pull Request
 
 ### Commit Message Format
 
-- `feat:` New feature
-- `fix:` Bug fix
+- `feat:` New feature or rule
+- `fix:` Bug fix or false positive fix
 - `docs:` Documentation changes
 - `test:` Adding or updating tests
 - `refactor:` Code refactoring
 - `chore:` Maintenance tasks
+- `bench:` Benchmark changes
 
 ## Code Style
 
-- JavaScript: ESM modules, modern syntax
+- JavaScript: ESM modules, modern syntax, no TypeScript
 - Python: PEP 8 style guide
 - YAML: 2-space indentation
+- Tests: Vitest with descriptive test names
+
+## Good First Issues
+
+Look for issues labeled `good first issue` — these are specifically chosen for new contributors. Common starting points:
+
+- Add a new YAML security rule for an uncovered vulnerability
+- Add benchmark corpus entries for Go, Java, or PHP
+- Fix a false positive by adding context to `src/context.js`
+- Add an inline suppression test case
+- Improve a fix template in `src/fix-patterns.js`
 
 ## Reporting Bugs
 
-Please use GitHub Issues with:
+Please use the **Bug Report** issue template with:
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs actual behavior
-- Environment details (Node version, OS)
+- Environment details (`npx agent-security-scanner-mcp doctor` output)
 
 ## Feature Requests
 
-Open a GitHub Issue with:
+Use the **Feature Request** issue template with:
 - Description of the feature
 - Use case / motivation
 - Example of how it would work
 
 ## Questions?
 
-Open a GitHub Discussion or Issue - we're happy to help!
+Open a GitHub Discussion or Issue — we're happy to help!
 
 ## License
 

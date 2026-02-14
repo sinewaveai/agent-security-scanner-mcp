@@ -5,6 +5,8 @@ Security scanner for AI coding agents and autonomous assistants. Scans code for 
 [![npm downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Benchmark: 97.7% precision](https://img.shields.io/badge/precision-97.7%25-brightgreen.svg)](benchmarks/RESULTS.md)
+[![CI](https://github.com/sinewaveai/agent-security-scanner-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/sinewaveai/agent-security-scanner-mcp/actions/workflows/test.yml)
 
 > **New in v3.3.0:** Full [OpenClaw](https://openclaw.ai) integration with 30+ rules targeting autonomous AI threats — data exfiltration, credential theft, messaging abuse, and unsafe automation. [See OpenClaw setup](#openclaw-integration).
 

@@ -529,37 +529,94 @@ export async function scanAgentPrompt({ prompt_text, context, verbosity }) {
     }
   }
 
-  // Multi-turn escalation detection (Bug 9)
+  // Multi-turn escalation detection — sliding-window risk accumulator
   if (context?.previous_messages && Array.isArray(context.previous_messages) && context.previous_messages.length > 0) {
-    let prevMatchCount = 0;
+    // Score each previous message for suspicious content
+    let prevTotalScore = 0;
+    let prevMessagesWithFindings = 0;
+
     for (const prevMsg of context.previous_messages) {
+      let msgHasMatch = false;
       for (const rule of allRules) {
         for (const pattern of rule.patterns) {
           try {
             const regex = new RegExp(pattern, 'i');
             if (regex.test(prevMsg)) {
-              prevMatchCount++;
+              prevTotalScore += parseInt(rule.metadata?.risk_score || '50') / 100;
+              msgHasMatch = true;
               break;
             }
           } catch (e) {
             // Skip invalid regex
           }
         }
-        if (prevMatchCount > 0) break;
       }
-      if (prevMatchCount > 0) break;
+      if (msgHasMatch) prevMessagesWithFindings++;
     }
 
-    // If both previous and current messages have matches, flag escalation
-    if (prevMatchCount > 0 && findings.length > 0) {
+    // Sliding window: sensitivity increases proportionally with prior findings
+    if (prevMessagesWithFindings > 0 && findings.length > 0) {
+      const escalationSeverity = prevMessagesWithFindings >= 2 ? 'ERROR' : 'WARNING';
+      const escalationScore = Math.min(90, 50 + prevMessagesWithFindings * 15);
+      const escalationAction = prevMessagesWithFindings >= 2 ? 'BLOCK' : 'WARN';
+
       findings.push({
         rule_id: 'multi-turn.escalation',
-        category: 'social-engineering',
+        category: 'prompt-injection-multi-turn',
+        severity: escalationSeverity,
+        message: `Multi-turn escalation detected: ${prevMessagesWithFindings} prior message(s) contained suspicious patterns. Combined with current findings, this indicates a coordinated attack.`,
+        matched_text: `escalation across ${prevMessagesWithFindings + 1} conversation turns`,
+        confidence: prevMessagesWithFindings >= 2 ? 'HIGH' : 'MEDIUM',
+        risk_score: String(escalationScore),
+        action: escalationAction
+      });
+    }
+  }
+
+  // Composite pattern detection — multiple low-severity indicators = escalated severity
+  if (findings.length >= 2) {
+    const categories = new Set(findings.map(f => f.category));
+    const indicators = {
+      hasRoleReassignment: findings.some(f =>
+        f.category === 'prompt-injection-jailbreak' || f.category === 'prompt-injection-context'
+      ),
+      hasEncodedContent: findings.some(f =>
+        f.category === 'prompt-injection-encoded' || f.category === 'obfuscation'
+      ),
+      hasUrgency: findings.some(f =>
+        f.category === 'social-engineering'
+      ),
+      hasExfiltration: findings.some(f =>
+        f.category === 'prompt-injection-output' || f.category === 'exfiltration'
+      ),
+      hasPrivilegeEscalation: findings.some(f =>
+        f.category === 'prompt-injection-privilege'
+      )
+    };
+
+    const activeIndicators = Object.values(indicators).filter(Boolean).length;
+
+    // 3+ distinct indicator types → composite attack
+    if (activeIndicators >= 3) {
+      findings.push({
+        rule_id: 'composite.multi-vector-attack',
+        category: 'prompt-injection-content',
+        severity: 'ERROR',
+        message: `Composite attack detected: ${activeIndicators} distinct attack vectors identified (${[...categories].join(', ')}). Multiple low-severity indicators combine to form a high-confidence threat.`,
+        matched_text: `${activeIndicators} attack vectors across ${findings.length} findings`,
+        confidence: 'HIGH',
+        risk_score: '95',
+        action: 'BLOCK'
+      });
+    } else if (activeIndicators >= 2 && categories.size >= 3) {
+      findings.push({
+        rule_id: 'composite.cross-category-escalation',
+        category: 'prompt-injection-content',
         severity: 'WARNING',
-        message: 'Multi-turn escalation detected: suspicious patterns found in both previous and current messages.',
-        matched_text: 'escalation across conversation turns',
+        message: `Cross-category escalation: findings span ${categories.size} categories (${[...categories].join(', ')}). Review for coordinated attack attempt.`,
+        matched_text: `${categories.size} categories across ${findings.length} findings`,
         confidence: 'MEDIUM',
-        risk_score: '70',
+        risk_score: '75',
         action: 'WARN'
       });
     }

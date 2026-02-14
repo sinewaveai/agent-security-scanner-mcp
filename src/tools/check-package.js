@@ -4,6 +4,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import bloomFilters from "bloom-filters";
 const { BloomFilter } = bloomFilters;
+import { findSimilarPackages, checkDependencyConfusion } from '../typosquat.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -149,21 +150,44 @@ export async function checkPackage({ package_name, ecosystem }) {
   const confidence = result.bloomFilter ? "medium" : "high";
   const totalPackages = getTotalPackages(ecosystem);
 
+  // Enhanced response with typosquatting and dependency confusion checks
+  const response = {
+    package: package_name,
+    ecosystem,
+    legitimate: exists,
+    hallucinated: !exists,
+    confidence,
+    bloom_filter: !!result.bloomFilter,
+    total_known_packages: totalPackages,
+    recommendation: exists
+      ? "Package exists in registry - safe to use"
+      : "POTENTIAL HALLUCINATION - Package not found in registry. Verify before using!"
+  };
+
+  // If package not found, check for typosquatting
+  if (!exists) {
+    const similar = findSimilarPackages(package_name, ecosystem);
+    if (similar.length > 0) {
+      response.typosquatting = {
+        similar_packages: similar,
+        warning: `Package '${package_name}' is similar to known packages. This could be a typosquatting attack.`
+      };
+    }
+  }
+
+  // Check for dependency confusion risk regardless of existence
+  const confusionCheck = checkDependencyConfusion(package_name);
+  if (confusionCheck.risk) {
+    response.dependency_confusion = {
+      risk: true,
+      warning: confusionCheck.warning
+    };
+  }
+
   return {
     content: [{
       type: "text",
-      text: JSON.stringify({
-        package: package_name,
-        ecosystem,
-        legitimate: exists,
-        hallucinated: !exists,
-        confidence,
-        bloom_filter: !!result.bloomFilter,
-        total_known_packages: totalPackages,
-        recommendation: exists
-          ? "Package exists in registry - safe to use"
-          : "⚠️ POTENTIAL HALLUCINATION - Package not found in registry. Verify before using!"
-      }, null, 2)
+      text: JSON.stringify(response, null, 2)
     }]
   };
 }

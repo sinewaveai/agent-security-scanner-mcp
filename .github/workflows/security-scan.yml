@@ -1,0 +1,65 @@
+# =============================================================================
+# Sample Workflow: Security Scan on Pull Requests
+# =============================================================================
+#
+# Uses the agent-security-scanner-mcp composite action to automatically
+# scan pull requests for security vulnerabilities, package hallucinations,
+# and prompt injection risks.
+#
+# This workflow:
+#   1. Checks out the code with full git history (needed for diff scanning)
+#   2. Runs the security scan composite action
+#   3. Fails the PR check if issues exceed the severity threshold
+#
+# Customize the inputs below to match your project's requirements.
+# =============================================================================
+
+name: Security Scan
+
+on:
+  pull_request:
+    branches: [main, develop, 'release/**']
+  # Allow manual triggering for full project scans
+  workflow_dispatch:
+    inputs:
+      scan_diff_only:
+        description: 'Only scan changed files (false = full project scan)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+  # Required for posting PR comments
+  pull-requests: write
+  # Required for uploading SARIF to GitHub Security tab
+  security-events: write
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # Full history is required for scan-diff to compare the PR base with HEAD
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Run the composite security scan action
+      - name: Run security scan
+        id: scan
+        uses: ./.github/actions/security-scan
+        with:
+          # Fail on WARNING and above. Use 'error' for a more lenient threshold.
+          severity_threshold: 'warning'
+          # Enable package hallucination checks
+          scan_packages: 'true'
+          # For PRs, scan only changed files; for manual runs, respect the input
+          scan_diff_only: ${{ github.event_name == 'pull_request' && 'true' || github.event.inputs.scan_diff_only || 'false' }}
+          # Upload SARIF to the Security tab
+          upload_sarif: 'true'

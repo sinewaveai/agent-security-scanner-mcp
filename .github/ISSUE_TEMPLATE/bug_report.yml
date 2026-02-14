@@ -1,0 +1,74 @@
+name: Bug Report
+description: Report a bug or incorrect behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+      placeholder: "When I scan X, I get Y, but I expected Z..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the issue.
+      placeholder: |
+        1. Run `npx agent-security-scanner-mcp scan-security myfile.py`
+        2. See error/incorrect output
+    validations:
+      required: true
+
+  - type: textarea
+    id: code-sample
+    attributes:
+      label: Code Sample (if applicable)
+      description: Paste the code that triggers the issue.
+      render: shell
+
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Which tool is affected?
+      options:
+        - scan_security
+        - fix_security
+        - check_package
+        - scan_packages
+        - scan_agent_prompt
+        - scan_project
+        - scan_diff
+        - CLI (init/doctor/demo)
+        - Other
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue type
+      options:
+        - False positive (flagged safe code)
+        - False negative (missed vulnerability)
+        - Incorrect fix suggestion
+        - Crash or error
+        - Performance issue
+        - Other
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: "Run `npx agent-security-scanner-mcp doctor` and paste the output, or provide details manually."
+      placeholder: |
+        Node.js: v22.x
+        Python: 3.12
+        OS: macOS / Linux / Windows
+        Client: Claude Code / Cursor / etc.
