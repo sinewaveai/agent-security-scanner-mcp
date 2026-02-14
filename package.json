@@ -1,225 +1,111 @@
 {
-  "name": "agent-security-analyzer",
-  "displayName": "Agent Security Analyzer",
-  "description": "Comprehensive security analyzer: vulnerability scanning, package hallucination detection, and prompt injection protection",
-  "version": "1.0.0",
-  "publisher": "your-publisher-name",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/your-username/agent-security-layer"
-  },
-  "engines": {
-    "vscode": "^1.80.0"
-  },
-  "categories": [
-    "Linters",
-    "Programming Languages",
-    "Other"
-  ],
-  "keywords": [
-    "security",
-    "vulnerability",
-    "analyzer",
-    "linter",
-    "sql injection",
-    "xss",
-    "code analysis",
-    "hallucination",
-    "prompt injection",
-    "ai safety",
-    "llm security"
-  ],
-  "activationEvents": [
-    "onLanguage:javascript",
-    "onLanguage:typescript",
-    "onLanguage:javascriptreact",
-    "onLanguage:typescriptreact",
-    "onLanguage:python",
-    "onLanguage:java",
-    "onLanguage:csharp",
-    "onLanguage:php",
-    "onLanguage:ruby",
-    "onLanguage:go",
-    "onLanguage:rust",
-    "onLanguage:c",
-    "onLanguage:cpp",
-    "onLanguage:sql",
-    "onLanguage:dockerfile",
-    "onLanguage:yaml",
-    "onLanguage:terraform",
-    "onLanguage:markdown",
-    "onLanguage:plaintext",
-    "onStartupFinished"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "agent-security-view",
-          "title": "Agent Security",
-          "icon": "images/security-icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "agent-security-view": [
-        {
-          "id": "securityExplorer",
-          "name": "Security Explorer"
-        }
-      ]
-    },
-    "commands": [
-      {
-        "command": "agentSecurity.scanFile",
-        "title": "Security: Scan Current File"
-      },
-      {
-        "command": "agentSecurity.scanWorkspace",
-        "title": "Security: Scan Entire Workspace"
-      },
-      {
-        "command": "agentSecurity.clearDiagnostics",
-        "title": "Security: Clear All Warnings"
-      },
-      {
-        "command": "agentSecurity.refreshView",
-        "title": "Refresh Security View",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "agentSecurity.fixAllInFile",
-        "title": "Security: Fix All Issues in Current File",
-        "icon": "$(lightbulb-autofix)"
-      },
-      {
-        "command": "agentSecurity.showFixInfo",
-        "title": "Security: Show Fix Information"
-      },
-      {
-        "command": "agentSecurity.checkPackage",
-        "title": "Security: Check Package Legitimacy"
-      },
-      {
-        "command": "agentSecurity.scanPackages",
-        "title": "Security: Scan File for Hallucinated Packages"
-      },
-      {
-        "command": "agentSecurity.showPackageStats",
-        "title": "Security: Show Package Database Stats"
-      },
-      {
-        "command": "agentSecurity.scanPrompt",
-        "title": "Security: Scan Text for Prompt Injection"
-      },
-      {
-        "command": "agentSecurity.analyzeRisk",
-        "title": "Security: Analyze Prompt Risk Level"
-      }
-    ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "agentSecurity.refreshView",
-          "when": "view == securityExplorer",
-          "group": "navigation"
-        }
-      ],
-      "editor/context": [
-        {
-          "command": "agentSecurity.scanFile",
-          "group": "security@1"
-        },
-        {
-          "command": "agentSecurity.scanPackages",
-          "group": "security@2"
-        },
-        {
-          "command": "agentSecurity.scanPrompt",
-          "group": "security@3"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "Agent Security Analyzer",
-      "properties": {
-        "agentSecurity.enabledRules": {
-          "type": "array",
-          "default": [
-            "sql-injection",
-            "xss",
-            "path-traversal",
-            "command-injection",
-            "hardcoded-secrets"
-          ],
-          "description": "List of enabled security rules"
-        },
-        "agentSecurity.severity": {
-          "type": "string",
-          "default": "warning",
-          "enum": [
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "description": "Default severity level for security issues"
-        },
-        "agentSecurity.autoScan": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically scan files on save"
-        },
-        "agentSecurity.enableHallucinationDetection": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable package hallucination detection for npm, PyPI, and other ecosystems"
-        },
-        "agentSecurity.enablePromptScanning": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable prompt injection and agent attack detection"
-        },
-        "agentSecurity.promptSensitivity": {
-          "type": "string",
-          "default": "medium",
-          "enum": [
-            "high",
-            "medium",
-            "low"
-          ],
-          "enumDescriptions": [
-            "High sensitivity - more strict, may have more false positives",
-            "Medium sensitivity - balanced detection",
-            "Low sensitivity - only flag high-confidence threats"
-          ],
-          "description": "Sensitivity level for prompt injection detection"
-        }
-      }
-    }
+  "name": "agent-security-scanner-mcp",
+  "version": "3.3.0",
+  "mcpName": "io.github.sinewaveai/agent-security-scanner-mcp",
+  "description": "Security scanner MCP server for AI coding agents. Prompt injection firewall, package hallucination detection (4.3M+ packages), 1000+ vulnerability rules with AST & taint analysis, auto-fix. For Claude Code, Cursor, Windsurf, Cline, OpenClaw.",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "agent-security-scanner-mcp": "index.js"
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "start": "node index.js",
+    "postinstall": "node scripts/postinstall.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "benchmark": "python3 benchmarks/benchmark_runner.py --save --compare-latest"
   },
-  "devDependencies": {
-    "@types/vscode": "^1.80.0",
-    "@types/node": "^20.x",
-    "@types/js-yaml": "^4.0.9",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.40.0",
-    "typescript": "^5.0.0",
-    "@vscode/vsce": "^2.22.0"
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "opencode",
+    "kilocode",
+    "security",
+    "scanner",
+    "vulnerability",
+    "sast",
+    "code-analysis",
+    "tree-sitter",
+    "ast-analysis",
+    "sql-injection",
+    "xss",
+    "secrets-detection",
+    "hallucination-detection",
+    "package-verification",
+    "supply-chain-security",
+    "prompt-injection",
+    "agent-security",
+    "llm-security",
+    "ai-safety",
+    "claude-desktop",
+    "claude-code",
+    "mcp-server",
+    "cursor",
+    "cody",
+    "cline",
+    "windsurf",
+    "agentic",
+    "devin",
+    "owasp",
+    "cwe",
+    "semgrep",
+    "zed",
+    "prompt-firewall",
+    "auto-fix",
+    "hallucination",
+    "openclaw",
+    "clawdbot"
+  ],
+  "author": "Sinewave AI <divya@sinewave.ai>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sinewaveai/agent-security-scanner-mcp.git"
+  },
+  "homepage": "https://github.com/sinewaveai/agent-security-scanner-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/sinewaveai/agent-security-scanner-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "bloom-filters": "^3.0.4",
+    "zod": "^4.3.6"
+  },
+  "files": [
+    "LICENSE",
+    "server.json",
+    "index.js",
+    "src/tools/*.js",
+    "src/cli/*.js",
+    "src/fix-patterns.js",
+    "src/utils.js",
+    "src/dedup.js",
+    "src/context.js",
+    "src/config.js",
+    "src/history.js",
+    "src/typosquat.js",
+    "templates/**",
+    "analyzer.py",
+    "ast_parser.py",
+    "generic_ast.py",
+    "pattern_matcher.py",
+    "regex_fallback.py",
+    "semgrep_loader.py",
+    "taint_analyzer.py",
+    "requirements.txt",
+    "rules/**",
+    "packages/**",
+    "skills/**",
+    "scripts/postinstall.js",
+    "cross_file_analyzer.py"
+  ],
+  "devDependencies": {
+    "all-the-package-names": "^2.0.2349",
+    "vitest": "^4.0.18"
   }
 }

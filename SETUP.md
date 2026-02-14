@@ -91,7 +91,7 @@ const query = "SELECT * FROM users WHERE id = " + userId;
 element.innerHTML = userInput;
 
 // This should trigger hardcoded secret warning
-const apiKey = "stripe_test_FAKEFAKEFAKEFAKEFAKE1234";
+const apiKey = "stripe_test_FAKE_KEY_EXAMPLE";
 ```
 
 Then run `Security: Scan Current File` - you should see warnings underlined in the editor!

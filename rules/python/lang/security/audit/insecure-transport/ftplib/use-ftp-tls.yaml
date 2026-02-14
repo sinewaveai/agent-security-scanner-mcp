@@ -1,0 +1,40 @@
+rules:
+- id: use-ftp-tls
+  patterns:
+    - pattern: ftplib.FTP(...)
+    # With stdlib libdefs, Semgrep knows that `ftplib.FTP_TLS` is a subclass of
+    # `ftplib.FTP`, and therefore the pattern `ftplib.FTP` matches when we
+    # encounter `ftplib.FTP_TLS` too.
+    #
+    # Therefore, we explicitly exclude `FTP_TLS`.
+    #
+    # Currently libdefs are only available with the interfile engine, and since
+    # this rule does not have `interfile: true` we only run the interfile engine
+    # over it in tests. However, it's preferable to future-proof this rule
+    # rather than exclude it from our interfile test suite.
+    - pattern-not: ftplib.FTP_TLS(...)
+  fix-regex:
+    regex: FTP(.*)\)
+    replacement: FTP_TLS\1, context=ssl.create_default_context())
+  message: >-
+    The 'FTP' class sends information unencrypted. Consider using
+    the 'FTP_TLS' class instead.
+  metadata:
+    owasp:
+    - A03:2017 - Sensitive Data Exposure
+    - A02:2021 - Cryptographic Failures
+    - A04:2025 - Cryptographic Failures
+    cwe:
+    - 'CWE-319: Cleartext Transmission of Sensitive Information'
+    references:
+    - https://docs.python.org/3/library/ftplib.html#ftplib.FTP_TLS
+    category: security
+    technology:
+    - ftplib
+    subcategory:
+    - audit
+    likelihood: LOW
+    impact: LOW
+    confidence: LOW
+  severity: INFO
+  languages: [python]

@@ -1,0 +1,46 @@
+rules:
+  - id: use-timeout
+    pattern-either:
+      - patterns:
+        - pattern-not: requests.$W(..., timeout=$N, ...)
+        - pattern-not: requests.$W(..., **$KWARGS)
+        - pattern-either:
+            - pattern: requests.request(...)
+            - pattern: requests.get(...)
+            - pattern: requests.post(...)
+            - pattern: requests.put(...)
+            - pattern: requests.delete(...)
+            - pattern: requests.head(...)
+            - pattern: requests.patch(...)
+      - patterns:
+          - pattern-inside: |
+              $SESSION = requests.Session(...)
+              ...
+          - pattern-not: |
+              $SESSION.$W(..., timeout=$N, ...)
+          - pattern-not: |
+              $SESSION.$W(..., **$KWARGS)
+          - pattern-either:
+              - pattern: $SESSION.get(...)
+              - pattern: $SESSION.post(...)
+              - pattern: $SESSION.put(...)
+              - pattern: $SESSION.delete(...)
+              - pattern: $SESSION.head(...)
+              - pattern: $SESSION.patch(...)
+    fix-regex:
+      regex: (.*)\)$
+      replacement: \1, timeout=30)
+    message: >-
+      Detected a 'requests' call without a timeout set. By default, 'requests' calls
+      wait until the connection is closed. This means a 'requests' call without a timeout
+      will hang the program if a response is never received. Consider setting a timeout
+      for all 'requests'.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: best-practice
+      references:
+        - https://docs.python-requests.org/en/latest/user/advanced/?highlight=timeout#timeouts
+        - https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts
+      technology:
+        - requests

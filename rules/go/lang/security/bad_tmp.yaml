@@ -1,0 +1,29 @@
+rules:
+- id: bad-tmp-file-creation
+  message: File creation in shared tmp directory without using `io.CreateTemp`.
+  languages: [go]
+  severity: WARNING
+  metadata:
+    cwe:
+    - 'CWE-377: Insecure Temporary File'
+    source-rule-url: https://github.com/securego/gosec
+    category: security
+    technology:
+    - go
+    confidence: LOW
+    owasp:
+    - A01:2021 - Broken Access Control
+    - A01:2025 - Broken Access Control
+    references:
+    - https://owasp.org/Top10/A01_2021-Broken_Access_Control
+    - https://pkg.go.dev/io/ioutil#TempFile
+    - https://pkg.go.dev/os#CreateTemp
+    - https://github.com/securego/gosec/blob/5fd2a370447223541cddb35da8d1bc707b7bb153/rules/tempfiles.go#L67
+    subcategory:
+    - audit
+    likelihood: LOW
+    impact: LOW
+  pattern-either:
+  - pattern: ioutil.WriteFile("=~//tmp/.*$/", ...)
+  - pattern: os.Create("=~//tmp/.*$/", ...)
+  - pattern: os.WriteFile("=~//tmp/.*$/", ...)

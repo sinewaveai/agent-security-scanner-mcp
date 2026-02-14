@@ -1,0 +1,100 @@
+# Test file for Kubernetes security rules
+# Contains intentional vulnerabilities for testing
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vulnerable-pod
+spec:
+  # Host Network - should be detected
+  hostNetwork: true
+  # Host PID - should be detected
+  hostPID: true
+
+  containers:
+  - name: vulnerable-container
+    image: nginx:latest
+    securityContext:
+      # Privileged Container - should be detected
+      privileged: true
+      # Run as Root - should be detected
+      runAsUser: 0
+      runAsNonRoot: false
+      # Allow Privilege Escalation - should be detected
+      allowPrivilegeEscalation: true
+      # Read-only filesystem disabled - should be detected
+      readOnlyRootFilesystem: false
+      # Capabilities added - should be detected
+      capabilities:
+        add:
+          - NET_ADMIN
+          - SYS_ADMIN
+
+    # Secrets in Environment - should be detected
+    env:
+    - name: DATABASE_PASSWORD
+      value: "mysupersecretpassword123"
+    - name: API_KEY
+      value: "sk_live_abcdefghijklmnop"
+
+    volumeMounts:
+    - name: host-vol
+      mountPath: /host
+
+  volumes:
+  # Host Path - should be detected
+  - name: host-vol
+    hostPath:
+      path: /
+
+---
+# RBAC Wildcard Permissions - should be detected
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: admin-role
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+
+---
+# Cluster Admin Binding - should be detected
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Network Policy Allow All - should be detected
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all
+spec:
+  podSelector: {}
+  ingress:
+  - {}
+  policyTypes:
+  - Ingress
+
+---
+# Secret with hardcoded data - should be detected
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hardcoded-secret
+type: Opaque
+stringData:
+  password: "supersecretpassword"
+  api_key: "sk_live_1234567890abcdef"
+data:
+  password: c3VwZXJzZWNyZXRwYXNzd29yZA==

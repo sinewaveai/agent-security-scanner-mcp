@@ -1,0 +1,13 @@
+{
+  "mcp": {
+    "security-scanner": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "agent-security-scanner-mcp"
+      ],
+      "enabled": true
+    }
+  }
+}

@@ -1,0 +1,37 @@
+rules:
+- id: pyramid-authtkt-cookie-httponly-unsafe-default
+  patterns:
+      - pattern: pyramid.authentication.$FUNC($...PARAMS)
+      - metavariable-pattern:
+          metavariable: $FUNC
+          pattern-either:
+            - pattern: AuthTktCookieHelper
+            - pattern: AuthTktAuthenticationPolicy
+      - pattern-not: pyramid.authentication.$FUNC(..., httponly=$HTTPONLY, ...)
+      - pattern-not: pyramid.authentication.$FUNC(..., **$PARAMS, ...)
+      - focus-metavariable: $...PARAMS
+  fix: |
+    $...PARAMS, httponly=True
+  message: >-
+    Found a Pyramid Authentication Ticket cookie without the httponly option correctly set. Pyramid
+    cookies should be handled securely by setting httponly=True.
+    If this parameter is not properly set, your cookies are not properly protected and
+    are at risk of being stolen by an attacker.
+  metadata:
+    cwe:
+    - "CWE-1004: Sensitive Cookie Without 'HttpOnly' Flag"
+    owasp:
+    - A05:2021 - Security Misconfiguration
+    - A02:2025 - Security Misconfiguration
+    category: security
+    technology:
+    - pyramid
+    references:
+    - https://owasp.org/Top10/A05_2021-Security_Misconfiguration
+    subcategory:
+    - vuln
+    likelihood: LOW
+    impact: LOW
+    confidence: MEDIUM
+  languages: [python]
+  severity: WARNING

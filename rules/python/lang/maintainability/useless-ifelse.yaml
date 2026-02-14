@@ -1,0 +1,31 @@
+rules:
+  - id: useless-if-conditional
+    message: if block checks for the same condition on both branches (`$X`)
+    languages: [python]
+    severity: WARNING
+    pattern: |
+      if $X:
+          ...
+      elif $X:
+          ...
+    metadata:
+      references:
+        - https://docs.python.org/3/tutorial/controlflow.html
+      category: maintainability
+      technology:
+        - python
+  - id: useless-if-body
+    pattern: |
+      if $X:
+          $S
+      else:
+          $S
+    message: Useless if statement; both blocks have the same body
+    languages: [python]
+    severity: WARNING
+    metadata:
+      references:
+        - https://docs.python.org/3/tutorial/controlflow.html
+      category: maintainability
+      technology:
+        - python

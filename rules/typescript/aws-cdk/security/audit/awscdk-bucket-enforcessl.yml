@@ -1,0 +1,39 @@
+rules:
+- id: aws-cdk-bucket-enforcessl
+  message: Bucket $X is not set to enforce encryption-in-transit, if not explictly setting this on the
+    bucket policy - the property "enforceSSL" should be set to true
+  metadata:
+    cwe:
+    - 'CWE-319: Cleartext Transmission of Sensitive Information'
+    category: security
+    technology:
+    - AWS-CDK
+    references:
+    - https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html
+    owasp:
+    - A03:2017 - Sensitive Data Exposure
+    - A02:2021 - Cryptographic Failures
+    - A04:2025 - Cryptographic Failures
+    subcategory:
+    - vuln
+    likelihood: MEDIUM
+    impact: MEDIUM
+    confidence: MEDIUM
+  languages:
+  - ts
+  severity: ERROR
+  pattern-either:
+  - patterns:
+    - pattern-inside: |
+        import {Bucket} from '@aws-cdk/aws-s3';
+        ...
+    - pattern: const $X = new Bucket(...)
+    - pattern-not: |
+        const $X = new Bucket(..., {enforceSSL: true}, ...)
+  - patterns:
+    - pattern-inside: |
+        import * as $Y from '@aws-cdk/aws-s3';
+        ...
+    - pattern: const $X = new $Y.Bucket(...)
+    - pattern-not: |
+        const $X = new $Y.Bucket(..., {..., enforceSSL: true, ...})

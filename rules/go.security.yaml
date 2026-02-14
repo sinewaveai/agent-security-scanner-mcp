@@ -1,0 +1,380 @@
+rules:
+  # ============================================================================
+  # SQL INJECTION
+  # ============================================================================
+  - id: go.lang.security.audit.sqli.sql-injection-db
+    languages: [go]
+    severity: ERROR
+    message: "Possible SQL injection. Use parameterized queries with $1, $2 placeholders."
+    patterns:
+      - "db\\.Query\\s*\\([^)]*\\+"
+      - "db\\.Exec\\s*\\([^)]*\\+"
+      - "db\\.QueryRow\\s*\\([^)]*\\+"
+      - "fmt\\.Sprintf.*SELECT.*FROM"
+      - "fmt\\.Sprintf.*INSERT.*INTO"
+      - "fmt\\.Sprintf.*UPDATE.*SET"
+      - "fmt\\.Sprintf.*DELETE.*FROM"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.sqli.sql-injection-db
+
+  # ============================================================================
+  # COMMAND INJECTION
+  # ============================================================================
+  - id: go.lang.security.audit.command-injection-exec
+    languages: [go]
+    severity: ERROR
+    message: "Possible command injection via exec.Command. Validate and sanitize input."
+    patterns:
+      - "exec\\.Command\\s*\\([^)]*\\+"
+      - "exec\\.CommandContext\\s*\\([^)]*\\+"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.command-injection-exec
+
+  # ============================================================================
+  # PATH TRAVERSAL
+  # ============================================================================
+  - id: go.lang.security.audit.path-traversal
+    languages: [go]
+    severity: WARNING
+    message: "Possible path traversal vulnerability. Use filepath.Clean and validate paths."
+    patterns:
+      - "os\\.Open\\s*\\([^)]*\\+"
+      - "os\\.Create\\s*\\([^)]*\\+"
+      - "os\\.ReadFile\\s*\\([^)]*\\+"
+      - "ioutil\\.ReadFile\\s*\\([^)]*\\+"
+      - "ioutil\\.WriteFile\\s*\\([^)]*\\+"
+      - "filepath\\.Join\\s*\\([^)]*\\.\\./"
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.path-traversal
+
+  # ============================================================================
+  # SSRF
+  # ============================================================================
+  - id: go.lang.security.audit.ssrf-http
+    languages: [go]
+    severity: WARNING
+    message: "Possible SSRF vulnerability. Validate and whitelist URLs."
+    patterns:
+      - "http\\.Get\\s*\\([^)]*\\+"
+      - "http\\.Post\\s*\\([^)]*\\+"
+      - "http\\.NewRequest\\s*\\([^)]*\\+"
+      - "client\\.Do\\s*\\("
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.ssrf-http
+
+  # ============================================================================
+  # CRYPTOGRAPHY
+  # ============================================================================
+  - id: go.lang.security.crypto.weak-hash-md5
+    languages: [go]
+    severity: WARNING
+    message: "MD5 is cryptographically weak. Use SHA-256 or stronger."
+    patterns:
+      - "md5\\.New\\s*\\("
+      - "md5\\.Sum\\s*\\("
+      - "crypto/md5"
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.weak-hash-md5
+
+  - id: go.lang.security.crypto.weak-hash-sha1
+    languages: [go]
+    severity: WARNING
+    message: "SHA-1 is cryptographically weak. Use SHA-256 or stronger."
+    patterns:
+      - "sha1\\.New\\s*\\("
+      - "sha1\\.Sum\\s*\\("
+      - "crypto/sha1"
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.weak-hash-sha1
+
+  - id: go.lang.security.crypto.insecure-random
+    languages: [go]
+    severity: WARNING
+    message: "math/rand is not cryptographically secure. Use crypto/rand."
+    patterns:
+      - "math/rand"
+      - "rand\\.Seed\\s*\\("
+      - "rand\\.Int\\s*\\("
+      - "rand\\.Intn\\s*\\("
+    metadata:
+      cwe: "CWE-330"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.insecure-random
+
+  - id: go.lang.security.crypto.weak-cipher-des
+    languages: [go]
+    severity: ERROR
+    message: "DES/3DES is insecure. Use AES."
+    patterns:
+      - "des\\.NewCipher\\s*\\("
+      - "des\\.NewTripleDESCipher\\s*\\("
+      - "crypto/des"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.weak-cipher-des
+
+  # ============================================================================
+  # SSL/TLS
+  # ============================================================================
+  - id: go.lang.security.ssl.insecure-skip-verify
+    languages: [go]
+    severity: ERROR
+    message: "TLS certificate verification is disabled. This allows MITM attacks."
+    patterns:
+      - "InsecureSkipVerify\\s*:\\s*true"
+      - "tls\\.Config\\s*\\{[^}]*InsecureSkipVerify"
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.tls-insecure-skip-verify
+
+  - id: go.lang.security.ssl.weak-tls-version
+    languages: [go]
+    severity: ERROR
+    message: "Weak TLS version. Use TLS 1.2 or higher."
+    patterns:
+      - "MinVersion\\s*:\\s*tls\\.VersionSSL30"
+      - "MinVersion\\s*:\\s*tls\\.VersionTLS10"
+      - "MinVersion\\s*:\\s*tls\\.VersionTLS11"
+    metadata:
+      cwe: "CWE-326"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.weak-tls-version
+
+  # ============================================================================
+  # HARDCODED SECRETS
+  # ============================================================================
+  - id: go.lang.security.audit.hardcoded-password
+    languages: [go]
+    severity: ERROR
+    message: "Hardcoded password detected. Use environment variables."
+    patterns:
+      - "password\\s*:?=\\s*\"[^\"]{4,}\""
+      - "passwd\\s*:?=\\s*\"[^\"]{4,}\""
+      - "Password\\s*:\\s*\"[^\"]{4,}\""
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.hardcoded-password
+
+  - id: go.lang.security.audit.hardcoded-api-key
+    languages: [go]
+    severity: ERROR
+    message: "Hardcoded API key detected. Use environment variables."
+    patterns:
+      - "apiKey\\s*:?=\\s*\"[A-Za-z0-9_-]{16,}\""
+      - "secretKey\\s*:?=\\s*\"[A-Za-z0-9_-]{16,}\""
+      - "ApiKey\\s*:\\s*\"[A-Za-z0-9_-]{16,}\""
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.hardcoded-api-key
+
+  # ============================================================================
+  # TEMPLATE INJECTION
+  # ============================================================================
+  - id: go.lang.security.audit.template-injection
+    languages: [go]
+    severity: ERROR
+    message: "Possible template injection. Avoid user input in template parsing."
+    patterns:
+      - "template\\.HTML\\s*\\("
+      - "template\\.JS\\s*\\("
+      - "template\\.URL\\s*\\("
+    metadata:
+      cwe: "CWE-94"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.template-injection
+
+  # ============================================================================
+  # OPEN REDIRECT
+  # ============================================================================
+  - id: go.lang.security.audit.open-redirect
+    languages: [go]
+    severity: WARNING
+    message: "Possible open redirect vulnerability. Validate redirect URLs."
+    patterns:
+      - "http\\.Redirect\\s*\\([^)]*\\+"
+      - "w\\.Header\\s*\\(\\s*\\)\\.Set\\s*\\(\\s*\"Location\""
+    metadata:
+      cwe: "CWE-601"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.open-redirect
+
+  # ============================================================================
+  # XSS
+  # ============================================================================
+  - id: go.lang.security.audit.xss-response-writer
+    languages: [go]
+    severity: ERROR
+    message: "Possible XSS via ResponseWriter.Write. Escape user input."
+    patterns:
+      - "w\\.Write\\s*\\([^)]*\\+"
+      - "fmt\\.Fprintf\\s*\\(\\s*w\\s*,"
+      - "io\\.WriteString\\s*\\(\\s*w\\s*,"
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.xss-response-writer
+
+  # ============================================================================
+  # JWT SECURITY
+  # ============================================================================
+  - id: go.jwt.security.jwt-none-algorithm
+    languages: [go]
+    severity: ERROR
+    message: "JWT with 'none' algorithm is insecure. Use RS256 or HS256."
+    patterns:
+      - "jwt\\.SigningMethodNone"
+      - "SigningMethodNone"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.jwt.security.jwt-none-algorithm
+
+  - id: go.jwt.security.jwt-hardcoded-secret
+    languages: [go]
+    severity: ERROR
+    message: "Hardcoded JWT secret detected. Use environment variables."
+    patterns:
+      - "jwt\\.Parse.*\\[\\]byte\\s*\\(\\s*\"[^\"]{8,}\"\\s*\\)"
+      - "SignedString\\s*\\(\\s*\\[\\]byte\\s*\\(\\s*\"[^\"]{8,}\"\\s*\\)\\s*\\)"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.jwt.security.jwt-hardcoded-secret
+
+  # ============================================================================
+  # CORS
+  # ============================================================================
+  - id: go.lang.security.audit.cors-wildcard
+    languages: [go]
+    severity: WARNING
+    message: "CORS with wildcard origin. Restrict to specific origins."
+    patterns:
+      - "Access-Control-Allow-Origin.*\\*"
+      - "AllowOrigins\\s*:\\s*\\[\\s*\"\\*\"\\s*\\]"
+    metadata:
+      cwe: "CWE-942"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.cors-wildcard
+
+  # ============================================================================
+  # LOGGING SENSITIVE DATA
+  # ============================================================================
+  - id: go.lang.security.audit.logging-sensitive-data
+    languages: [go]
+    severity: WARNING
+    message: "Possible sensitive data in log. Avoid logging passwords or secrets."
+    patterns:
+      - "log\\.(Print|Printf|Println|Fatal|Fatalf).*password"
+      - "log\\.(Print|Printf|Println|Fatal|Fatalf).*secret"
+      - "log\\.(Print|Printf|Println|Fatal|Fatalf).*token"
+      - "fmt\\.(Print|Printf|Println).*password"
+    metadata:
+      cwe: "CWE-532"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.logging-sensitive-data
+
+  # ============================================================================
+  # DESERIALIZATION
+  # ============================================================================
+  - id: go.lang.security.deserialization.gob-decode
+    languages: [go]
+    severity: WARNING
+    message: "gob.Decode can deserialize arbitrary types. Validate input source."
+    patterns:
+      - "gob\\.NewDecoder\\s*\\("
+      - "\\.Decode\\s*\\(&"
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/go.lang.security.deserialization.gob-decode
+
+  # ============================================================================
+  # RACE CONDITIONS
+  # ============================================================================
+  - id: go.lang.security.audit.race-condition-goroutine
+    languages: [go]
+    severity: WARNING
+    message: "Possible race condition. Use mutex or channels for shared state."
+    patterns:
+      - "go\\s+func\\s*\\([^)]*\\)\\s*\\{[^}]*\\+\\+"
+      - "go\\s+func\\s*\\([^)]*\\)\\s*\\{[^}]*\\-\\-"
+    metadata:
+      cwe: "CWE-362"
+      owasp: "A04:2021 - Insecure Design"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.race-condition
+
+  # ============================================================================
+  # UNVALIDATED INPUT
+  # ============================================================================
+  - id: go.lang.security.audit.gin-bind-struct-tag
+    languages: [go]
+    severity: WARNING
+    message: "Gin binding without validation. Add binding tags for input validation."
+    patterns:
+      - "\\.Bind\\s*\\(&"
+      - "\\.ShouldBind\\s*\\(&"
+      - "\\.BindJSON\\s*\\(&"
+    metadata:
+      cwe: "CWE-20"
+      owasp: "A03:2021 - Injection"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/go.lang.security.audit.gin-bind-validation

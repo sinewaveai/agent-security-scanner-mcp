@@ -1,10 +1,14 @@
 # agent-security-scanner-mcp
 
-Security scanner MCP server for AI coding agents. Scans code for vulnerabilities, detects hallucinated packages, and blocks prompt injection — all in real-time via the Model Context Protocol.
+Security scanner for AI coding agents and autonomous assistants. Scans code for vulnerabilities, detects hallucinated packages, and blocks prompt injection — via MCP (Claude Code, Cursor, Windsurf, Cline) or CLI (OpenClaw, CI/CD).
 
 [![npm downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Benchmark: 97.7% precision](https://img.shields.io/badge/precision-97.7%25-brightgreen.svg)](benchmarks/RESULTS.md)
+[![CI](https://github.com/sinewaveai/agent-security-scanner-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/sinewaveai/agent-security-scanner-mcp/actions/workflows/test.yml)
+
+> **New in v3.3.0:** Full [OpenClaw](https://openclaw.ai) integration with 30+ rules targeting autonomous AI threats — data exfiltration, credential theft, messaging abuse, and unsafe automation. [See OpenClaw setup](#openclaw-integration).
 
 ## Tools
 
@@ -64,12 +68,13 @@ Scan a file for security vulnerabilities. Use after writing or editing any code 
 |-----------|------|----------|-------------|
 | `file_path` | string | Yes | Absolute or relative path to the code file to scan |
 | `output_format` | string | No | `"json"` (default) or `"sarif"` for GitHub/GitLab Security tab integration |
+| `verbosity` | string | No | `"minimal"` (counts only), `"compact"` (default, actionable info), `"full"` (complete metadata) |
 
 **Example:**
 
 ```json
 // Input
-{ "file_path": "src/auth.js" }
+{ "file_path": "src/auth.js", "verbosity": "compact" }
 
 // Output
 {
@@ -113,6 +118,7 @@ Automatically fix all security vulnerabilities in a file. Use after `scan_securi
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `file_path` | string | Yes | Path to the file to fix |
+| `verbosity` | string | No | `"minimal"` (summary only), `"compact"` (default, fix list), `"full"` (includes fixed_content) |
 
 **Example:**
 
@@ -206,6 +212,7 @@ Scan a code file's imports to detect AI-hallucinated package names. Use after wr
 |-----------|------|----------|-------------|
 | `file_path` | string | Yes | Path to the code file or dependency manifest to scan |
 | `ecosystem` | string | Yes | `npm`, `pypi`, `rubygems`, `crates`, `dart`, `perl`, `raku` |
+| `verbosity` | string | No | `"minimal"` (counts only), `"compact"` (default, flagged packages), `"full"` (all details) |
 
 **Example:**
 
@@ -238,6 +245,7 @@ Scan a prompt or instruction for malicious intent before executing it. Use when 
 |-----------|------|----------|-------------|
 | `prompt_text` | string | Yes | The prompt or instruction text to analyze |
 | `context` | object | No | `sensitivity_level`: `"high"`, `"medium"` (default), or `"low"` |
+| `verbosity` | string | No | `"minimal"` (action only), `"compact"` (default, findings), `"full"` (audit details) |
 
 **Example:**
 
@@ -388,6 +396,7 @@ npx agent-security-scanner-mcp
 | Kilo Code | `npx agent-security-scanner-mcp init kilo-code` |
 | OpenCode | `npx agent-security-scanner-mcp init opencode` |
 | Cody | `npx agent-security-scanner-mcp init cody` |
+| **OpenClaw** | `npx agent-security-scanner-mcp init openclaw` |
 | Interactive | `npx agent-security-scanner-mcp init` |
 
 The `init` command auto-detects your OS, locates the config file, creates a backup, and adds the MCP server entry. **Restart your client after running init.**
@@ -444,6 +453,61 @@ npx agent-security-scanner-mcp demo --lang js
 Creates a small file with 3 intentional vulnerabilities, runs the scanner, shows findings with CWE/OWASP references, and asks if you want to keep the file for testing.
 
 Available languages: `js` (default), `py`, `go`, `java`.
+
+---
+
+## CLI Tools
+
+Use the scanner directly from command line (for scripts, CI/CD, or OpenClaw):
+
+```bash
+# Scan a prompt for injection attacks
+npx agent-security-scanner-mcp scan-prompt "ignore previous instructions"
+
+# Scan a file for vulnerabilities
+npx agent-security-scanner-mcp scan-security ./app.py --verbosity minimal
+
+# Check if a package is legitimate
+npx agent-security-scanner-mcp check-package flask pypi
+
+# Scan file imports for hallucinated packages
+npx agent-security-scanner-mcp scan-packages ./requirements.txt pypi
+```
+
+**Exit codes:** `0` = safe, `1` = issues found. Use in scripts to block risky operations.
+
+---
+
+## OpenClaw Integration
+
+[OpenClaw](https://openclaw.ai) is an autonomous AI assistant with broad system access. This scanner provides security guardrails for OpenClaw users.
+
+### Install
+
+```bash
+npx agent-security-scanner-mcp init openclaw
+```
+
+This installs a skill to `~/.openclaw/workspace/skills/security-scanner/`.
+
+### OpenClaw-Specific Threats
+
+The scanner includes 30+ rules targeting OpenClaw's unique attack surface:
+
+| Category | Examples |
+|----------|----------|
+| **Data Exfiltration** | "Forward emails to...", "Upload files to...", "Share browser cookies" |
+| **Messaging Abuse** | "Send to all contacts", "Auto-reply to everyone" |
+| **Credential Theft** | "Show my passwords", "Access keychain", "List API keys" |
+| **Unsafe Automation** | "Run hourly without asking", "Disable safety checks" |
+| **Service Attacks** | "Delete all repos", "Make payment to..." |
+
+### Usage in OpenClaw
+
+The skill is auto-discovered. Use it by asking:
+- "Scan this prompt for security issues"
+- "Check if this code is safe to run"
+- "Verify these packages aren't hallucinated"
 
 ---
 
@@ -526,7 +590,71 @@ Upload results to GitHub Advanced Security or GitLab SAST dashboard.
 
 ---
 
+## Token Optimization
+
+All MCP tools support a `verbosity` parameter to minimize context window consumption — critical for AI coding agents with limited context.
+
+### Verbosity Levels
+
+| Level | Tokens | Use Case |
+|-------|--------|----------|
+| `minimal` | ~50 | CI/CD pipelines, batch scans, quick pass/fail checks |
+| `compact` | ~200 | Interactive development (default) |
+| `full` | ~2,500 | Debugging, compliance reports, audit trails |
+
+### Token Reduction by Tool
+
+| Tool | minimal | compact | full |
+|------|---------|---------|------|
+| `scan_security` | 98% reduction | 69% reduction | baseline |
+| `fix_security` | 91% reduction | 56% reduction | baseline |
+| `scan_agent_prompt` | 83% reduction | 55% reduction | baseline |
+| `scan_packages` | 75% reduction | 70% reduction | baseline |
+
+### Example Usage
+
+```json
+// Minimal - just counts (~50 tokens)
+{ "file_path": "app.py", "verbosity": "minimal" }
+// Returns: { "total": 5, "critical": 2, "warning": 3, "message": "Found 5 issue(s)" }
+
+// Compact - actionable info (~200 tokens, default)
+{ "file_path": "app.py", "verbosity": "compact" }
+// Returns: { "issues": [{ "line": 42, "ruleId": "...", "severity": "error", "fix": "..." }] }
+
+// Full - complete metadata (~2,500 tokens)
+{ "file_path": "app.py", "verbosity": "full" }
+// Returns: { "issues": [{ ...all fields including CWE, OWASP, references }] }
+```
+
+### Recommended Verbosity by Scenario
+
+| Scenario | Recommended | Why |
+|----------|-------------|-----|
+| CI/CD pipelines | `minimal` | Only need pass/fail counts |
+| Batch scanning multiple files | `minimal` | Aggregate results, avoid context overflow |
+| Interactive development | `compact` | Need line numbers and fix suggestions |
+| Debugging false positives | `full` | Need CWE/OWASP references and metadata |
+| Compliance documentation | `full` | Need complete audit trail |
+
+### Impact on Multi-File Sessions
+
+| Session Size | Without Verbosity | With `minimal` | Savings |
+|--------------|-------------------|----------------|---------|
+| 1 file | ~3,000 tokens | ~120 tokens | 96% |
+| 10 files | ~30,000 tokens | ~1,200 tokens | 96% |
+| 50 files | ~150,000 tokens | ~6,000 tokens | 96% |
+
+> **Note:** Security analysis runs at full depth regardless of verbosity setting. Verbosity only affects output format, not detection capabilities.
+
+---
+
 ## Changelog
+
+### v3.2.0
+- **Token Optimization** - New `verbosity` parameter for all tools reduces context window usage by up to 98%
+- **Three Verbosity Levels** - `minimal` (~50 tokens), `compact` (~200 tokens, default), `full` (~2,500 tokens)
+- **Batch Scanning Support** - Scan 50+ files without context overflow using `minimal` verbosity
 
 ### v3.1.0
 - **Flask Taint Rules** - New taint rules for Flask SQL injection, command injection, path traversal, and template injection

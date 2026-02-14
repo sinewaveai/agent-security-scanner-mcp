@@ -1,0 +1,52 @@
+rules:
+- id: dangerous-subprocess-use
+  mode: taint
+  message: >-
+    Detected subprocess function with argument tainted by an `event` object. 
+    If this data can be controlled by a malicious actor, it may be an instance of
+    command injection. The default option for `shell` is False, and this is secure by default.
+    Consider removing the `shell=True` or setting it to False explicitely.
+    Using `shell=False` means you have to split the command string into an array of
+    strings for the command and its arguments. You may consider using 'shlex.split()' for this purpose.
+  metadata:
+    owasp:
+    - A01:2017 - Injection
+    - A03:2021 - Injection
+    - A05:2025 - Injection
+    cwe:
+    - "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+    asvs:
+      section: 'V5: Validation, Sanitization and Encoding Verification Requirements'
+      control_id: 5.3.8 OS Command Injection
+      control_url: https://github.com/OWASP/ASVS/blob/master/4.0/en/0x13-V5-Validation-Sanitization-Encoding.md#v53-output-encoding-and-injection-prevention-requirements
+      version: '4'
+    references:
+    - https://docs.python.org/3/library/subprocess.html
+    - https://docs.python.org/3/library/shlex.html
+    category: security
+    technology:
+    - python
+    - aws-lambda
+    cwe2022-top25: true
+    cwe2021-top25: true
+    subcategory:
+    - vuln
+    likelihood: HIGH
+    impact: MEDIUM
+    confidence: MEDIUM
+  languages:
+  - python
+  severity: ERROR
+  pattern-sources:
+  - patterns:
+    - pattern: event
+    - pattern-inside: |
+        def $HANDLER(event, context):
+          ...
+  pattern-sinks:
+  - patterns:
+    - pattern: subprocess.$FUNC(..., shell=True, ...)
+  pattern-sanitizers:
+  - pattern: shlex.split(...)
+  - pattern: pipes.quote(...)
+  - pattern: shlex.quote(...)

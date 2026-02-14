@@ -1,0 +1,459 @@
+rules:
+  # =============================================================================
+  # C/C++ SECURITY RULES - Buffer Overflow (Dangerous Functions)
+  # =============================================================================
+
+  - id: c.lang.security.audit.strcpy-usage
+    languages: [c, cpp]
+    severity: ERROR
+    message: "strcpy is unsafe and can cause buffer overflow. Use strncpy or strlcpy with bounds checking."
+    patterns:
+      - "\\bstrcpy\\s*\\("
+    metadata:
+      cwe: "CWE-120"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/c.lang.security.insecure-use-strcpy
+        - https://cwe.mitre.org/data/definitions/120.html
+
+  - id: c.lang.security.audit.strcat-usage
+    languages: [c, cpp]
+    severity: ERROR
+    message: "strcat is unsafe and can cause buffer overflow. Use strncat or strlcat with bounds checking."
+    patterns:
+      - "\\bstrcat\\s*\\("
+    metadata:
+      cwe: "CWE-120"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/120.html
+
+  - id: c.lang.security.audit.gets-usage
+    languages: [c, cpp]
+    severity: ERROR
+    message: "gets() is extremely dangerous and removed in C11. Use fgets() with buffer size."
+    patterns:
+      - "\\bgets\\s*\\("
+    metadata:
+      cwe: "CWE-242"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/c.lang.security.insecure-use-gets
+        - https://cwe.mitre.org/data/definitions/242.html
+
+  - id: c.lang.security.audit.sprintf-usage
+    languages: [c, cpp]
+    severity: ERROR
+    message: "sprintf can cause buffer overflow. Use snprintf with buffer size limit."
+    patterns:
+      - "\\bsprintf\\s*\\("
+    metadata:
+      cwe: "CWE-120"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/c.lang.security.insecure-use-sprintf
+        - https://cwe.mitre.org/data/definitions/120.html
+
+  - id: c.lang.security.audit.vsprintf-usage
+    languages: [c, cpp]
+    severity: ERROR
+    message: "vsprintf can cause buffer overflow. Use vsnprintf with buffer size limit."
+    patterns:
+      - "\\bvsprintf\\s*\\("
+    metadata:
+      cwe: "CWE-120"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/120.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Format String Vulnerabilities
+  # =============================================================================
+
+  - id: c.lang.security.audit.format-string-printf
+    languages: [c, cpp]
+    severity: ERROR
+    message: "Format string vulnerability. User input as format string can lead to crashes or code execution. Use printf(\"%s\", str)."
+    patterns:
+      - "printf\\s*\\(\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\)"
+      - "fprintf\\s*\\([^,]*,\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\)"
+      - "sprintf\\s*\\([^,]*,\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\)"
+    metadata:
+      cwe: "CWE-134"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/c.lang.security.format-string
+        - https://cwe.mitre.org/data/definitions/134.html
+
+  - id: c.lang.security.audit.format-string-syslog
+    languages: [c, cpp]
+    severity: ERROR
+    message: "Format string vulnerability in syslog. Use syslog(LOG_INFO, \"%s\", str)."
+    patterns:
+      - "syslog\\s*\\([^,]*,\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\)"
+    metadata:
+      cwe: "CWE-134"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/134.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Memory Management
+  # =============================================================================
+
+  - id: c.lang.security.audit.use-after-free
+    languages: [c, cpp]
+    severity: ERROR
+    message: "Potential use-after-free. Set pointer to NULL after free() to prevent accidental reuse."
+    patterns:
+      - "free\\s*\\([^)]+\\)\\s*;(?!\\s*\\w+\\s*=\\s*NULL)"
+    metadata:
+      cwe: "CWE-416"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/c.lang.security.use-after-free
+        - https://cwe.mitre.org/data/definitions/416.html
+
+  - id: c.lang.security.audit.double-free
+    languages: [c, cpp]
+    severity: ERROR
+    message: "Potential double-free vulnerability. Track free() calls and set pointers to NULL."
+    patterns:
+      - "free\\s*\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\)[^}]*free\\s*\\(\\s*\\1\\s*\\)"
+    metadata:
+      cwe: "CWE-415"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/c.lang.security.double-free
+        - https://cwe.mitre.org/data/definitions/415.html
+
+  - id: c.lang.security.audit.null-dereference
+    languages: [c, cpp]
+    severity: WARNING
+    message: "Potential null pointer dereference. Check pointer before dereferencing."
+    patterns:
+      - "\\*\\s*\\([^)]*malloc\\s*\\("
+      - "malloc\\s*\\([^)]*\\)\\s*;[^}]*\\*"
+    metadata:
+      cwe: "CWE-476"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://cwe.mitre.org/data/definitions/476.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Integer Overflow
+  # =============================================================================
+
+  - id: c.lang.security.audit.integer-overflow-malloc
+    languages: [c, cpp]
+    severity: ERROR
+    message: "Potential integer overflow in malloc size calculation. Check for overflow before allocation."
+    patterns:
+      - "malloc\\s*\\([^)]*\\*[^)]*\\)"
+      - "calloc\\s*\\([^)]*\\*[^)]*\\)"
+      - "realloc\\s*\\([^,]*,[^)]*\\*[^)]*\\)"
+    metadata:
+      cwe: "CWE-190"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: MEDIUM
+      references:
+        - https://cwe.mitre.org/data/definitions/190.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Unsafe Functions
+  # =============================================================================
+
+  - id: c.lang.security.audit.scanf-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: "scanf without width limit can overflow buffer. Use scanf(\"%99s\", buf) with width specifier."
+    patterns:
+      - "scanf\\s*\\([^)]*%s"
+      - "fscanf\\s*\\([^)]*%s"
+      - "sscanf\\s*\\([^)]*%s"
+    metadata:
+      cwe: "CWE-120"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/c.lang.security.insecure-use-scanf
+        - https://cwe.mitre.org/data/definitions/120.html
+
+  - id: c.lang.security.audit.strtok-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: "strtok is not thread-safe and modifies input. Use strtok_r for thread safety."
+    patterns:
+      - "\\bstrtok\\s*\\("
+    metadata:
+      cwe: "CWE-362"
+      owasp: "A04:2021 - Insecure Design"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/c.lang.security.strtok-use
+        - https://man7.org/linux/man-pages/man3/strtok.3.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Command Injection
+  # =============================================================================
+
+  - id: c.lang.security.audit.system-usage
+    languages: [c, cpp]
+    severity: ERROR
+    message: "system() executes shell commands. Avoid with user input or use exec family with arguments."
+    patterns:
+      - "\\bsystem\\s*\\("
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/78.html
+
+  - id: c.lang.security.audit.popen-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: "popen() can be vulnerable to command injection. Validate and sanitize input."
+    patterns:
+      - "\\bpopen\\s*\\("
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://cwe.mitre.org/data/definitions/78.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Cryptography
+  # =============================================================================
+
+  - id: c.lang.security.audit.weak-random
+    languages: [c, cpp]
+    severity: WARNING
+    message: "rand() is not cryptographically secure. Use /dev/urandom or platform secure random for security."
+    patterns:
+      - "\\brand\\s*\\("
+      - "\\bsrand\\s*\\("
+    metadata:
+      cwe: "CWE-330"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      references:
+        - https://cwe.mitre.org/data/definitions/330.html
+
+  - id: c.lang.security.audit.weak-hash-md5
+    languages: [c, cpp]
+    severity: WARNING
+    message: "MD5 is cryptographically broken. Use SHA-256 or stronger for security-sensitive hashing."
+    patterns:
+      - "MD5_Init\\s*\\("
+      - "MD5_Update\\s*\\("
+      - "MD5_Final\\s*\\("
+      - "MD5\\s*\\("
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/328.html
+
+  - id: c.lang.security.audit.weak-hash-sha1
+    languages: [c, cpp]
+    severity: WARNING
+    message: "SHA1 is deprecated for security use. Use SHA-256 or stronger."
+    patterns:
+      - "SHA1_Init\\s*\\("
+      - "SHA1_Update\\s*\\("
+      - "SHA1_Final\\s*\\("
+      - "SHA1\\s*\\("
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/328.html
+
+  - id: c.lang.security.audit.weak-cipher-des
+    languages: [c, cpp]
+    severity: ERROR
+    message: "DES is a weak cipher. Use AES-256 for encryption."
+    patterns:
+      - "DES_set_key\\s*\\("
+      - "DES_ecb_encrypt\\s*\\("
+      - "DES_cbc_encrypt\\s*\\("
+      - "EVP_des_"
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/327.html
+
+  - id: c.lang.security.audit.ecb-mode
+    languages: [c, cpp]
+    severity: ERROR
+    message: "ECB mode is insecure. Use CBC, GCM, or other authenticated modes."
+    patterns:
+      - "EVP_aes_.*_ecb\\s*\\("
+      - "AES_ecb_encrypt\\s*\\("
+      - "_ecb\\s*\\("
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/327.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Insecure memset
+  # =============================================================================
+
+  - id: c.lang.security.audit.insecure-memset
+    languages: [c, cpp]
+    severity: WARNING
+    message: "memset may be optimized away by compiler when clearing sensitive data. Use explicit_bzero or volatile."
+    patterns:
+      - "memset\\s*\\([^,]*password"
+      - "memset\\s*\\([^,]*secret"
+      - "memset\\s*\\([^,]*key"
+    metadata:
+      cwe: "CWE-14"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/c.lang.security.insecure-use-memset
+        - https://cwe.mitre.org/data/definitions/14.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - File Descriptor Leaks
+  # =============================================================================
+
+  - id: c.lang.security.audit.fd-leak
+    languages: [c, cpp]
+    severity: WARNING
+    message: "Potential file descriptor leak. Ensure fopen/open calls have matching fclose/close."
+    patterns:
+      - "fopen\\s*\\([^)]+\\)\\s*;(?![^}]*fclose)"
+      - "open\\s*\\([^)]+\\)\\s*;(?![^}]*close)"
+    metadata:
+      cwe: "CWE-775"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/c.lang.security.fd-leak
+        - https://cwe.mitre.org/data/definitions/775.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Hardcoded Credentials
+  # =============================================================================
+
+  - id: c.lang.security.audit.hardcoded-password
+    languages: [c, cpp]
+    severity: ERROR
+    message: "Hardcoded password detected. Use environment variables or secure configuration."
+    patterns:
+      - "password\\s*=\\s*\"[^\"]{4,}\""
+      - "passwd\\s*=\\s*\"[^\"]{4,}\""
+      - "secret\\s*=\\s*\"[^\"]{4,}\""
+      - "api_key\\s*=\\s*\"[^\"]{20,}\""
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/798.html
+
+  # =============================================================================
+  # C++ SPECIFIC SECURITY RULES
+  # =============================================================================
+
+  - id: cpp.lang.security.audit.new-delete-mismatch
+    languages: [cpp]
+    severity: ERROR
+    message: "new/delete mismatch. Use delete[] for arrays allocated with new[]."
+    patterns:
+      - "new\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\[[^\\]]+\\][^}]*delete\\s+[^\\[]"
+    metadata:
+      cwe: "CWE-762"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/cpp.lang.security.new-delete-mismatch
+        - https://cwe.mitre.org/data/definitions/762.html
+
+  - id: cpp.lang.security.audit.unsafe-reinterpret-cast
+    languages: [cpp]
+    severity: WARNING
+    message: "reinterpret_cast can lead to undefined behavior. Use safer alternatives when possible."
+    patterns:
+      - "reinterpret_cast\\s*<"
+    metadata:
+      cwe: "CWE-704"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://isocpp.org/wiki/faq/casts
+
+  - id: cpp.lang.security.audit.unchecked-return
+    languages: [c, cpp]
+    severity: WARNING
+    message: "Return value not checked. Security-sensitive functions should have return values validated."
+    patterns:
+      - "\\bfread\\s*\\([^)]+\\)\\s*;"
+      - "\\bfwrite\\s*\\([^)]+\\)\\s*;"
+      - "\\bread\\s*\\([^)]+\\)\\s*;"
+      - "\\bwrite\\s*\\([^)]+\\)\\s*;"
+    metadata:
+      cwe: "CWE-252"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/c.lang.security.unchecked-return-value
+        - https://cwe.mitre.org/data/definitions/252.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Path Traversal
+  # =============================================================================
+
+  - id: c.lang.security.audit.path-traversal
+    languages: [c, cpp]
+    severity: ERROR
+    message: "Potential path traversal. Validate file paths and use realpath() to resolve canonical paths."
+    patterns:
+      - "fopen\\s*\\([^)]*\\.\\."
+      - "open\\s*\\([^)]*\\.\\."
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/22.html
+
+  # =============================================================================
+  # C/C++ SECURITY RULES - Temporary Files
+  # =============================================================================
+
+  - id: c.lang.security.audit.insecure-tempfile
+    languages: [c, cpp]
+    severity: WARNING
+    message: "mktemp is insecure due to race conditions. Use mkstemp() instead."
+    patterns:
+      - "\\bmktemp\\s*\\("
+      - "\\btmpnam\\s*\\("
+      - "\\btempnam\\s*\\("
+    metadata:
+      cwe: "CWE-377"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://cwe.mitre.org/data/definitions/377.html

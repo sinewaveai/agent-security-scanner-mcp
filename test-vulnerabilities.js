@@ -21,7 +21,7 @@ exec('ls ' + userInput, (error, stdout) => {
 });
 
 // ❌ Hardcoded Secrets - should be detected
-const API_KEY = "stripe_test_FAKE_KEY_EXAMPLE";
+const API_KEY = "stripe_test_FAKEFAKEFAKEFAKEFAKE1234";
 const password = "MySecretPassword123!";
 const privateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0B";
 

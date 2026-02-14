@@ -1,0 +1,545 @@
+# =============================================================================
+# GitHub Actions Composite Action: agent-security-scanner-mcp
+# =============================================================================
+#
+# Runs security scans on pull requests using agent-security-scanner-mcp.
+# Supports scanning only changed files (diff mode), full project scans,
+# package hallucination checks, SARIF upload to GitHub Security tab,
+# and automatic PR comment summaries.
+#
+# Usage in your workflow:
+#
+#   - uses: sinewaveai/agent-security-scanner-mcp/.github/actions/security-scan@main
+#     with:
+#       severity_threshold: 'warning'
+#       scan_packages: 'true'
+#       scan_diff_only: 'true'
+#       upload_sarif: 'true'
+#
+# =============================================================================
+
+name: 'Security Scan'
+description: >
+  Run agent-security-scanner-mcp to detect security vulnerabilities,
+  package hallucinations, and prompt injection risks in your codebase.
+
+# ---------------------------------------------------------------------------
+# Inputs — all optional with sensible defaults
+# ---------------------------------------------------------------------------
+inputs:
+  severity_threshold:
+    description: >
+      Minimum severity level that causes the action to fail.
+      One of: 'error', 'warning', 'info'.
+      For example, 'warning' fails on WARNING and ERROR findings.
+    required: false
+    default: 'warning'
+
+  scan_packages:
+    description: >
+      Whether to also run package hallucination checks on changed files.
+      Set to 'true' to enable, 'false' to skip.
+    required: false
+    default: 'true'
+
+  scan_diff_only:
+    description: >
+      When 'true', only scan files changed in the pull request (scan-diff).
+      When 'false', scan the entire project (scan-project).
+    required: false
+    default: 'true'
+
+  upload_sarif:
+    description: >
+      Upload scan results in SARIF format to the GitHub Security tab.
+      Requires the repository to have GitHub Advanced Security enabled,
+      or be a public repository.
+    required: false
+    default: 'true'
+
+# ---------------------------------------------------------------------------
+# Outputs — pass results to subsequent workflow steps
+# ---------------------------------------------------------------------------
+outputs:
+  issues_count:
+    description: 'Total number of security issues found'
+    value: ${{ steps.scan.outputs.issues_count }}
+  critical_count:
+    description: 'Number of ERROR-severity issues found'
+    value: ${{ steps.scan.outputs.critical_count }}
+  warning_count:
+    description: 'Number of WARNING-severity issues found'
+    value: ${{ steps.scan.outputs.warning_count }}
+  scan_passed:
+    description: 'Whether the scan passed the severity threshold (true/false)'
+    value: ${{ steps.evaluate.outputs.passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    # -----------------------------------------------------------------------
+    # Step 1: Set up Node.js 18
+    # -----------------------------------------------------------------------
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    # -----------------------------------------------------------------------
+    # Step 2: Set up Python (required by the analyzer engine)
+    # -----------------------------------------------------------------------
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    # -----------------------------------------------------------------------
+    # Step 3: Install Python dependencies for the analyzer
+    # -----------------------------------------------------------------------
+    - name: Install Python dependencies
+      shell: bash
+      run: pip install pyyaml
+
+    # -----------------------------------------------------------------------
+    # Step 4: Install agent-security-scanner-mcp globally
+    # -----------------------------------------------------------------------
+    - name: Install agent-security-scanner-mcp
+      shell: bash
+      run: npm install -g agent-security-scanner-mcp
+
+    # -----------------------------------------------------------------------
+    # Step 5: Run the security scan (diff-only or full project)
+    #
+    # - In diff mode, we scan only files changed between the PR base and head.
+    # - In project mode, we scan the entire working directory.
+    # - Results are written as JSON to scan-results.json for evaluation.
+    # -----------------------------------------------------------------------
+    - name: Run security scan
+      id: scan
+      shell: bash
+      run: |
+        set +e
+
+        if [ "${{ inputs.scan_diff_only }}" = "true" ]; then
+          echo "::group::Running diff-only security scan"
+          # Use the merge base so we only see issues introduced in this PR.
+          BASE_REF="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          agent-security-scanner-mcp scan-diff "$BASE_REF" HEAD \
+            --verbosity full > scan-results.json 2>&1
+          SCAN_EXIT=$?
+          echo "::endgroup::"
+        else
+          echo "::group::Running full project security scan"
+          agent-security-scanner-mcp scan-project . \
+            --verbosity full > scan-results.json 2>&1
+          SCAN_EXIT=$?
+          echo "::endgroup::"
+        fi
+
+        # Parse issue counts from the JSON output.
+        # The scanner outputs JSON with issues_count, or structured issue arrays.
+        if [ -f scan-results.json ] && python3 -c "import json; json.load(open('scan-results.json'))" 2>/dev/null; then
+          ISSUES_COUNT=$(python3 -c "
+        import json, sys
+        try:
+            data = json.load(open('scan-results.json'))
+            total = data.get('issues_count', data.get('total', 0))
+            print(total)
+        except Exception:
+            print(0)
+        ")
+
+          CRITICAL_COUNT=$(python3 -c "
+        import json, sys
+        try:
+            data = json.load(open('scan-results.json'))
+            issues = data.get('issues', data.get('files', []))
+            count = 0
+            if isinstance(issues, list):
+                for item in issues:
+                    if isinstance(item, dict):
+                        sev = item.get('severity', '').upper()
+                        if sev == 'ERROR':
+                            count += 1
+                        # Handle nested issues in project scan
+                        for nested in item.get('issues', []):
+                            if isinstance(nested, dict) and nested.get('severity', '').upper() == 'ERROR':
+                                count += 1
+            print(count)
+        except Exception:
+            print(0)
+        ")
+
+          WARNING_COUNT=$(python3 -c "
+        import json, sys
+        try:
+            data = json.load(open('scan-results.json'))
+            issues = data.get('issues', data.get('files', []))
+            count = 0
+            if isinstance(issues, list):
+                for item in issues:
+                    if isinstance(item, dict):
+                        sev = item.get('severity', '').upper()
+                        if sev == 'WARNING':
+                            count += 1
+                        for nested in item.get('issues', []):
+                            if isinstance(nested, dict) and nested.get('severity', '').upper() == 'WARNING':
+                                count += 1
+            print(count)
+        except Exception:
+            print(0)
+        ")
+        else
+          ISSUES_COUNT=0
+          CRITICAL_COUNT=0
+          WARNING_COUNT=0
+        fi
+
+        echo "issues_count=$ISSUES_COUNT" >> "$GITHUB_OUTPUT"
+        echo "critical_count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
+        echo "warning_count=$WARNING_COUNT" >> "$GITHUB_OUTPUT"
+
+        echo "Found $ISSUES_COUNT issue(s): $CRITICAL_COUNT error(s), $WARNING_COUNT warning(s)"
+
+    # -----------------------------------------------------------------------
+    # Step 6: Run package hallucination checks (optional)
+    #
+    # Scans changed files for import statements and checks whether the
+    # imported packages actually exist in their respective ecosystems.
+    # -----------------------------------------------------------------------
+    - name: Run package hallucination checks
+      if: inputs.scan_packages == 'true'
+      id: packages
+      shell: bash
+      run: |
+        set +e
+        echo "::group::Checking packages for hallucinations"
+
+        HALLUCINATED=0
+
+        # Get list of changed files (PR context or last commit)
+        if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+          CHANGED_FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+        else
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+        fi
+
+        for FILE in $CHANGED_FILES; do
+          if [ ! -f "$FILE" ]; then
+            continue
+          fi
+
+          # Determine ecosystem from file extension
+          ECOSYSTEM=""
+          case "$FILE" in
+            *.py)   ECOSYSTEM="pypi" ;;
+            *.js|*.ts|*.tsx|*.jsx) ECOSYSTEM="npm" ;;
+            *.rb)   ECOSYSTEM="rubygems" ;;
+            *.rs)   ECOSYSTEM="crates" ;;
+            *.dart) ECOSYSTEM="dart" ;;
+          esac
+
+          if [ -n "$ECOSYSTEM" ]; then
+            RESULT=$(agent-security-scanner-mcp scan-packages "$FILE" "$ECOSYSTEM" --verbosity minimal 2>&1 || true)
+            H_COUNT=$(echo "$RESULT" | python3 -c "
+        import json, sys
+        try:
+            data = json.load(sys.stdin)
+            print(data.get('hallucinated_count', 0))
+        except Exception:
+            print(0)
+        " 2>/dev/null)
+            HALLUCINATED=$((HALLUCINATED + H_COUNT))
+          fi
+        done
+
+        echo "::endgroup::"
+        echo "hallucinated_count=$HALLUCINATED" >> "$GITHUB_OUTPUT"
+
+        if [ "$HALLUCINATED" -gt 0 ]; then
+          echo "::warning::Found $HALLUCINATED potentially hallucinated package(s)"
+        fi
+
+    # -----------------------------------------------------------------------
+    # Step 7: Generate SARIF output for GitHub Security tab
+    #
+    # Re-runs the scan with --format sarif to produce a SARIF file that
+    # GitHub Code Scanning can ingest. Only runs changed files in diff mode.
+    # -----------------------------------------------------------------------
+    - name: Generate SARIF report
+      if: inputs.upload_sarif == 'true'
+      shell: bash
+      run: |
+        set +e
+        echo "::group::Generating SARIF report"
+
+        if [ "${{ inputs.scan_diff_only }}" = "true" ]; then
+          # In diff mode, scan each changed file individually for SARIF.
+          # scan-security supports --format sarif on individual files.
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            CHANGED_FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          # Collect SARIF results; start with a valid SARIF envelope
+          python3 -c "
+        import json
+        sarif = {
+            '\$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
+            'version': '2.1.0',
+            'runs': [{
+                'tool': {
+                    'driver': {
+                        'name': 'agent-security-scanner-mcp',
+                        'version': '3.3.0',
+                        'informationUri': 'https://github.com/sinewaveai/agent-security-scanner-mcp',
+                        'rules': []
+                    }
+                },
+                'results': []
+            }]
+        }
+        json.dump(sarif, open('results.sarif', 'w'), indent=2)
+        "
+
+          for FILE in $CHANGED_FILES; do
+            if [ ! -f "$FILE" ]; then
+              continue
+            fi
+
+            # Only scan files with supported extensions
+            case "$FILE" in
+              *.py|*.js|*.ts|*.tsx|*.jsx|*.java|*.go|*.rb|*.php|*.rs|*.c|*.cpp|*.h|*.cs|*.tf|*.sql)
+                SARIF_OUT=$(agent-security-scanner-mcp scan-security "$FILE" --format sarif --verbosity full 2>&1 || true)
+
+                # Merge results into the combined SARIF file
+                python3 -c "
+        import json, sys
+        try:
+            sarif_data = json.loads('''$SARIF_OUT''')
+            combined = json.load(open('results.sarif'))
+            if 'runs' in sarif_data and sarif_data['runs']:
+                for run in sarif_data['runs']:
+                    combined['runs'][0]['results'].extend(run.get('results', []))
+                    combined['runs'][0]['tool']['driver']['rules'].extend(
+                        run.get('tool', {}).get('driver', {}).get('rules', [])
+                    )
+            json.dump(combined, open('results.sarif', 'w'), indent=2)
+        except Exception as e:
+            print(f'Warning: Could not parse SARIF for file: {e}', file=sys.stderr)
+        " 2>&1 || true
+                ;;
+            esac
+          done
+        else
+          # Full project mode: scan entire project
+          # We need to scan individual files since scan-project does not output SARIF
+          agent-security-scanner-mcp scan-project . --verbosity full > /tmp/project-scan.json 2>&1 || true
+
+          python3 -c "
+        import json
+        sarif = {
+            '\$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
+            'version': '2.1.0',
+            'runs': [{
+                'tool': {
+                    'driver': {
+                        'name': 'agent-security-scanner-mcp',
+                        'version': '3.3.0',
+                        'informationUri': 'https://github.com/sinewaveai/agent-security-scanner-mcp',
+                        'rules': []
+                    }
+                },
+                'results': []
+            }]
+        }
+        try:
+            data = json.load(open('/tmp/project-scan.json'))
+            for f in data.get('files', []):
+                filepath = f.get('file', '')
+                for issue in f.get('issues', []):
+                    sarif['runs'][0]['results'].append({
+                        'ruleId': issue.get('ruleId', 'unknown'),
+                        'level': 'error' if issue.get('severity') == 'ERROR' else 'warning',
+                        'message': {'text': issue.get('message', 'Security issue detected')},
+                        'locations': [{
+                            'physicalLocation': {
+                                'artifactLocation': {'uri': filepath},
+                                'region': {'startLine': issue.get('line', 1)}
+                            }
+                        }]
+                    })
+        except Exception:
+            pass
+        json.dump(sarif, open('results.sarif', 'w'), indent=2)
+        "
+        fi
+
+        echo "::endgroup::"
+
+    # -----------------------------------------------------------------------
+    # Step 8: Upload SARIF to GitHub Code Scanning
+    #
+    # Uses the official CodeQL upload action. The SARIF file will appear
+    # in the repository's Security > Code scanning alerts tab.
+    # -----------------------------------------------------------------------
+    - name: Upload SARIF to GitHub Security tab
+      if: inputs.upload_sarif == 'true' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: results.sarif
+      continue-on-error: true
+
+    # -----------------------------------------------------------------------
+    # Step 9: Post a PR comment with the scan summary
+    #
+    # Only runs in pull_request context and when issues are found.
+    # Produces a Markdown table summarizing findings.
+    # -----------------------------------------------------------------------
+    - name: Post PR comment with scan summary
+      if: github.event_name == 'pull_request' && steps.scan.outputs.issues_count != '0'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const issuesCount = '${{ steps.scan.outputs.issues_count }}';
+          const criticalCount = '${{ steps.scan.outputs.critical_count }}';
+          const warningCount = '${{ steps.scan.outputs.warning_count }}';
+          const threshold = '${{ inputs.severity_threshold }}';
+          const hallucinatedCount = '${{ steps.packages.outputs.hallucinated_count || '0' }}';
+
+          // Build the summary table
+          let body = `## Security Scan Results\n\n`;
+          body += `| Metric | Count |\n`;
+          body += `|--------|-------|\n`;
+          body += `| Total issues | ${issuesCount} |\n`;
+          body += `| Errors | ${criticalCount} |\n`;
+          body += `| Warnings | ${warningCount} |\n`;
+
+          if (hallucinatedCount !== '0') {
+            body += `| Hallucinated packages | ${hallucinatedCount} |\n`;
+          }
+
+          body += `\n**Severity threshold:** \`${threshold}\`\n\n`;
+
+          // Parse scan results for a detailed breakdown
+          try {
+            const results = JSON.parse(fs.readFileSync('scan-results.json', 'utf8'));
+            const issues = results.issues || [];
+            const files = results.files || [];
+
+            // Collect all issues (handle both flat and nested formats)
+            const allIssues = [];
+            for (const item of issues) {
+              if (item.ruleId) allIssues.push(item);
+            }
+            for (const file of files) {
+              for (const issue of (file.issues || [])) {
+                allIssues.push({ ...issue, file: file.file });
+              }
+            }
+
+            if (allIssues.length > 0) {
+              body += `### Top Issues\n\n`;
+              body += `| File | Line | Severity | Rule | Message |\n`;
+              body += `|------|------|----------|------|---------|\n`;
+
+              // Show up to 15 issues to keep the comment manageable
+              const shown = allIssues.slice(0, 15);
+              for (const issue of shown) {
+                const file = issue.file || issue.filePath || '-';
+                const line = issue.line || '-';
+                const sev = issue.severity || '-';
+                const rule = issue.ruleId || '-';
+                const msg = (issue.message || '-').replace(/\|/g, '\\|').substring(0, 80);
+                body += `| \`${file}\` | ${line} | ${sev} | \`${rule}\` | ${msg} |\n`;
+              }
+
+              if (allIssues.length > 15) {
+                body += `\n_...and ${allIssues.length - 15} more issue(s). See the full SARIF report in the Security tab._\n`;
+              }
+            }
+          } catch (e) {
+            body += `_Could not parse detailed results._\n`;
+          }
+
+          body += `\n---\n_Scanned by [agent-security-scanner-mcp](https://github.com/sinewaveai/agent-security-scanner-mcp)_`;
+
+          // Post or update the comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const botComment = comments.find(c =>
+            c.body.includes('## Security Scan Results') &&
+            c.body.includes('agent-security-scanner-mcp')
+          );
+
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });
+          }
+
+    # -----------------------------------------------------------------------
+    # Step 10: Evaluate results against the severity threshold
+    #
+    # Determines pass/fail based on the configured severity_threshold.
+    # - 'error':   only fail if ERROR-level issues are found
+    # - 'warning': fail if ERROR or WARNING issues are found
+    # - 'info':    fail if any issues are found at all
+    # -----------------------------------------------------------------------
+    - name: Evaluate severity threshold
+      id: evaluate
+      shell: bash
+      run: |
+        THRESHOLD="${{ inputs.severity_threshold }}"
+        CRITICAL=${{ steps.scan.outputs.critical_count }}
+        WARNING=${{ steps.scan.outputs.warning_count }}
+        TOTAL=${{ steps.scan.outputs.issues_count }}
+
+        PASSED="true"
+
+        case "$THRESHOLD" in
+          error)
+            if [ "$CRITICAL" -gt 0 ]; then
+              PASSED="false"
+              echo "::error::Found $CRITICAL error-level security issue(s)"
+            fi
+            ;;
+          warning)
+            if [ "$CRITICAL" -gt 0 ] || [ "$WARNING" -gt 0 ]; then
+              PASSED="false"
+              echo "::error::Found $CRITICAL error(s) and $WARNING warning(s) (threshold: warning)"
+            fi
+            ;;
+          info)
+            if [ "$TOTAL" -gt 0 ]; then
+              PASSED="false"
+              echo "::error::Found $TOTAL security issue(s) (threshold: info — all issues fail)"
+            fi
+            ;;
+        esac
+
+        echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+
+        if [ "$PASSED" = "false" ]; then
+          echo ""
+          echo "Security scan FAILED. Review the issues above or in the PR comment."
+          exit 1
+        else
+          echo "Security scan passed. No issues at or above '$THRESHOLD' severity."
+        fi

@@ -161,7 +161,7 @@ class TestSecrets(unittest.TestCase):
         self.assertTrue(has_rule(issues, 'github'))
     
     def test_stripe_key(self):
-        code = 'key = "stripe_test_FAKE_KEY_EXAMPLE"'
+        code = 'key = "stripe_test_FAKEFAKEFAKEFAKEFAKE1234"'
         issues = analyze_code(code)
         self.assertTrue(has_rule(issues, 'stripe'))
     
@@ -362,7 +362,7 @@ sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Slack
 xoxb-FAKE-FAKE-FAKE-FAKEFAKEFAKEFAKE
-https://hooks.slack.com/services/TFAKE0000/BFAKE0000/FAKEFAKEFAKEFAKEFAKE
+https://hooks.slack.example.com/services/TFAKE0000/BFAKE0000/FAKEFAKEFAKE
 
 # Private Keys
 -----BEGIN RSA PRIVATE KEY-----
@@ -616,7 +616,7 @@ openai_key = "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # Slack
 slack_token = "xoxb-FAKE-FAKE-FAKE-FAKEFAKEFAKEFAKE"
-slack_webhook = "https://hooks.slack.com/services/TFAKE0000/BFAKE0000/FAKEFAKEFAKEFAKEFAKE"
+slack_webhook = "https://hooks.slack.example.com/services/TFAKE0000/BFAKE0000/FAKEFAKEFAKE"
 
 # Private keys
 private_key = """
