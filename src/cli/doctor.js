@@ -168,7 +168,27 @@ export async function runDoctor(args) {
       console.log(`    \u2713 AST engine ready (tree-sitter ${tsCheck.output})`);
     } else {
       console.log(`    \u26a0 tree-sitter not installed (regex-only mode)`);
-      console.log(`      For enhanced detection: pip install tree-sitter tree-sitter-python tree-sitter-javascript`);
+      if (fix) {
+        console.log(`      Installing tree-sitter dependencies...`);
+        const requirementsPath = join(__dirname, '..', '..', 'requirements.txt');
+        if (existsSync(requirementsPath)) {
+          const installResult = checkCommand(pythonCmd, ['-m', 'pip', 'install', '-r', requirementsPath, '--user', '--quiet']);
+          if (installResult.ok) {
+            console.log(`      \u2713 Fixed: tree-sitter dependencies installed — AST engine enabled`);
+            fixed++;
+          } else {
+            console.log(`      \u2717 Could not install tree-sitter. Try manually: ${pythonCmd} -m pip install -r requirements.txt`);
+            issues++;
+          }
+        } else {
+          console.log(`      \u2717 requirements.txt not found at ${requirementsPath}`);
+          issues++;
+        }
+      } else {
+        console.log(`      For enhanced detection: pip install tree-sitter tree-sitter-python tree-sitter-javascript`);
+        console.log(`      Or run: npx agent-security-scanner-mcp doctor --fix`);
+        issues++;
+      }
     }
   }
 

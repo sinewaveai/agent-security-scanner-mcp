@@ -1,0 +1,45 @@
+name: Benchmark
+
+on:
+  pull_request:
+    branches: [main, feature/*]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        run: pip install pyyaml tree-sitter tree-sitter-python tree-sitter-javascript tree-sitter-java tree-sitter-go
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Run benchmarks
+        id: benchmark
+        run: |
+          python3 benchmarks/benchmark_runner.py --json-only > benchmark_result.json
+          PRECISION=$(python3 -c "import json; r=json.load(open('benchmark_result.json')); print(r.get('precision', 0))")
+          echo "precision=$PRECISION" >> "$GITHUB_OUTPUT"
+          python3 benchmarks/benchmark_runner.py
+      - name: Check precision threshold
+        run: |
+          PRECISION=${{ steps.benchmark.outputs.precision }}
+          echo "Precision: $PRECISION"
+          python3 -c "
+          p = float('$PRECISION')
+          if p < 0.95:
+              print(f'FAIL: Precision {p:.3f} is below 95% threshold')
+              exit(1)
+          else:
+              print(f'PASS: Precision {p:.3f} meets >= 95% threshold')
+          "

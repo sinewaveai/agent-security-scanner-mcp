@@ -11,6 +11,12 @@ const DEFAULT_CONFIG = {
   exclude: ['node_modules/**', 'vendor/**', 'dist/**', '**/*.min.js'],
   severity_threshold: 'info',
   confidence_threshold: 'LOW',
+  policy: {
+    block_on: 'error',       // severity that causes a policy failure: 'error', 'warning', 'info'
+    max_critical: null,       // max allowed critical issues (null = no limit)
+    max_warning: null,        // max allowed warnings (null = no limit)
+    required_grade: null,     // minimum required grade: 'A', 'B', 'C', 'D', 'F' (null = no requirement)
+  },
 };
 
 const SEVERITY_ORDER = { info: 0, warning: 1, error: 2 };
@@ -106,12 +112,19 @@ export function loadConfig(filePath) {
 
     if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_CONFIG };
 
+    const parsedPolicy = parsed.policy && typeof parsed.policy === 'object' ? parsed.policy : {};
     return {
       version: parsed.version || DEFAULT_CONFIG.version,
       suppress: Array.isArray(parsed.suppress) ? parsed.suppress : DEFAULT_CONFIG.suppress,
       exclude: Array.isArray(parsed.exclude) ? parsed.exclude : DEFAULT_CONFIG.exclude,
       severity_threshold: parsed.severity_threshold || DEFAULT_CONFIG.severity_threshold,
       confidence_threshold: parsed.confidence_threshold || DEFAULT_CONFIG.confidence_threshold,
+      policy: {
+        block_on: parsedPolicy.block_on || DEFAULT_CONFIG.policy.block_on,
+        max_critical: parsedPolicy.max_critical ?? DEFAULT_CONFIG.policy.max_critical,
+        max_warning: parsedPolicy.max_warning ?? DEFAULT_CONFIG.policy.max_warning,
+        required_grade: parsedPolicy.required_grade ?? DEFAULT_CONFIG.policy.required_grade,
+      },
     };
   } catch {
     return { ...DEFAULT_CONFIG };
@@ -160,6 +173,59 @@ export function meetsConfidenceThreshold(confidence, config) {
   const confidenceLevel = CONFIDENCE_ORDER[confidence] ?? 0;
   const thresholdLevel = CONFIDENCE_ORDER[threshold] ?? 0;
   return confidenceLevel >= thresholdLevel;
+}
+
+const GRADE_ORDER = { A: 4, B: 3, C: 2, D: 1, F: 0 };
+
+export function evaluatePolicy(scanResult, config) {
+  const violations = [];
+  const policy = config && config.policy ? config.policy : DEFAULT_CONFIG.policy;
+
+  // Check block_on severity
+  const blockOn = policy.block_on || 'error';
+  const severityKeys = [];
+  if (blockOn === 'info') severityKeys.push('info', 'warning', 'error');
+  else if (blockOn === 'warning') severityKeys.push('warning', 'error');
+  else severityKeys.push('error');
+
+  const bySeverity = scanResult.by_severity || {};
+  for (const key of severityKeys) {
+    if ((bySeverity[key] || 0) > 0) {
+      violations.push(`Policy violation: found ${bySeverity[key]} ${key} issue(s) (block_on: ${blockOn})`);
+      break;
+    }
+  }
+
+  // Check max_critical
+  if (policy.max_critical !== null && policy.max_critical !== undefined) {
+    const criticalCount = bySeverity.error || 0;
+    if (criticalCount > policy.max_critical) {
+      violations.push(`Policy violation: ${criticalCount} critical issue(s) exceeds max_critical (${policy.max_critical})`);
+    }
+  }
+
+  // Check max_warning
+  if (policy.max_warning !== null && policy.max_warning !== undefined) {
+    const warningCount = bySeverity.warning || 0;
+    if (warningCount > policy.max_warning) {
+      violations.push(`Policy violation: ${warningCount} warning(s) exceeds max_warning (${policy.max_warning})`);
+    }
+  }
+
+  // Check required_grade
+  if (policy.required_grade) {
+    const actualGrade = scanResult.grade || 'A';
+    const requiredLevel = GRADE_ORDER[policy.required_grade] ?? 0;
+    const actualLevel = GRADE_ORDER[actualGrade] ?? 0;
+    if (actualLevel < requiredLevel) {
+      violations.push(`Policy violation: grade ${actualGrade} does not meet required_grade (${policy.required_grade})`);
+    }
+  }
+
+  return {
+    passed: violations.length === 0,
+    violations,
+  };
 }
 
 export function applyConfig(findings, filePath, config) {

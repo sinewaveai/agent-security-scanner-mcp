@@ -19,10 +19,13 @@ import { scanPackagesSchema, scanPackages } from './src/tools/scan-packages.js';
 import { scanAgentPromptSchema, scanAgentPrompt } from './src/tools/scan-prompt.js';
 import { scanDiffSchema, scanDiff } from './src/tools/scan-diff.js';
 import { scanProjectSchema, scanProject } from './src/tools/scan-project.js';
+import { scanAgentActionSchema, scanAgentAction } from './src/tools/scan-action.js';
+import { scanMcpServerSchema, scanMcpServer } from './src/tools/scan-mcp.js';
 import { runInit } from './src/cli/init.js';
 import { runDoctor } from './src/cli/doctor.js';
 import { runDemo } from './src/cli/demo.js';
 import { runInitHooks } from './src/cli/init-hooks.js';
+import { runReport } from './src/cli/report.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -154,6 +157,30 @@ server.tool(
 );
 
 // ===========================================
+// AGENT ACTION MONITORING
+// ===========================================
+
+// Register scan_agent_action tool
+server.tool(
+  "scan_agent_action",
+  "Pre-execution security check for agent actions (bash, file_write, file_read, http_request, file_delete). Returns ALLOW/WARN/BLOCK. Lighter than scan_agent_prompt — evaluates concrete actions.",
+  scanAgentActionSchema,
+  scanAgentAction
+);
+
+// ===========================================
+// MCP SERVER SECURITY SCANNING
+// ===========================================
+
+// Register scan_mcp_server tool
+server.tool(
+  "scan_mcp_server",
+  "Scan an MCP server's source code for security vulnerabilities: overly broad permissions, missing input validation, data exfiltration, insecure patterns. Returns grade (A-F) and recommendations.",
+  scanMcpServerSchema,
+  scanMcpServer
+);
+
+// ===========================================
 // CLI COMMANDS - Extracted to src/cli/
 // ===========================================
 // See src/cli/init.js, src/cli/doctor.js, src/cli/demo.js
@@ -177,6 +204,11 @@ if (cliArgs[0] === 'init') {
   });
 } else if (cliArgs[0] === 'init-hooks') {
   runInitHooks(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
+    console.error(`  Error: ${err.message}\n`);
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'report') {
+  runReport(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
     process.exit(1);
   });
@@ -322,6 +354,44 @@ if (cliArgs[0] === 'init') {
     process.exit(1);
   }
   process.exit(0);
+} else if (cliArgs[0] === 'scan-mcp') {
+  // CLI mode: scan-mcp <path> [--verbosity minimal|compact|full]
+  const serverPath = cliArgs[1];
+  if (!serverPath) {
+    console.error('Usage: agent-security-scanner-mcp scan-mcp <server-path> [--verbosity minimal|compact|full]');
+    process.exit(1);
+  }
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+
+  scanMcpServer({ server_path: serverPath, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.findings_count > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'scan-action') {
+  // CLI mode: scan-action <type> <value> [--verbosity minimal|compact|full]
+  const actionType = cliArgs[1];
+  const actionValue = cliArgs[2];
+  if (!actionType || !actionValue) {
+    console.error('Usage: agent-security-scanner-mcp scan-action <type> <value> [--verbosity minimal|compact|full]');
+    console.error('Types: bash, file_write, file_read, http_request, file_delete');
+    process.exit(1);
+  }
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+
+  scanAgentAction({ action_type: actionType, action_value: actionValue, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.action === 'BLOCK' ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
 } else if (cliArgs[0] === '--help' || cliArgs[0] === '-h' || cliArgs[0] === 'help') {
   console.log('\n  agent-security-scanner-mcp\n');
   console.log('  Commands:');
@@ -329,6 +399,7 @@ if (cliArgs[0] === 'init') {
   console.log('    init-hooks           Install Claude Code hooks for auto-scanning');
   console.log('    doctor [--fix]       Check environment & client configs');
   console.log('    demo [--lang js]     Generate vulnerable file + scan it');
+  console.log('    report <dir>         Generate HTML security report with history');
   console.log('    benchmark [flags]      Run accuracy benchmarks\n');
   console.log('  CLI Tools (for scripts & OpenClaw):');
   console.log('    scan-prompt <text>   Scan prompt for injection attacks');
@@ -336,7 +407,9 @@ if (cliArgs[0] === 'init') {
   console.log('    check-package <n> <e> Check if package exists in ecosystem');
   console.log('    scan-packages <f> <e> Scan file imports for hallucinated packages');
   console.log('    scan-project <dir>   Scan directory for vulnerabilities with grading');
-  console.log('    scan-diff [base] [target] Scan git diff for new vulnerabilities\n');
+  console.log('    scan-diff [base] [target] Scan git diff for new vulnerabilities');
+  console.log('    scan-mcp <path>      Scan MCP server source for security issues');
+  console.log('    scan-action <t> <v>  Check agent action before execution\n');
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
@@ -348,6 +421,7 @@ if (cliArgs[0] === 'init') {
   console.log('    npx agent-security-scanner-mcp check-package flask pypi');
   console.log('    npx agent-security-scanner-mcp scan-project ./src --verbosity minimal');
   console.log('    npx agent-security-scanner-mcp scan-diff HEAD~1');
+  console.log('    npx agent-security-scanner-mcp report ./src --json');
   console.log('    npx agent-security-scanner-mcp benchmark --save --compare-latest\n');
   process.exit(0);
 } else {

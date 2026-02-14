@@ -26,7 +26,5 @@ jobs:
         run: pip install pyyaml
       - name: Install Node dependencies
         run: npm ci
-        working-directory: mcp-server
       - name: Run tests
         run: npm test
-        working-directory: mcp-server

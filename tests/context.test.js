@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isImportOnly, isKnownModule, applyContextFilter, detectFrameworks, applyFrameworkAdjustments } from '../src/context.js';
+import { writeFileSync, unlinkSync, mkdirSync } from 'fs';
+import { isImportOnly, isKnownModule, applyContextFilter, detectFrameworks, applyFrameworkAdjustments, isTestFile, hasNosecComment } from '../src/context.js';
 import { fixturePath } from './helpers.js';
 
 describe('isImportOnly', () => {
@@ -171,5 +172,104 @@ describe('applyFrameworkAdjustments', () => {
     const findings = [{ ruleId: 'xss', severity: 'error' }];
     const result = applyFrameworkAdjustments(findings, []);
     expect(result).toEqual(findings);
+  });
+});
+
+describe('hasNosecComment', () => {
+  it('should detect // nosec in JS/TS', () => {
+    expect(hasNosecComment('eval(code) // nosec')).toBe(true);
+    expect(hasNosecComment('eval(code) // NOSEC')).toBe(true);
+    expect(hasNosecComment('eval(code) //nosec')).toBe(true);
+  });
+
+  it('should detect # nosec in Python/Ruby', () => {
+    expect(hasNosecComment('hashlib.md5(data) # nosec')).toBe(true);
+    expect(hasNosecComment('hashlib.md5(data) # NOSEC')).toBe(true);
+  });
+
+  it('should detect /* nosec */ in block comments', () => {
+    expect(hasNosecComment('eval(code) /* nosec */')).toBe(true);
+  });
+
+  it('should NOT match lines without nosec', () => {
+    expect(hasNosecComment('eval(code)')).toBe(false);
+    expect(hasNosecComment('// this is a normal comment')).toBe(false);
+    expect(hasNosecComment('const nosecurity = true')).toBe(false);
+  });
+});
+
+describe('isTestFile', () => {
+  it('should detect test directories', () => {
+    expect(isTestFile('/project/tests/test_login.py')).toBe(true);
+    expect(isTestFile('/project/test/app.test.js')).toBe(true);
+    expect(isTestFile('/project/__tests__/utils.js')).toBe(true);
+    expect(isTestFile('/project/spec/helper_spec.rb')).toBe(true);
+  });
+
+  it('should detect test file naming patterns', () => {
+    expect(isTestFile('app.test.js')).toBe(true);
+    expect(isTestFile('app.spec.ts')).toBe(true);
+    expect(isTestFile('app_test.py')).toBe(true);
+  });
+
+  it('should detect fixture/demo directories', () => {
+    expect(isTestFile('/project/fixtures/sample.js')).toBe(true);
+    expect(isTestFile('/project/demo/vuln.py')).toBe(true);
+    expect(isTestFile('/project/test-files/data.js')).toBe(true);
+  });
+
+  it('should NOT match production code', () => {
+    expect(isTestFile('/project/src/app.js')).toBe(false);
+    expect(isTestFile('/project/lib/utils.py')).toBe(false);
+    expect(isTestFile('index.js')).toBe(false);
+  });
+});
+
+describe('applyContextFilter — FP reduction', () => {
+  it('should downgrade MD5 to info when variable name indicates checksum', () => {
+    const findings = [
+      { ruleId: 'python.security.insecure-hash-md5', line: 0, severity: 'warning' },
+    ];
+    const tmpPath = '/tmp/test-checksum-context.py';
+    writeFileSync(tmpPath, 'checksum = hashlib.md5(file_bytes).hexdigest()\n');
+    try {
+      const result = applyContextFilter(findings, tmpPath, 'python');
+      expect(result).toHaveLength(1);
+      expect(result[0].severity).toBe('info');
+      expect(result[0].contextNote).toContain('checksum');
+    } finally {
+      unlinkSync(tmpPath);
+    }
+  });
+
+  it('should suppress findings with nosec comment', () => {
+    const findings = [
+      { ruleId: 'python.security.insecure-hash-md5', line: 0, severity: 'warning' },
+    ];
+    const tmpPath = '/tmp/test-nosec-context.py';
+    writeFileSync(tmpPath, 'hashlib.md5(data) # nosec\n');
+    try {
+      const result = applyContextFilter(findings, tmpPath, 'python');
+      expect(result).toHaveLength(0);
+    } finally {
+      unlinkSync(tmpPath);
+    }
+  });
+
+  it('should downgrade hardcoded secrets in test files to warning', () => {
+    const findings = [
+      { ruleId: 'generic.secrets.hardcoded-password', line: 0, severity: 'error' },
+    ];
+    const tmpPath = '/tmp/tests/test-secrets-context.py';
+    mkdirSync('/tmp/tests', { recursive: true });
+    writeFileSync(tmpPath, 'password = "test123"\n');
+    try {
+      const result = applyContextFilter(findings, tmpPath, 'python');
+      expect(result).toHaveLength(1);
+      expect(result[0].severity).toBe('warning');
+      expect(result[0].contextNote).toContain('test file');
+    } finally {
+      unlinkSync(tmpPath);
+    }
   });
 });

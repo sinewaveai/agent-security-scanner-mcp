@@ -75,10 +75,10 @@ export const FIX_TEMPLATES = {
       if (templateMatch) {
         return line.replace(/\bexec\s*\(\s*`(\S+)\s+\$\{(\w+)\}`\s*\)/, 'execFile("$1", [$2])');
       }
-      // Match: exec(variable) -> execFile with guidance
+      // Match: exec(variable) -> comment with guidance (cannot safely auto-fix)
       const varMatch = line.match(/\bexec\s*\(\s*(\w+)\s*\)/);
       if (varMatch) {
-        return line.replace(/\bexec\s*\(\s*(\w+)\s*\)/, 'execFile($1.split(" ")[0], $1.split(" ").slice(1))');
+        return '// SECURITY: Replace exec() with execFile(command, [args], {shell: false})\n// ' + line.trim();
       }
       // Fallback: comment with guidance
       return '// SECURITY: Use execFile(command, [args]) instead of exec() - ' + line.trim();
@@ -115,8 +115,16 @@ export const FIX_TEMPLATES = {
     }
   },
   "command-injection-exec": {
-    description: "Use exec.Command with separate arguments",
-    fix: (line) => line.replace(/exec\.Command\s*\(\s*["'](\w+)\s+/, 'exec.Command("$1", ')
+    description: "Use exec.Command with separate arguments (no shell)",
+    fix: (line) => {
+      // Match: exec.Command("sh", "-c", "echo "+input) -> exec.Command("echo", input)
+      const shellMatch = line.match(/exec\.Command\s*\(\s*["']sh["']\s*,\s*["']-c["']\s*,\s*["'](\w+)\s+["']\s*\+\s*(\w+)/);
+      if (shellMatch) {
+        return line.replace(/exec\.Command\s*\(\s*["']sh["']\s*,\s*["']-c["']\s*,\s*["'](\w+)\s+["']\s*\+\s*(\w+)\s*\)/, 'exec.Command("$1", $2)');
+      }
+      // Match: exec.Command("cmd " + arg) -> exec.Command("cmd", arg)
+      return line.replace(/exec\.Command\s*\(\s*["'](\w+)\s+["']\s*\+\s*(\w+)\s*\)/, 'exec.Command("$1", $2)');
+    }
   },
   "runtime-exec": {
     description: "Use ProcessBuilder with separate arguments",

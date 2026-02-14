@@ -1,0 +1,85 @@
+name: New Security Rule
+description: Propose a new security detection rule
+title: "[Rule]: "
+labels: ["new-rule", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose a new security rule! Adding rules is a great first contribution.
+        See `CONTRIBUTING.md` for the rule format and naming conventions.
+
+  - type: input
+    id: rule-id
+    attributes:
+      label: Proposed Rule ID
+      description: "Format: language.category.specific-name"
+      placeholder: "python.security.unsafe-deserialization-dill"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - JavaScript/TypeScript
+        - Python
+        - Java
+        - Go
+        - Ruby
+        - PHP
+        - C/C++
+        - Rust
+        - C#
+        - Terraform
+        - Dockerfile
+        - Generic (all languages)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - ERROR (exploitable vulnerability)
+        - WARNING (potential risk)
+        - INFO (best practice)
+    validations:
+      required: true
+
+  - type: textarea
+    id: vulnerable-code
+    attributes:
+      label: Vulnerable Code Example
+      description: Show code that should be flagged.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: safe-code
+    attributes:
+      label: Safe Code Example
+      description: Show the secure alternative.
+      render: python
+
+  - type: textarea
+    id: pattern
+    attributes:
+      label: Detection Pattern (optional)
+      description: Regex or structural pattern to detect the vulnerability.
+      render: yaml
+
+  - type: input
+    id: cwe
+    attributes:
+      label: CWE ID (if known)
+      placeholder: "CWE-502"
+
+  - type: input
+    id: owasp
+    attributes:
+      label: OWASP Category (if known)
+      placeholder: "A08:2021 - Software and Data Integrity Failures"

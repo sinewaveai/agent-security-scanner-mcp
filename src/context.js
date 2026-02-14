@@ -146,6 +146,45 @@ function extractModuleName(line) {
   return null;
 }
 
+// Variable names that indicate non-security use of weak hashing (MD5/SHA1)
+const NON_SECURITY_HASH_VARS = new Set([
+  'checksum', 'digest', 'etag', 'e_tag', 'hash_value', 'file_hash',
+  'content_hash', 'cache_key', 'fingerprint', 'hex_digest', 'hexdigest',
+]);
+
+// Inline suppression comments
+const NOSEC_PATTERN = /(?:\/\/|#|\/\*)\s*nosec\b/i;
+
+// Test file path patterns
+const TEST_FILE_PATTERNS = [
+  /[/\\]tests?[/\\]/i,
+  /[/\\]__tests__[/\\]/i,
+  /[/\\]spec[/\\]/i,
+  /[._](?:test|spec)\.[^.]+$/i,
+  /[/\\]test[-_]?files?[/\\]/i,
+  /[/\\]fixtures?[/\\]/i,
+  /[/\\]demo[/\\]/i,
+];
+
+// Check if a file path looks like a test file
+export function isTestFile(filePath) {
+  return TEST_FILE_PATTERNS.some(p => p.test(filePath));
+}
+
+// Check if a line has a nosec suppression comment
+export function hasNosecComment(line) {
+  return NOSEC_PATTERN.test(line);
+}
+
+// Check if a variable name on a line suggests non-security hash usage
+function isNonSecurityHashUsage(line) {
+  const lower = line.toLowerCase();
+  for (const varName of NON_SECURITY_HASH_VARS) {
+    if (lower.includes(varName)) return true;
+  }
+  return false;
+}
+
 // Filter findings based on context awareness
 export function applyContextFilter(findings, filePath, language) {
   if (!Array.isArray(findings) || findings.length === 0) return findings;
@@ -159,10 +198,32 @@ export function applyContextFilter(findings, filePath, language) {
     return findings;
   }
 
+  const inTestFile = isTestFile(filePath);
+
   return findings.filter(finding => {
     const line = lines[finding.line] || '';
+    const ruleId = finding.ruleId?.toLowerCase() || '';
 
-    // Only filter import-only lines
+    // Inline suppression: // nosec or # nosec
+    if (hasNosecComment(line)) {
+      return false;
+    }
+
+    // Variable-name heuristic: MD5/SHA1 used for checksums → downgrade to info
+    if ((ruleId.includes('md5') || ruleId.includes('sha1')) && isNonSecurityHashUsage(line)) {
+      finding.severity = 'info';
+      finding.contextNote = 'Non-security hash usage (checksum/digest/etag)';
+    }
+
+    // Test file heuristic: downgrade hardcoded secrets in test files to warning
+    if (inTestFile && (ruleId.includes('hardcoded') || ruleId.includes('secret') || ruleId.includes('password') || ruleId.includes('api-key'))) {
+      if (finding.severity === 'error') {
+        finding.severity = 'warning';
+        finding.contextNote = 'Hardcoded secret in test file';
+      }
+    }
+
+    // Import-only filter
     if (!isImportOnly(line)) return true;
 
     // Check if the module is known/safe

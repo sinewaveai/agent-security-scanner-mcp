@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join, resolve, relative, extname, basename } from "path";
 import { execFileSync } from "child_process";
 import { scanSecurity } from './scan-security.js';
-import { matchGlob, loadConfig, shouldExcludeFile } from '../config.js';
+import { matchGlob, loadConfig, shouldExcludeFile, evaluatePolicy } from '../config.js';
 import { detectLanguage } from '../utils.js';
 
 export const scanProjectSchema = {
@@ -235,6 +235,12 @@ export async function scanProject({ directory_path, recursive, include_patterns,
   const grade = calculateGrade(allIssues.length, files.length, bySeverity.error);
   const level = verbosity || 'compact';
 
+  // Evaluate policy
+  const policyResult = evaluatePolicy(
+    { grade, by_severity: bySeverity, issues_count: allIssues.length },
+    config
+  );
+
   if (level === 'minimal') {
     return {
       content: [{ type: "text", text: JSON.stringify({
@@ -245,6 +251,8 @@ export async function scanProject({ directory_path, recursive, include_patterns,
         warning: bySeverity.warning,
         info: bySeverity.info,
         grade,
+        policy_passed: policyResult.passed,
+        policy_violations: policyResult.violations.length > 0 ? policyResult.violations : undefined,
         message: allIssues.length > 0
           ? `Found ${allIssues.length} issue(s) across ${files.length} files. Grade: ${grade}`
           : `No issues found in ${files.length} files. Grade: ${grade}`
@@ -277,6 +285,8 @@ export async function scanProject({ directory_path, recursive, include_patterns,
         by_severity: bySeverity,
         by_category: byCategory,
         cross_file_issues: crossFileIssues.length > 0 ? crossFileIssues.length : undefined,
+        policy_passed: policyResult.passed,
+        policy_violations: policyResult.violations.length > 0 ? policyResult.violations : undefined,
         issues: topIssues
       }, null, 2) }]
     };
@@ -293,6 +303,8 @@ export async function scanProject({ directory_path, recursive, include_patterns,
       by_category: byCategory,
       by_file: byFile,
       cross_file_issues: crossFileIssues.length > 0 ? crossFileIssues : undefined,
+      policy_passed: policyResult.passed,
+      policy_violations: policyResult.violations.length > 0 ? policyResult.violations : undefined,
       issues: allIssues,
       scanned_files: files.map(f => relative(dirPath, f))
     }, null, 2) }]

@@ -773,3 +773,284 @@ rules:
       category: "prompt-injection-output"
       risk_score: "95"
       action: BLOCK
+
+  # ============================================================================
+  # INDIRECT INJECTION — Hidden instructions in file content, metadata, etc.
+  # ============================================================================
+
+  - id: generic.prompt.security.indirect-html-comment
+    languages: [generic]
+    severity: ERROR
+    message: "Indirect injection via HTML comment: Instructions hidden in <!-- --> comments that target AI agents."
+    patterns:
+      - "<!--\\s*(?:ignore|forget|disregard|override|new instruction|system prompt|you are now)"
+      - "<!--[^>]*(?:execute|run|fetch|curl|wget|eval|send|exfil)[^>]*-->"
+      - "<!--[^>]*(?:admin|root|sudo|superuser|bypass|disable)[^>]*instruction[^>]*-->"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "90"
+      action: BLOCK
+
+  - id: generic.prompt.security.indirect-markdown-hidden
+    languages: [generic]
+    severity: ERROR
+    message: "Indirect injection via hidden markdown: Instructions concealed using zero-width characters or markdown formatting tricks."
+    patterns:
+      - "\\[\\s*\\]\\([^)]*(?:ignore|forget|override|new instruction|system prompt)"
+      - "\\[\\!\\[[^\\]]*\\]\\([^)]*(?:ignore|override|execute)"
+      - "(?:\\u200b|\\u200c|\\u200d|\\ufeff).{0,5}(?:ignore|forget|override)"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "85"
+      action: BLOCK
+
+  - id: generic.prompt.security.indirect-file-content-injection
+    languages: [generic]
+    severity: ERROR
+    message: "Indirect injection via file content: Text file or document contains AI-targeting instructions."
+    patterns:
+      - "(?i)\\bAI\\s*(?:assistant|agent|model)\\s*[:;,]\\s*(?:ignore|forget|disregard|override)"
+      - "(?i)\\bnote\\s+to\\s+(?:AI|assistant|model|agent)\\s*[:;]"
+      - "(?i)\\bhidden\\s+instruction\\s*[:;]"
+      - "(?i)\\bif\\s+you\\s+are\\s+(?:an?\\s+)?(?:AI|LLM|language\\s+model|GPT|Claude|assistant)"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "85"
+      action: WARN
+
+  - id: generic.prompt.security.indirect-image-metadata
+    languages: [generic]
+    severity: WARNING
+    message: "Indirect injection via image metadata: EXIF or metadata fields containing AI-targeting instructions."
+    patterns:
+      - "(?i)(?:exif|metadata|iptc|xmp)\\s*[:=].*(?:ignore|forget|override|execute)"
+      - "(?i)(?:comment|description|title)\\s*[:=].*(?:ignore previous|new instruction|system prompt)"
+      - "(?i)alt\\s*=\\s*[\"'][^\"']*(?:ignore|forget|override|execute)[^\"']*[\"']"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-content"
+      risk_score: "70"
+      action: WARN
+
+  - id: generic.prompt.security.indirect-url-payload
+    languages: [generic]
+    severity: ERROR
+    message: "Indirect injection via URL content: URL containing encoded instructions targeting AI agents."
+    patterns:
+      - "(?i)(?:https?://|url\\().*(?:%69%67%6e%6f%72%65|%66%6f%72%67%65%74|%6f%76%65%72%72%69%64%65)"
+      - "(?i)(?:https?://|url\\().*(?:ignore.*instruction|new.*system.*prompt)"
+      - "(?i)fetch\\s+(?:https?://)?\\S+.*then.*(?:execute|eval|run)"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "85"
+      action: BLOCK
+
+  - id: generic.prompt.security.indirect-json-injection
+    languages: [generic]
+    severity: ERROR
+    message: "Indirect injection via JSON/data payload: Structured data containing AI-targeting instructions in string values."
+    patterns:
+      - "(?i)[\"']\\s*(?:ignore|forget|disregard)\\s+(?:all\\s+)?(?:previous|prior|above)\\s+(?:instructions|rules|guidelines)"
+      - "(?i)[\"']\\s*(?:you\\s+are\\s+now|new\\s+role|switch\\s+to|act\\s+as)\\s+[^\"']{5,}"
+      - "(?i)\\{[^}]*(?:system_prompt|instructions)\\s*:\\s*[\"'][^\"']*(?:override|bypass|ignore)"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-content"
+      risk_score: "90"
+      action: BLOCK
+
+  # ============================================================================
+  # ADVANCED JAILBREAK & MANIPULATION PATTERNS
+  # ============================================================================
+
+  - id: generic.prompt.security.jailbreak-developer-mode
+    languages: [generic]
+    severity: ERROR
+    message: "Developer/debug mode jailbreak: Attempt to unlock restricted capabilities via fake mode activation."
+    patterns:
+      - "(?i)(?:enable|activate|enter|switch\\s+to)\\s+(?:developer|debug|admin|god|unrestricted|unfiltered)\\s+mode"
+      - "(?i)(?:developer|debug|admin)\\s+mode\\s+(?:enabled|activated|on)"
+      - "(?i)you\\s+(?:now\\s+)?have\\s+(?:no|zero)\\s+(?:restrictions|limitations|filters|guardrails)"
+    metadata:
+      cwe: "CWE-284"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-jailbreak"
+      risk_score: "90"
+      action: BLOCK
+
+  - id: generic.prompt.security.jailbreak-token-smuggling
+    languages: [generic]
+    severity: ERROR
+    message: "Token smuggling: Attempt to bypass filters using character splitting, homoglyphs, or Unicode tricks."
+    patterns:
+      - "(?i)s\\s*y\\s*s\\s*t\\s*e\\s*m\\s*\\.?\\s*p\\s*r\\s*o\\s*m\\s*p\\s*t"
+      - "(?i)i\\s*g\\s*n\\s*o\\s*r\\s*e\\s+p\\s*r\\s*e\\s*v\\s*i\\s*o\\s*u\\s*s"
+      - "(?i)(?:ign[o0]re|f[o0]rget|disreg[a@]rd)\\s+(?:previ[o0]us|pri[o0]r|[a@]bove)"
+      - "(?i)(?:\u0456|\u0433|\u043d|\u043e\u0440\u0435).*(?:ignore|forget)"
+    metadata:
+      cwe: "CWE-116"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-encoded"
+      risk_score: "85"
+      action: BLOCK
+
+  - id: generic.prompt.security.urgency-manipulation
+    languages: [generic]
+    severity: WARNING
+    message: "Urgency manipulation: Creating false time pressure to bypass safety checks."
+    patterns:
+      - "(?i)(?:urgent|emergency|critical|immediately)\\s*[!:].{0,40}(?:skip|bypass|ignore|disable)\\s+(?:safety|security|check|verification)"
+      - "(?i)(?:no\\s+time|hurry|quick|asap).{0,30}(?:skip|bypass|ignore)\\s+(?:normal|standard|usual)\\s+(?:procedure|process|check)"
+      - "(?i)(?:lives?|people|patients?)\\s+(?:at\\s+)?(?:stake|risk|danger).{0,30}(?:override|bypass|skip)"
+    metadata:
+      cwe: "CWE-284"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "social-engineering"
+      risk_score: "60"
+      action: WARN
+
+  - id: generic.prompt.security.authority-impersonation
+    languages: [generic]
+    severity: WARNING
+    message: "Authority impersonation: Claiming to be an admin, developer, or privileged user to gain elevated access."
+    patterns:
+      - "(?i)(?:i\\s+am|i'm|this\\s+is)\\s+(?:the|an?|your)\\s+(?:admin|administrator|developer|owner|creator|CEO|CTO)"
+      - "(?i)(?:as\\s+(?:the|an?|your)\\s+)?(?:admin|administrator|developer|owner)\\s*,?\\s+(?:i\\s+)?(?:authorize|grant|allow|permit|approve)"
+      - "(?i)(?:my|the)\\s+(?:admin|root|superuser)\\s+(?:credentials|access|privilege)"
+    metadata:
+      cwe: "CWE-284"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "social-engineering"
+      risk_score: "65"
+      action: WARN
+
+  - id: generic.prompt.security.output-manipulation
+    languages: [generic]
+    severity: ERROR
+    message: "Output manipulation: Attempting to control AI output format to embed malicious content in responses."
+    patterns:
+      - "(?i)(?:start|begin)\\s+(?:your|every|all)\\s+(?:response|reply|output|answer)\\s+with\\b"
+      - "(?i)(?:always|must|shall)\\s+(?:include|prepend|append|add)\\s+.{0,30}(?:to\\s+)?(?:your|every|all)\\s+(?:response|reply|output)"
+      - "(?i)(?:format|structure)\\s+(?:your|the)\\s+(?:response|output)\\s+(?:as|to\\s+include|with).{0,30}(?:script|iframe|img|src=)"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-output"
+      risk_score: "80"
+      action: WARN
+
+  - id: generic.prompt.security.recursive-prompt
+    languages: [generic]
+    severity: WARNING
+    message: "Recursive/self-referential prompt: Attempt to make the AI modify its own instructions or behavior recursively."
+    patterns:
+      - "(?i)(?:update|modify|change|rewrite|edit)\\s+(?:your|the)\\s+(?:system\\s+)?(?:prompt|instructions|rules|guidelines)"
+      - "(?i)(?:add|append|insert)\\s+.{0,30}(?:to|into)\\s+(?:your|the)\\s+(?:system\\s+)?(?:prompt|instructions|rules)"
+      - "(?i)(?:from\\s+now\\s+on|going\\s+forward|permanently)\\s*,?\\s+(?:ignore|forget|override|replace)"
+    metadata:
+      cwe: "CWE-284"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-context"
+      risk_score: "75"
+      action: WARN
+
+  - id: generic.prompt.security.multi-language-obfuscation
+    languages: [generic]
+    severity: WARNING
+    message: "Multi-language obfuscation: Switching languages mid-prompt to evade detection filters."
+    patterns:
+      - "(?i)(?:traduce|traduire|traduzca|bersetze)\\s*.{0,30}(?:ignore|forget|override|system)"
+      - "(?i)(?:en\\s+espa.ol|auf\\s+deutsch|en\\s+fran.ais)\\s*[:;,].{0,30}(?:ignore|forget|bypass)"
+      - "(?i)(?:respond|reply|answer)\\s+(?:in|using)\\s+(?:a\\s+)?(?:different|another|new)\\s+language.{0,30}(?:to\\s+)?(?:avoid|bypass|evade)"
+    metadata:
+      cwe: "CWE-116"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "obfuscation"
+      risk_score: "65"
+      action: WARN
+
+  - id: generic.prompt.security.fictional-framing
+    languages: [generic]
+    severity: WARNING
+    message: "Fictional framing: Using storytelling or fictional scenarios to extract restricted information."
+    patterns:
+      - "(?i)(?:write|tell|create)\\s+(?:a|me\\s+a)\\s+(?:story|fiction|tale|novel|screenplay).{0,40}(?:hack|exploit|bypass|attack|credential|password)"
+      - "(?i)(?:imagine|pretend|suppose|let's\\s+say)\\s+(?:you\\s+are|you're|there's)\\s+(?:a|an)\\s+(?:hacker|attacker|criminal|villain)"
+      - "(?i)(?:in\\s+(?:this|a)\\s+(?:fictional|hypothetical)\\s+(?:world|scenario|story)).{0,40}(?:there\\s+are\\s+no|without\\s+any)\\s+(?:rules|restrictions|limits)"
+    metadata:
+      cwe: "CWE-284"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-jailbreak"
+      risk_score: "60"
+      action: WARN
+
+  - id: generic.prompt.security.tool-abuse-instruction
+    languages: [generic]
+    severity: ERROR
+    message: "Tool abuse instruction: Directing the AI to misuse its tools (file access, code execution, network) for malicious purposes."
+    patterns:
+      - "(?i)(?:use|call|invoke|execute)\\s+(?:the|your)\\s+(?:tool|function|command|bash|terminal).{0,30}(?:to\\s+)?(?:delete|destroy|remove|wipe|format|encrypt)"
+      - "(?i)(?:use|call)\\s+(?:the|your)\\s+(?:file|write|edit)\\s+(?:tool|access|capability).{0,30}(?:to\\s+)?(?:modify|overwrite|inject|backdoor)"
+      - "(?i)(?:use|call)\\s+(?:the|your)\\s+(?:network|http|fetch|curl)\\s+(?:tool|access).{0,30}(?:to\\s+)?(?:send|upload|post|exfiltrate)"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: HIGH
+      category: "prompt-injection-privilege"
+      risk_score: "90"
+      action: BLOCK
+
+  - id: generic.prompt.security.hex-encoded-injection
+    languages: [generic]
+    severity: WARNING
+    message: "Hex-encoded injection: Instructions potentially encoded in hexadecimal to evade detection."
+    patterns:
+      - "(?:\\\\x[0-9a-fA-F]{2}){8,}"
+      - "(?:0x[0-9a-fA-F]{2}\\s*,?\\s*){8,}"
+      - "(?i)\\bdecode\\s+(?:this|the\\s+following)\\s+hex"
+    metadata:
+      cwe: "CWE-116"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-encoded"
+      risk_score: "70"
+      action: WARN
+
+  - id: generic.prompt.security.rot13-encoded-injection
+    languages: [generic]
+    severity: WARNING
+    message: "ROT13/Caesar cipher injection: Instructions potentially encoded using simple substitution ciphers."
+    patterns:
+      - "(?i)(?:decode|decipher|decrypt|apply)\\s+(?:this\\s+)?(?:rot13|rot-13|caesar|caesar\\s+cipher)"
+      - "(?i)(?:rot13|caesar)\\s*[:=]"
+    metadata:
+      cwe: "CWE-116"
+      owasp: "LLM01 - Prompt Injection"
+      confidence: MEDIUM
+      category: "prompt-injection-encoded"
+      risk_score: "65"
+      action: WARN

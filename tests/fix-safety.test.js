@@ -245,6 +245,57 @@ describe('fix template: dangerous-system-call shlex', () => {
   });
 });
 
+describe('validateFix rejects unsafe patterns', () => {
+  it('should reject execFile with string concatenation', () => {
+    expect(validateFix('exec("ls " + cmd)', 'execFile("ls " + cmd)')).toBe(false);
+  });
+
+  it('should reject execFile with template literals', () => {
+    expect(validateFix('exec(cmd)', 'execFile(`ls ${cmd}`)')).toBe(false);
+  });
+
+  it('should reject subprocess with shell=True', () => {
+    expect(validateFix('os.system(cmd)', 'subprocess.run(cmd, shell=True)')).toBe(false);
+  });
+
+  it('should reject spawn with shell: true', () => {
+    expect(validateFix('exec(cmd)', 'spawn("ls", [cmd], {shell: true})')).toBe(false);
+  });
+
+  it('should accept execFile with array args (safe form)', () => {
+    expect(validateFix('exec("ls " + cmd)', 'execFile("ls", [cmd])')).toBe(true);
+  });
+
+  it('should accept subprocess.run with shell=False', () => {
+    expect(validateFix('os.system(cmd)', 'subprocess.run(shlex.split(cmd), shell=False)')).toBe(true);
+  });
+});
+
+describe('semantic safety: no fix should reintroduce the vulnerability', () => {
+  const dangerousInputs = [
+    { input: 'exec("ls " + userInput)', lang: 'javascript', rule: 'child-process-exec', mustNotContain: [/exec\s*\(/] },
+    { input: 'exec(`rm ${path}`)', lang: 'javascript', rule: 'child-process-exec', mustNotContain: [/exec\s*\(/] },
+    { input: 'subprocess.call(cmd, shell=True)', lang: 'python', rule: 'dangerous-subprocess', mustNotContain: [/shell\s*=\s*True/] },
+    { input: 'os.system(cmd)', lang: 'python', rule: 'dangerous-system-call', mustNotContain: [/os\.system/] },
+    { input: 'element.innerHTML = userInput', lang: 'javascript', rule: 'innerhtml', mustNotContain: [/\.innerHTML\s*=/] },
+    { input: 'yaml.load(data)', lang: 'python', rule: 'yaml-load', mustNotContain: [/yaml\.load\s*\(/] },
+    { input: 'pickle.loads(data)', lang: 'python', rule: 'pickle', mustNotContain: [/pickle\.loads?\s*\(/] },
+  ];
+
+  for (const { input, lang, rule, mustNotContain } of dangerousInputs) {
+    it(`fix for "${rule}" should not reintroduce vulnerability (${lang})`, () => {
+      const template = FIX_TEMPLATES[rule];
+      expect(template).toBeDefined();
+      const fixed = template.fix(input, lang);
+      if (fixed && fixed !== input && !fixed.startsWith('//') && !fixed.startsWith('#')) {
+        for (const pattern of mustNotContain) {
+          expect(fixed).not.toMatch(pattern);
+        }
+      }
+    });
+  }
+});
+
 describe('all fix templates produce valid output', () => {
   const testInputs = {
     javascript: [

@@ -1,7 +1,7 @@
 // src/tools/scan-security.js
 import { z } from "zod";
 import { existsSync, readFileSync } from "fs";
-import { detectLanguage, runAnalyzer, generateFix, toSarif } from '../utils.js';
+import { detectLanguage, runAnalyzer, generateFix, toSarif, getEngineMode } from '../utils.js';
 import { deduplicateFindings } from '../dedup.js';
 import { applyContextFilter, detectFrameworks, applyFrameworkAdjustments } from '../context.js';
 import { loadConfig, shouldExcludeFile, applyConfig } from '../config.js';
@@ -20,6 +20,7 @@ function formatMinimal(file_path, language, issues) {
   return {
     file: file_path,
     language,
+    engine_mode: getEngineMode(),
     total: issues.length,
     critical: bySeverity.error,
     warning: bySeverity.warning,
@@ -34,6 +35,7 @@ function formatCompact(file_path, language, issues) {
   return {
     file: file_path,
     language,
+    engine_mode: getEngineMode(),
     issues_count: issues.length,
     issues: issues.map(i => ({
       line: i.line + 1,
@@ -50,6 +52,7 @@ function formatFull(file_path, language, issues) {
   return {
     file: file_path,
     language,
+    engine_mode: getEngineMode(),
     issues_count: issues.length,
     issues: issues
   };
