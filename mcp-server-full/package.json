@@ -38,7 +38,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "bloom-filters": "^3.0.4",
     "zod": "^4.3.6"
   },
