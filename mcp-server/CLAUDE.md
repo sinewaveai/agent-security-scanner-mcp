@@ -39,13 +39,14 @@ mcp-server/
 ├── index.js                 # Entry point, MCP server setup, tool registration (185 lines)
 ├── src/
 │   ├── fix-patterns.js      # 165 security fix templates (698 lines)
-│   ├── utils.js             # Shared utilities (153 lines)
+│   ├── utils.js             # Shared utilities: detectLanguage, isTestFile, extractImports
 │   ├── tools/
-│   │   ├── scan-security.js # scan_security MCP tool
+│   │   ├── scan-security.js # scan_security MCP tool (Layer 1)
 │   │   ├── fix-security.js  # fix_security MCP tool
 │   │   ├── check-package.js # check_package MCP tool + hallucination detection
 │   │   ├── scan-packages.js # scan_packages MCP tool
-│   │   └── scan-prompt.js   # scan_agent_prompt MCP tool (535 lines)
+│   │   ├── scan-prompt.js   # scan_agent_prompt MCP tool (535 lines)
+│   │   └── project-context.js # Project security profile discovery
 │   └── cli/
 │       ├── init.js          # Client setup command (288 lines)
 │       ├── doctor.js        # Diagnostics command (273 lines)
@@ -161,6 +162,46 @@ api_key = os.environ.get("API_KEY")
 
 Use `/fix-security` to automatically scan the current file and apply all security fixes.
 
+## Two-Layer Security Analysis
+
+This project implements a two-layer security analysis system:
+
+### Layer 1: Pattern-Based Scanning (scan_security)
+
+- **Engine:** Python analyzer with AST + taint analysis + regex fallback + YAML rules
+- **Speed:** ~1-2s, deterministic, free
+- **Best for:** CI/CD, quick feedback, batch scans
+- **Limitations:** No framework awareness, no middleware detection, per-file only
+
+### Layer 2: LLM-Powered Review (security-review skill)
+
+- **Engine:** LLM subagent that reads project context and applies security judgment
+- **Speed:** ~10-30s, requires LLM call
+- **Best for:** Pre-commit review, PR review, deep analysis
+- **Capabilities:**
+  - Detects frameworks (Express, Django, Flask, Spring, etc.)
+  - Knows about security middleware (helmet, cors, DOMPurify, etc.)
+  - Evaluates if Layer 1 findings are real or false positives
+  - Catches auth/authz flaws, IDOR, logic bugs, insecure defaults
+
+### Project Context Discovery
+
+The `project_context` parameter on `scan_security` triggers automatic detection of:
+- **Frameworks:** Express, Koa, Fastify, Django, Flask, FastAPI, Rails, Gin, Spring Boot
+- **Security middleware:** helmet, cors, csurf, rate-limiting, DOMPurify, express-validator
+- **Auth libraries:** passport, jsonwebtoken, bcrypt, argon2, devise
+- **Sanitizers:** DOMPurify, bleach, sanitize-html
+
+```javascript
+// Get findings + project security profile
+scan_security({ file_path: "app.js", project_context: true, verbosity: "full" })
+// Returns: { issues: [...], project: { framework: "Express", security_middleware: ["helmet", "cors"], ... } }
+
+// Get surrounding code context for each finding
+scan_security({ file_path: "app.js", include_context: true })
+// Returns: { issues: [{ ..., context_before: [...], context_after: [...] }] }
+```
+
 ## Context Optimization
 
 All MCP tools support a `verbosity` parameter to minimize context window consumption:
@@ -195,5 +236,7 @@ For context-efficient security scanning in Claude Code, use the provided skills 
 |-------|----------|
 | `security-scanner` | Single file scan with concise summary (~200 tokens output) |
 | `security-scan-batch` | Multi-file parallel scanning with consolidated results |
+| `security-review` | Deep project-aware review: verifies findings against framework defenses, catches logic bugs |
 
-These skills run full analysis internally and return only actionable summaries, reducing context consumption by 80-90%.
+Layer 1 skills (`security-scanner`, `security-scan-batch`) run fast pattern-based analysis.
+Layer 2 skill (`security-review`) uses LLM reasoning with project context for deeper analysis.
