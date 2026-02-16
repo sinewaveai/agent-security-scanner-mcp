@@ -243,7 +243,10 @@ export async function scanProject({ directory_path, recursive, include_patterns,
           timeout: 60000,
           cwd: dirname(CROSS_FILE_ANALYZER_PATH)
         });
-        const crossResults = JSON.parse(result);
+        // Strip any non-JSON prefix (e.g. PyYAML warnings on stdout)
+        const jsonStart = result.indexOf('[');
+        const jsonStr = jsonStart >= 0 ? result.slice(jsonStart) : result;
+        const crossResults = JSON.parse(jsonStr);
         if (Array.isArray(crossResults)) {
           const deepFindings = crossResults.filter(f => f.ruleId === 'cross-file-taint');
           for (const finding of deepFindings) {

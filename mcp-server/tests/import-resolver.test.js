@@ -333,35 +333,33 @@ describe('Python cross-file analyzer', () => {
     }
 
     let output;
+    const execOpts = {
+      encoding: 'utf-8',
+      timeout: 30000,
+      cwd: mpcServerDir,
+      stdio: ['pipe', 'pipe', 'pipe'],  // capture stderr separately
+    };
+    const args = [
+      crossFileAnalyzerPath,
+      join(fixtureDir, 'routes', 'users.js'),
+      join(fixtureDir, 'lib', 'db.js'),
+    ];
     try {
-      output = execFileSync('python3', [
-        crossFileAnalyzerPath,
-        join(fixtureDir, 'routes', 'users.js'),
-        join(fixtureDir, 'lib', 'db.js'),
-      ], {
-        encoding: 'utf-8',
-        timeout: 30000,
-        cwd: mpcServerDir,
-      });
+      output = execFileSync('python3', args, execOpts);
     } catch (e) {
       // Python3 not available — try python
       try {
-        output = execFileSync('python', [
-          crossFileAnalyzerPath,
-          join(fixtureDir, 'routes', 'users.js'),
-          join(fixtureDir, 'lib', 'db.js'),
-        ], {
-          encoding: 'utf-8',
-          timeout: 30000,
-          cwd: mpcServerDir,
-        });
+        output = execFileSync('python', args, execOpts);
       } catch {
         console.warn('Skipping: python not available');
         return;
       }
     }
 
-    const results = JSON.parse(output);
+    // Strip any non-JSON prefix lines (e.g. PyYAML warnings printed to stdout)
+    const jsonStart = output.indexOf('[');
+    const jsonOutput = jsonStart >= 0 ? output.slice(jsonStart) : output;
+    const results = JSON.parse(jsonOutput);
     expect(Array.isArray(results)).toBe(true);
 
     // Should contain cross-file-taint findings

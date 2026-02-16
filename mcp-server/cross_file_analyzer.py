@@ -205,16 +205,16 @@ def extract_dangerous_functions_regex(source, lang):
             # Escape param for regex
             ep = re.escape(param)
 
-            # SQL concatenation patterns
+            # SQL concatenation patterns (line-based to handle embedded quotes)
             sql_patterns = [
-                # "SELECT..." + param
-                rf'''['"][^'"]*(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\b[^'"]*['"][\s]*\+[\s]*{ep}''',
-                # `...${param}...` template literal with SQL
+                # Line contains SQL keyword AND string concat with param
+                rf'''(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\b.*\+\s*{ep}''',
+                # Line contains SQL keyword in template literal with param
                 rf'''`[^`]*(?:SELECT|INSERT|UPDATE|DELETE)\b[^`]*\$\{{{ep}\}}[^`]*`''',
-                # "...'" + param (SQL string concat)
-                rf"""['"][^'"]*['"][\s]*\+[\s]*{ep}""",
-                # f"...{param}..." in Python
-                rf'''f['"][^'"]*\{{{ep}\}}[^'"]*['"]''',
+                # param concatenated into a string on a line with SQL keyword
+                rf'''{ep}\s*\+.*(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\b''',
+                # f-string with SQL keyword and param (Python)
+                rf'''f['"].*(?:SELECT|INSERT|UPDATE|DELETE)\b.*\{{{ep}\}}''',
             ]
 
             # eval/exec patterns
