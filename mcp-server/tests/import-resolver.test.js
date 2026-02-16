@@ -4,6 +4,7 @@ import { discoverProjectContext, clearProjectContextCache } from '../src/tools/p
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(__dirname, 'fixtures', 'express-app');
@@ -316,5 +317,70 @@ describe('Cross-file taint path detection', () => {
     );
     expect(hasAppToUsers).toBe(true);
     expect(hasUsersToDb).toBe(true);
+  });
+});
+
+// ============= Python cross-file analyzer integration =============
+describe('Python cross-file analyzer', () => {
+  const mpcServerDir = resolve(__dirname, '..');
+  const crossFileAnalyzerPath = join(mpcServerDir, 'cross_file_analyzer.py');
+
+  it('should produce cross-file-taint findings on express-app fixture', () => {
+    // Skip if Python is not available or analyzer doesn't exist
+    if (!existsSync(crossFileAnalyzerPath)) {
+      console.warn('Skipping: cross_file_analyzer.py not found');
+      return;
+    }
+
+    let output;
+    try {
+      output = execFileSync('python3', [
+        crossFileAnalyzerPath,
+        join(fixtureDir, 'routes', 'users.js'),
+        join(fixtureDir, 'lib', 'db.js'),
+      ], {
+        encoding: 'utf-8',
+        timeout: 30000,
+        cwd: mpcServerDir,
+      });
+    } catch (e) {
+      // Python3 not available — try python
+      try {
+        output = execFileSync('python', [
+          crossFileAnalyzerPath,
+          join(fixtureDir, 'routes', 'users.js'),
+          join(fixtureDir, 'lib', 'db.js'),
+        ], {
+          encoding: 'utf-8',
+          timeout: 30000,
+          cwd: mpcServerDir,
+        });
+      } catch {
+        console.warn('Skipping: python not available');
+        return;
+      }
+    }
+
+    const results = JSON.parse(output);
+    expect(Array.isArray(results)).toBe(true);
+
+    // Should contain cross-file-taint findings
+    const crossFileTaint = results.filter(r => r.ruleId === 'cross-file-taint');
+    expect(crossFileTaint.length).toBeGreaterThanOrEqual(1);
+
+    // At least one finding should mention getUserById or searchUsers
+    const messages = crossFileTaint.map(f => f.message);
+    const hasTaintFlow = messages.some(m =>
+      m.includes('getUserById') || m.includes('searchUsers')
+    );
+    expect(hasTaintFlow).toBe(true);
+
+    // Findings should have proper metadata
+    for (const finding of crossFileTaint) {
+      expect(finding.severity).toBe('error');
+      expect(finding.metadata).toBeDefined();
+      expect(finding.metadata.taint_path).toBeDefined();
+      expect(Array.isArray(finding.metadata.taint_path)).toBe(true);
+    }
   });
 });

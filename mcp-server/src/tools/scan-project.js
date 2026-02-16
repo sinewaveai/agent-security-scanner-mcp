@@ -1,12 +1,22 @@
 // src/tools/scan-project.js
 import { z } from "zod";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
-import { join, resolve, relative, extname, basename } from "path";
+import { join, resolve, relative, extname, basename, dirname } from "path";
 import { execFileSync } from "child_process";
+import { fileURLToPath } from "url";
 import { scanSecurity } from './scan-security.js';
 import { matchGlob, loadConfig, shouldExcludeFile } from '../config.js';
 import { detectLanguage } from '../utils.js';
 import { resolveImportGraph } from './import-resolver.js';
+
+// Resolve path to mcp-server root for Python analyzer scripts
+let __scanProjectDir;
+try {
+  __scanProjectDir = dirname(fileURLToPath(import.meta.url));
+} catch {
+  __scanProjectDir = process.cwd();
+}
+const CROSS_FILE_ANALYZER_PATH = join(__scanProjectDir, '..', '..', 'cross_file_analyzer.py');
 
 export const scanProjectSchema = {
   directory_path: z.string().describe("Path to the directory to scan"),
@@ -223,6 +233,32 @@ export async function scanProject({ directory_path, recursive, include_patterns,
   // Cross-file taint analysis via import graph (opt-in, max 50 files)
   let crossFileIssues = [];
   if (cross_file && files.length <= 50) {
+    let usedPythonAnalyzer = false;
+
+    // Try Python cross-file analyzer first (deeper analysis with taint tracking)
+    try {
+      if (existsSync(CROSS_FILE_ANALYZER_PATH)) {
+        const result = execFileSync('python3', [CROSS_FILE_ANALYZER_PATH, ...files], {
+          encoding: 'utf-8',
+          timeout: 60000,
+          cwd: dirname(CROSS_FILE_ANALYZER_PATH)
+        });
+        const crossResults = JSON.parse(result);
+        if (Array.isArray(crossResults)) {
+          const deepFindings = crossResults.filter(f => f.ruleId === 'cross-file-taint');
+          for (const finding of deepFindings) {
+            // Normalize file path to relative
+            finding.file = typeof finding.file === 'string' ? relative(dirPath, finding.file) : finding.file;
+            crossFileIssues.push(finding);
+          }
+          usedPythonAnalyzer = deepFindings.length > 0;
+        }
+      }
+    } catch {
+      // Python cross-file analyzer failed — fall back to JS approach
+    }
+
+    // Fall back to JS import graph approach (shallow warnings)
     try {
       // Build a set of files with ERROR-severity findings
       const errorFiles = new Set();
@@ -260,22 +296,24 @@ export async function scanProject({ directory_path, recursive, include_patterns,
         }
       }
 
-      // Deduplicate cross-file issues (same from+to+source_issue)
+      // Deduplicate cross-file issues (same from+to+source_issue or ruleId+file+line)
       const seen = new Set();
       crossFileIssues = crossFileIssues.filter(issue => {
-        const key = `${issue.file}|${issue.imported_file}|${issue.source_issue}`;
+        const key = issue.ruleId === 'cross-file-taint'
+          ? `${issue.ruleId}|${issue.file}|${issue.line}|${issue.message}`
+          : `${issue.file}|${issue.imported_file}|${issue.source_issue}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
-
-      // Add cross-file issues to allIssues
-      for (const issue of crossFileIssues) {
-        allIssues.push(issue);
-        bySeverity[issue.severity] = (bySeverity[issue.severity] || 0) + 1;
-      }
     } catch {
-      // Cross-file analysis failed — skip silently
+      // JS cross-file analysis failed — skip silently
+    }
+
+    // Add cross-file issues to allIssues
+    for (const issue of crossFileIssues) {
+      allIssues.push(issue);
+      bySeverity[issue.severity] = (bySeverity[issue.severity] || 0) + 1;
     }
   }
 

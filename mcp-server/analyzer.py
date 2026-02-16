@@ -229,6 +229,17 @@ def analyze_file(file_path):
 
 
 def main():
+    if '--cross-file' in sys.argv:
+        sys.argv.remove('--cross-file')
+        file_paths = sys.argv[1:]
+        if not file_paths:
+            print(json.dumps({'error': 'No file paths provided for cross-file analysis'}))
+            sys.exit(1)
+        from cross_file_analyzer import cross_file_analyze
+        results = cross_file_analyze(file_paths)
+        print(json.dumps(results))
+        return
+
     if len(sys.argv) < 2:
         print(json.dumps({'error': 'No file path provided'}))
         sys.exit(1)

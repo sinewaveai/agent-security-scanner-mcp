@@ -21,6 +21,24 @@ from pattern_matcher import (
 
 
 @dataclass
+class DangerousParam:
+    """A function parameter that flows to a dangerous sink."""
+    param_name: str
+    param_index: int
+    sink_rule_id: str
+    sink_message: str
+    sink_line: int
+
+
+@dataclass
+class FunctionTaintSummary:
+    """Summary of which function parameters reach dangerous sinks."""
+    function_name: str
+    line: int
+    dangerous_params: List['DangerousParam']
+
+
+@dataclass
 class TaintedVariable:
     """Represents a tainted variable and its source"""
     name: str
@@ -337,6 +355,106 @@ class TaintAnalyzer:
         return False
     
     # _find_tainted_in_match removed (replaced by _find_tainted_nodes_in_match)
+
+
+    def analyze_function_exports(self, ast: GenericNode, rules: List[TaintRule]) -> List[FunctionTaintSummary]:
+        """Analyze which function parameters flow to dangerous sinks.
+
+        For each function definition in the AST, inject parameters as synthetic
+        taint sources and check whether they reach any sink defined in *rules*.
+        Returns a summary per function that has at least one dangerous parameter.
+        """
+        summaries: List[FunctionTaintSummary] = []
+
+        for func_node in ast.find_all(NodeKind.FUNCTION_DEF):
+            func_name = None
+            params: List[Tuple[str, int]] = []  # (name, index)
+
+            # Extract function name
+            for child in func_node.children:
+                if child.kind == NodeKind.IDENTIFIER and func_name is None:
+                    func_name = child.text
+                    break
+
+            if not func_name:
+                continue
+
+            # Extract parameter names
+            param_idx = 0
+            for child in func_node.children:
+                if child.kind == NodeKind.PARAMETER:
+                    # The parameter node may contain an IDENTIFIER child
+                    p_name = None
+                    for pc in child.children:
+                        if pc.kind == NodeKind.IDENTIFIER:
+                            p_name = pc.text
+                            break
+                    if p_name is None:
+                        p_name = child.text
+                    if p_name:
+                        params.append((p_name, param_idx))
+                        param_idx += 1
+
+            if not params:
+                continue
+
+            dangerous: List[DangerousParam] = []
+
+            for rule in rules:
+                # Reset analyser state for each (function, rule) pair
+                self.tainted = {}
+                self.assignments = []
+
+                # Step 1: collect assignments inside this function
+                self._collect_assignments(func_node)
+
+                # Step 2: inject each parameter as a synthetic taint source
+                for p_name, p_idx in params:
+                    self.tainted[p_name] = TaintedVariable(
+                        name=p_name,
+                        source_pattern=f"param:{p_name}",
+                        source_line=func_node.line,
+                        propagation_path=[f"Parameter: {p_name}"]
+                    )
+
+                # Step 3: propagate taint through assignments
+                self._propagate_taint(rule)
+
+                # Step 4: check sinks
+                findings = self._check_sinks(func_node, rule)
+
+                if findings:
+                    # Determine which params actually reached a sink
+                    for p_name, p_idx in params:
+                        for f in findings:
+                            tainted_var = f.metadata.get('tainted_variable', '')
+                            # The tainted variable is the param itself or was propagated from it
+                            if tainted_var == p_name or f.metadata.get('taint_source') == f"param:{p_name}":
+                                dangerous.append(DangerousParam(
+                                    param_name=p_name,
+                                    param_index=p_idx,
+                                    sink_rule_id=f.rule_id,
+                                    sink_message=f.message,
+                                    sink_line=f.line,
+                                ))
+
+            if dangerous:
+                # Deduplicate by (param_name, sink_rule_id, sink_line)
+                seen = set()
+                unique_dangerous = []
+                for dp in dangerous:
+                    key = (dp.param_name, dp.sink_rule_id, dp.sink_line)
+                    if key not in seen:
+                        seen.add(key)
+                        unique_dangerous.append(dp)
+
+                summaries.append(FunctionTaintSummary(
+                    function_name=func_name,
+                    line=func_node.line,
+                    dangerous_params=unique_dangerous,
+                ))
+
+        return summaries
 
 
 def analyze_taint(ast: GenericNode, rules: List[TaintRule]) -> List[Finding]:
