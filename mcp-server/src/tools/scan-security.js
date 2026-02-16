@@ -4,13 +4,15 @@ import { existsSync, readFileSync } from "fs";
 import { dirname } from "path";
 import { detectLanguage, runAnalyzer, generateFix, toSarif, isTestFile, extractImports } from '../utils.js';
 import { discoverProjectContext } from './project-context.js';
+import { resolveImportGraph } from './import-resolver.js';
 
 export const scanSecuritySchema = {
   file_path: z.string().describe("Path to the file to scan"),
   output_format: z.enum(['json', 'sarif']).optional().describe("Output format: 'json' (default) or 'sarif' for GitHub/GitLab integration"),
   verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (counts only), 'compact' (default, actionable info), 'full' (complete metadata)"),
   include_context: z.boolean().optional().describe("Include 3 lines of surrounding context for each finding"),
-  project_context: z.boolean().optional().describe("Include project security profile (frameworks, middleware, sanitizers)")
+  project_context: z.boolean().optional().describe("Include project security profile (frameworks, middleware, sanitizers)"),
+  resolve_imports: z.boolean().optional().describe("Resolve local import graph from this file (requires project_context)")
 };
 
 // Verbosity formatters
@@ -54,7 +56,7 @@ function formatFull(file_path, language, issues) {
   };
 }
 
-export async function scanSecurity({ file_path, output_format, verbosity, include_context, project_context }) {
+export async function scanSecurity({ file_path, output_format, verbosity, include_context, project_context, resolve_imports }) {
   if (!existsSync(file_path)) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -133,6 +135,15 @@ export async function scanSecurity({ file_path, output_format, verbosity, includ
     result.project = discoverProjectContext(projectRoot);
     result.is_test_file = isTestFile(file_path);
     result.file_imports = extractImports(content, language);
+
+    // Attach import graph if requested
+    if (resolve_imports) {
+      try {
+        result.import_graph = resolveImportGraph(file_path, projectRoot);
+      } catch {
+        // Import graph resolution failed — skip silently
+      }
+    }
   }
 
   return {
