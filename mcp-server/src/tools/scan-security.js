@@ -1,12 +1,16 @@
 // src/tools/scan-security.js
 import { z } from "zod";
 import { existsSync, readFileSync } from "fs";
-import { detectLanguage, runAnalyzer, generateFix, toSarif } from '../utils.js';
+import { dirname } from "path";
+import { detectLanguage, runAnalyzer, generateFix, toSarif, isTestFile, extractImports } from '../utils.js';
+import { discoverProjectContext } from './project-context.js';
 
 export const scanSecuritySchema = {
   file_path: z.string().describe("Path to the file to scan"),
   output_format: z.enum(['json', 'sarif']).optional().describe("Output format: 'json' (default) or 'sarif' for GitHub/GitLab integration"),
-  verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (counts only), 'compact' (default, actionable info), 'full' (complete metadata)")
+  verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (counts only), 'compact' (default, actionable info), 'full' (complete metadata)"),
+  include_context: z.boolean().optional().describe("Include 3 lines of surrounding context for each finding"),
+  project_context: z.boolean().optional().describe("Include project security profile (frameworks, middleware, sanitizers)")
 };
 
 // Verbosity formatters
@@ -50,7 +54,7 @@ function formatFull(file_path, language, issues) {
   };
 }
 
-export async function scanSecurity({ file_path, output_format, verbosity }) {
+export async function scanSecurity({ file_path, output_format, verbosity, include_context, project_context }) {
   if (!existsSync(file_path)) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -70,15 +74,30 @@ export async function scanSecurity({ file_path, output_format, verbosity }) {
   const lines = content.split('\n');
   const language = detectLanguage(file_path);
 
-  // Enhance issues with fix suggestions
+  // Enhance issues with fix suggestions (and optional context)
   const enhancedIssues = issues.map(issue => {
     const line = lines[issue.line] || '';
     const fix = generateFix(issue, line, language);
-    return {
+    const enhanced = {
       ...issue,
       line_content: line.trim(),
       suggested_fix: fix
     };
+
+    if (include_context) {
+      const start = Math.max(0, issue.line - 3);
+      const end = Math.min(lines.length - 1, issue.line + 3);
+      enhanced.context_before = lines.slice(start, issue.line).map((l, i) => ({
+        line: start + i + 1,
+        content: l
+      }));
+      enhanced.context_after = lines.slice(issue.line + 1, end + 1).map((l, i) => ({
+        line: issue.line + 2 + i,
+        content: l
+      }));
+    }
+
+    return enhanced;
   });
 
   // Determine verbosity (default: compact)
@@ -108,10 +127,43 @@ export async function scanSecurity({ file_path, output_format, verbosity }) {
       result = formatCompact(file_path, language, enhancedIssues);
   }
 
+  // Attach project context if requested
+  if (project_context) {
+    const projectRoot = findProjectRoot(file_path);
+    result.project = discoverProjectContext(projectRoot);
+    result.is_test_file = isTestFile(file_path);
+    result.file_imports = extractImports(content, language);
+  }
+
   return {
     content: [{
       type: "text",
       text: JSON.stringify(result, null, 2)
     }]
   };
+}
+
+// Walk up from a file path to find the project root (has package.json, go.mod, etc.)
+function findProjectRoot(filePath) {
+  const depFiles = ['package.json', 'requirements.txt', 'pyproject.toml', 'go.mod', 'Gemfile', 'pom.xml'];
+  let dir = dirname(filePath);
+  const root = dir.split('/')[0] || '/';
+  while (dir && dir !== root) {
+    for (const depFile of depFiles) {
+      try {
+        // Use platform-agnostic join
+        const candidate = dir + '/' + depFile;
+        if (existsSync(candidate)) return dir;
+        // Also try with backslash for Windows
+        const candidateWin = dir + '\\' + depFile;
+        if (existsSync(candidateWin)) return dir;
+      } catch {
+        // ignore
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return dirname(filePath);
 }
