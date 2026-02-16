@@ -5,6 +5,7 @@ import { isTestFile, extractImports } from '../src/utils.js';
 import { writeFileSync, mkdirSync, unlinkSync, rmSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { tmpdir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -332,8 +333,8 @@ describe('scan_security project context integration', () => {
     client = new MCPTestClient();
     await client.start();
 
-    // Create a temp project with package.json + vulnerable file
-    tempDir = join(__dirname, 'fixtures', 'temp-express-project');
+    // Create a temp project outside of tests/ to avoid isTestFile() false positive
+    tempDir = join(tmpdir(), 'temp-express-project-' + Date.now());
     mkdirSync(tempDir, { recursive: true });
 
     writeFileSync(join(tempDir, 'package.json'), JSON.stringify({
