@@ -7,12 +7,16 @@ import { join } from 'path';
 
 const SCANNER_HOOK_MARKER = 'agent-security-scanner-mcp';
 
-function buildHooksConfig(withPromptGuard) {
+function buildHooksConfig(withPromptGuard, withReview) {
+  const scanCmd = withReview
+    ? `npx agent-security-scanner-mcp scan-security "$TOOL_INPUT_FILE_PATH" --verbosity minimal --with-review`
+    : `npx agent-security-scanner-mcp scan-security "$TOOL_INPUT_FILE_PATH" --verbosity minimal`;
+
   const hooks = {
     'post-tool-use': [
       {
         matcher: 'Write|Edit|MultiEdit',
-        command: `npx agent-security-scanner-mcp scan-security "$TOOL_INPUT_FILE_PATH" --verbosity minimal`,
+        command: scanCmd,
       },
     ],
   };
@@ -36,13 +40,14 @@ function backupTimestamp() {
 }
 
 function parseFlags(args) {
-  const flags = { dryRun: false, path: null, withPromptGuard: false };
+  const flags = { dryRun: false, path: null, withPromptGuard: false, withReview: false };
   let i = 0;
   while (i < args.length) {
     const arg = args[i];
     if (arg === '--dry-run') flags.dryRun = true;
     else if (arg === '--path' && i + 1 < args.length) flags.path = args[++i];
     else if (arg === '--with-prompt-guard') flags.withPromptGuard = true;
+    else if (arg === '--with-review') flags.withReview = true;
     i++;
   }
   return flags;
@@ -89,9 +94,10 @@ export async function runInitHooks(args) {
 
   console.log(`  Settings: ${settingsPath}`);
   console.log(`  Prompt guard: ${flags.withPromptGuard ? 'enabled' : 'disabled (use --with-prompt-guard to enable)'}`);
+  console.log(`  Layer 2 review: ${flags.withReview ? 'enabled' : 'disabled (use --with-review to enable)'}`);
   console.log('');
 
-  const newHooks = buildHooksConfig(flags.withPromptGuard);
+  const newHooks = buildHooksConfig(flags.withPromptGuard, flags.withReview);
 
   // Read existing settings
   let existing = {};
