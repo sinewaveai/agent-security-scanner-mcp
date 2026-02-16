@@ -6,6 +6,7 @@ import { execFileSync } from "child_process";
 import { scanSecurity } from './scan-security.js';
 import { matchGlob, loadConfig, shouldExcludeFile } from '../config.js';
 import { detectLanguage } from '../utils.js';
+import { resolveImportGraph } from './import-resolver.js';
 
 export const scanProjectSchema = {
   directory_path: z.string().describe("Path to the directory to scan"),
@@ -219,24 +220,62 @@ export async function scanProject({ directory_path, recursive, include_patterns,
     }
   }
 
-  // Cross-file taint analysis (opt-in, max 50 files)
+  // Cross-file taint analysis via import graph (opt-in, max 50 files)
   let crossFileIssues = [];
   if (cross_file && files.length <= 50) {
     try {
-      const { runCrossFileAnalyzer } = await import('../utils.js');
-      if (typeof runCrossFileAnalyzer === 'function') {
-        const crossResults = runCrossFileAnalyzer(files);
-        if (Array.isArray(crossResults)) {
-          crossFileIssues = crossResults;
-          for (const issue of crossFileIssues) {
-            const relativePath = relative(dirPath, issue.file || '');
-            allIssues.push({ ...issue, file: relativePath });
-            bySeverity[issue.severity] = (bySeverity[issue.severity] || 0) + 1;
+      // Build a set of files with ERROR-severity findings
+      const errorFiles = new Set();
+      for (const issue of allIssues) {
+        if (issue.severity === 'error' || issue.severity === 'ERROR') {
+          const absPath = resolve(dirPath, issue.file);
+          errorFiles.add(absPath);
+        }
+      }
+
+      // For each scanned file, build import graph and propagate warnings
+      for (const filePath of files) {
+        const graph = resolveImportGraph(filePath, dirPath, { maxDepth: 2 });
+        for (const edge of graph.edges) {
+          if (errorFiles.has(edge.to)) {
+            const fromRelative = relative(dirPath, edge.from);
+            const toRelative = relative(dirPath, edge.to);
+            // Find the error-severity issues in the imported file
+            const importedErrors = allIssues.filter(i =>
+              i.file === toRelative && (i.severity === 'error' || i.severity === 'ERROR')
+            );
+            for (const err of importedErrors) {
+              const crossIssue = {
+                ruleId: 'cross-file-taint-warning',
+                severity: 'warning',
+                message: `File imports ${toRelative} (via "${edge.importSpec}") which has ${err.severity}-severity issue: ${err.ruleId || err.message}`,
+                file: fromRelative,
+                line: 0,
+                imported_file: toRelative,
+                source_issue: err.ruleId,
+              };
+              crossFileIssues.push(crossIssue);
+            }
           }
         }
       }
+
+      // Deduplicate cross-file issues (same from+to+source_issue)
+      const seen = new Set();
+      crossFileIssues = crossFileIssues.filter(issue => {
+        const key = `${issue.file}|${issue.imported_file}|${issue.source_issue}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Add cross-file issues to allIssues
+      for (const issue of crossFileIssues) {
+        allIssues.push(issue);
+        bySeverity[issue.severity] = (bySeverity[issue.severity] || 0) + 1;
+      }
     } catch {
-      // Cross-file analysis not available
+      // Cross-file analysis failed — skip silently
     }
   }
 
