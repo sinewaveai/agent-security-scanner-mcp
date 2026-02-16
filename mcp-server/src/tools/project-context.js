@@ -3,6 +3,17 @@
 
 import { existsSync, readFileSync } from 'fs';
 import { join, basename } from 'path';
+import { createHash } from 'crypto';
+
+// Cache: projectRoot -> { contentHash, result }
+const projectContextCache = new Map();
+
+/**
+ * Clear the project context cache (for testing).
+ */
+export function clearProjectContextCache() {
+  projectContextCache.clear();
+}
 
 // Framework detection: package name → { name, ecosystem }
 const FRAMEWORK_MAP = {
@@ -221,12 +232,51 @@ function parsePomXml(projectRoot) {
   }
 }
 
+// Dependency files to check for cache hashing
+const DEP_FILES = ['package.json', 'requirements.txt', 'pyproject.toml', 'go.mod', 'Gemfile', 'pom.xml'];
+
 /**
- * Discover project security context from dependency files.
+ * Hash the contents of dependency files in a project root for cache invalidation.
+ */
+function hashDependencyFiles(projectRoot) {
+  const hash = createHash('sha256');
+  let hasContent = false;
+  for (const depFile of DEP_FILES) {
+    const filePath = join(projectRoot, depFile);
+    if (existsSync(filePath)) {
+      try {
+        hash.update(depFile + ':' + readFileSync(filePath, 'utf-8'));
+        hasContent = true;
+      } catch {
+        // ignore unreadable files
+      }
+    }
+  }
+  return hasContent ? hash.digest('hex').slice(0, 16) : null;
+}
+
+/**
+ * Discover project security context from dependency files (with caching).
+ * Results are cached by projectRoot and invalidated when dependency file contents change.
  * @param {string} projectRoot - Path to project root directory
  * @returns {{ language: string, framework: string|null, security_middleware: string[], sanitizers: string[], auth_libraries: string[], test_frameworks: string[], dependency_file: string|null, raw_security_deps: Record<string, string> }}
  */
 export function discoverProjectContext(projectRoot) {
+  const contentHash = hashDependencyFiles(projectRoot);
+  const cached = projectContextCache.get(projectRoot);
+  if (cached && cached.contentHash === contentHash) {
+    return cached.result;
+  }
+
+  const result = _discoverProjectContextUncached(projectRoot);
+  projectContextCache.set(projectRoot, { contentHash, result });
+  return result;
+}
+
+/**
+ * Internal: discover project security context without caching.
+ */
+function _discoverProjectContextUncached(projectRoot) {
   const parsers = [
     parsePackageJson,
     parseRequirementsTxt,
