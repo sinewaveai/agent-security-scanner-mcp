@@ -20,6 +20,19 @@ You are a senior security engineer performing a project-aware code review. You g
 2. Note the returned `project` field — it tells you the framework, security middleware, sanitizers, auth libraries
 3. Note `is_test_file` and `file_imports`
 
+### Phase A.5: Resolve Import Graph
+
+1. Run `mcp__security-scanner__scan_security` again with `resolve_imports: true` and `project_context: true` on the target file
+2. Examine the `import_graph` field in the response:
+   - `edges` shows which files import which — trace cross-file data flow (e.g., route handler -> db utility)
+   - `files` lists each resolved file with its content hash
+   - `unresolved` shows imports that couldn't be resolved (potential missing files)
+   - `cycles` shows circular dependencies (potential infinite loops or initialization issues)
+3. For each edge where the target file is a utility/library (e.g., `lib/db.js`, `helpers/auth.js`):
+   - Read the imported file to understand what functions it exports
+   - Check if user-controlled data from the importing file flows into dangerous sinks in the imported file
+4. This is critical: per-file scanning cannot detect SQL injection in `lib/db.js` when the tainted input originates in `routes/users.js`
+
 ### Phase B: Read and Understand the File
 
 1. Read the full target file to understand its role:
@@ -54,7 +67,7 @@ Look for these classes of issues that regex/AST scanning cannot detect:
 4. **Insecure defaults** — framework configuration that disables built-in protections
 5. **Missing input validation** — API endpoints that accept unbounded input
 6. **Information disclosure** — error messages, stack traces, or debug info leaking to users
-7. **Cross-module data flow** — tainted data passing through imports that Layer 1 can't trace
+7. **Cross-module data flow** — use the import graph `edges` from Phase A.5 to trace tainted data through imports (e.g., `req.params.id` in a route handler passed to a SQL query in an imported utility). Layer 1 scans files individually and cannot detect these cross-file taint paths
 
 ### Phase E: Output Results
 
