@@ -170,7 +170,13 @@ def extract_dangerous_functions_regex(source, lang):
 
     # Extract function definitions with their bodies
     if lang in ('javascript', 'typescript'):
-        func_pattern = r'function\s+(\w+)\s*\(([^)]*)\)'
+        # Match: function name(...), async function name(...), name(...) { (method), const name = (...) =>
+        func_patterns = [
+            r'(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)',
+            r'(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(([^)]*)\)\s*=>',
+            r'(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?function\s*\(([^)]*)\)',
+        ]
+        func_pattern = '|'.join(f'(?:{p})' for p in func_patterns)
     elif lang == 'python':
         func_pattern = r'def\s+(\w+)\s*\(([^)]*)\):'
     else:
@@ -178,8 +184,20 @@ def extract_dangerous_functions_regex(source, lang):
 
     lines = source.split('\n')
     for m in re.finditer(func_pattern, source):
-        func_name = m.group(1)
-        params_str = m.group(2).strip()
+        # Extract name and params from whichever alternative matched
+        groups = m.groups()
+        # For JS, we have 3 alternatives with 2 groups each = 6 groups
+        # For Python, we have 1 alternative with 2 groups
+        func_name = None
+        params_str = None
+        for i in range(0, len(groups), 2):
+            if groups[i] is not None:
+                func_name = groups[i]
+                params_str = groups[i + 1] if i + 1 < len(groups) else ''
+                break
+        if not func_name:
+            continue
+        params_str = (params_str or '').strip()
         if not params_str:
             continue
 
@@ -383,21 +401,30 @@ def _find_tainted_variables(source):
     """Find variables that receive tainted data from common source patterns."""
     tainted = {}
     lines = source.split('\n')
+
+    # Assignment patterns: JS (const/let/var x = ...) and Python (x = ...)
+    _ASSIGN_PATTERNS = [
+        r'\s*(?:const|let|var)\s+(\w+)\s*=\s*',   # JS declaration
+        r'\s*(\w+)\s*=\s*',                         # Python / bare assignment
+    ]
+
     for line_num, line in enumerate(lines, 1):
         for pat in _TAINT_SOURCE_PATTERNS:
             if re.search(pat, line):
                 # Try to find the variable assignment on this line
-                # e.g. "const userId = req.params.id" → userId
-                assign_match = re.match(
-                    r'\s*(?:const|let|var|)\s*(\w+)\s*=\s*.*' + pat, line
-                )
-                if assign_match:
-                    var_name = assign_match.group(1)
-                    source_text = re.search(pat, line).group(0)
-                    tainted[var_name] = {
-                        'source': source_text,
-                        'line': line_num,
-                    }
+                for assign_pat in _ASSIGN_PATTERNS:
+                    assign_match = re.match(assign_pat + '.*' + pat, line)
+                    if assign_match:
+                        var_name = assign_match.group(1)
+                        # Skip keywords that look like variables
+                        if var_name in ('const', 'let', 'var', 'return', 'if', 'else', 'for', 'while'):
+                            continue
+                        source_text = re.search(pat, line).group(0)
+                        tainted[var_name] = {
+                            'source': source_text,
+                            'line': line_num,
+                        }
+                        break
     return tainted
 
 
@@ -474,7 +501,9 @@ def cross_file_taint_match(file_paths, file_sources, graph, export_summaries):
                 func_name = summary['function_name']
 
                 # Find calls to this function in the caller
-                calls = _find_calls_to_function(caller_source, func_name, module_alias)
+                # Check both default import alias (db.getUserById) and named imports (getUserById)
+                alias = module_alias if func_name not in imported_names else None
+                calls = _find_calls_to_function(caller_source, func_name, alias)
 
                 for call in calls:
                     for dp in summary['dangerous_params']:

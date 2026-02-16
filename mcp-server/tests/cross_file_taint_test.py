@@ -93,6 +93,31 @@ def run_code(code):
         assert dp['param_name'] == 'code'
         assert dp['sink_rule_id'] == 'code-injection'
 
+    def test_arrow_function_sql_injection(self):
+        """Arrow functions with SQL sinks should be detected."""
+        source = """
+const getUserById = (id) => {
+    const query = "SELECT * FROM users WHERE id = " + id;
+    return db.query(query);
+};
+"""
+        results = extract_dangerous_functions_regex(source, 'javascript')
+        assert len(results) == 1
+        assert results[0]['function_name'] == 'getUserById'
+        assert results[0]['dangerous_params'][0]['param_name'] == 'id'
+
+    def test_async_function_detection(self):
+        """Async functions should also be detected."""
+        source = """
+async function fetchUser(userId) {
+    const query = "SELECT * FROM users WHERE id = " + userId;
+    return await db.query(query);
+}
+"""
+        results = extract_dangerous_functions_regex(source, 'javascript')
+        assert len(results) == 1
+        assert results[0]['function_name'] == 'fetchUser'
+
     def test_template_literal_sql_injection(self):
         """Template literal with SQL should be detected."""
         source = """
@@ -121,6 +146,13 @@ class TestFindTaintedVariables:
         source = 'const x = 42;\nconst y = "hello";\n'
         tainted = _find_tainted_variables(source)
         assert tainted == {}
+
+    def test_python_flask_taint(self):
+        """Python Flask request.args.get should be detected."""
+        source = '    user_id = request.args.get("id")\n'
+        tainted = _find_tainted_variables(source)
+        assert 'user_id' in tainted
+        assert 'request.args.get(' in tainted['user_id']['source']
 
 
 # ========== _extract_import_bindings ==========
