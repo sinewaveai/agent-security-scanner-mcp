@@ -362,23 +362,23 @@ describe('Python cross-file analyzer', () => {
     const results = JSON.parse(jsonOutput);
     expect(Array.isArray(results)).toBe(true);
 
-    // Should contain cross-file-taint findings
-    const crossFileTaint = results.filter(r => r.ruleId === 'cross-file-taint');
+    // Should contain cross-file-taint-warning findings (propagated from db.js SQL injection)
+    const crossFileTaint = results.filter(r => r.ruleId === 'cross-file-taint-warning');
     expect(crossFileTaint.length).toBeGreaterThanOrEqual(1);
 
-    // At least one finding should mention getUserById or searchUsers
+    // At least one finding should mention db.js and sql-injection
     const messages = crossFileTaint.map(f => f.message);
     const hasTaintFlow = messages.some(m =>
-      m.includes('getUserById') || m.includes('searchUsers')
+      m.includes('db.js') && m.includes('sql-injection')
     );
     expect(hasTaintFlow).toBe(true);
 
     // Findings should have proper metadata
     for (const finding of crossFileTaint) {
-      expect(finding.severity).toBe('error');
+      expect(finding.severity).toBe('warning');
       expect(finding.metadata).toBeDefined();
-      expect(finding.metadata.taint_path).toBeDefined();
-      expect(Array.isArray(finding.metadata.taint_path)).toBe(true);
+      expect(finding.metadata.imported_file).toBeDefined();
+      expect(finding.metadata.imported_findings_count).toBeGreaterThanOrEqual(1);
     }
   });
 });

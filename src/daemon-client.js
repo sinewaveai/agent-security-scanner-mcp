@@ -204,6 +204,16 @@ class DaemonClient {
     return resp.result;
   }
 
+  async preWarm() {
+    if (this._dead) return;
+    try {
+      await this.ensureRunning();
+      await this.health();
+    } catch {
+      // Pre-warm failure is non-fatal
+    }
+  }
+
   async shutdown() {
     if (!this._proc || this._proc.killed || this._proc.exitCode !== null) return;
     try {

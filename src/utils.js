@@ -5,6 +5,7 @@ import { dirname, join, extname, basename } from "path";
 import { fileURLToPath } from "url";
 import { FIX_TEMPLATES } from './fix-patterns.js';
 import { getDaemonClient, shutdownDaemon } from './daemon-client.js';
+export { isTestFile } from './context.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -357,4 +358,61 @@ export function toSarif(file_path, language, issues) {
       results: results
     }]
   };
+}
+
+/**
+ * Extract import/require statements from source code.
+ * Returns deduplicated array of module specifiers.
+ */
+export function extractImports(code, language) {
+  const imports = new Set();
+
+  switch (language) {
+    case 'javascript':
+    case 'typescript': {
+      // ES imports: import X from 'Y', import { X } from 'Y', import 'Y'
+      const esImports = code.matchAll(/import\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g);
+      for (const m of esImports) imports.add(m[1]);
+      // require(): const X = require('Y')
+      const requires = code.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g);
+      for (const m of requires) imports.add(m[1]);
+      break;
+    }
+    case 'python': {
+      // import X, from X import Y
+      const pyImports = code.matchAll(/^\s*import\s+(\S+)/gm);
+      for (const m of pyImports) imports.add(m[1].split('.')[0]);
+      const pyFroms = code.matchAll(/^\s*from\s+(\S+)\s+import/gm);
+      for (const m of pyFroms) imports.add(m[1].split('.')[0]);
+      break;
+    }
+    case 'go': {
+      // Single import: import "X"
+      const goSingle = code.matchAll(/^\s*import\s+"([^"]+)"/gm);
+      for (const m of goSingle) imports.add(m[1]);
+      // Multi import block: import ( "X" )
+      const goBlocks = code.matchAll(/import\s*\(\s*([\s\S]*?)\)/g);
+      for (const block of goBlocks) {
+        const entries = block[1].matchAll(/["']([^"']+)["']/g);
+        for (const e of entries) imports.add(e[1]);
+      }
+      break;
+    }
+    case 'ruby': {
+      // require 'X', require_relative 'X', gem 'X'
+      const rubyReqs = code.matchAll(/(?:require(?:_relative)?|gem)\s+['"]([^'"]+)['"]/g);
+      for (const m of rubyReqs) imports.add(m[1]);
+      break;
+    }
+    case 'java': {
+      // import X.Y.Z; import static X.Y.Z;
+      const javaImports = code.matchAll(/^\s*import\s+(?:static\s+)?([^;]+);/gm);
+      for (const m of javaImports) imports.add(m[1].trim());
+      break;
+    }
+    default:
+      break;
+  }
+
+  return [...imports];
 }

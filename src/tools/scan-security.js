@@ -1,16 +1,20 @@
 // src/tools/scan-security.js
 import { z } from "zod";
 import { existsSync, readFileSync } from "fs";
-import { detectLanguage, runAnalyzerAsync, generateFix, toSarif, getEngineMode } from '../utils.js';
+import { dirname } from "path";
+import { detectLanguage, runAnalyzerAsync, generateFix, toSarif, getEngineMode, extractImports, isTestFile } from '../utils.js';
 import { deduplicateFindings } from '../dedup.js';
 import { applyContextFilter, detectFrameworks, applyFrameworkAdjustments } from '../context.js';
 import { loadConfig, shouldExcludeFile, applyConfig } from '../config.js';
+import { discoverProjectContext } from './project-context.js';
 
 export const scanSecuritySchema = {
   file_path: z.string().describe("Path to the file to scan"),
   output_format: z.enum(['json', 'sarif']).optional().describe("Output format: 'json' (default) or 'sarif' for GitHub/GitLab integration"),
   verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level: 'minimal' (counts only), 'compact' (default, actionable info), 'full' (complete metadata)"),
-  engine: z.enum(['auto', 'ast', 'regex']).optional().describe("Analysis engine: 'auto' (default, AST with regex fallback), 'ast' (tree-sitter only), 'regex' (regex only)")
+  engine: z.enum(['auto', 'ast', 'regex']).optional().describe("Analysis engine: 'auto' (default, AST with regex fallback), 'ast' (tree-sitter only), 'regex' (regex only)"),
+  project_context: z.boolean().optional().describe("Include project context (framework, security middleware, dependencies)"),
+  include_context: z.boolean().optional().describe("Include surrounding code context for each issue")
 };
 
 // Verbosity formatters
@@ -58,7 +62,7 @@ function formatFull(file_path, language, issues) {
   };
 }
 
-export async function scanSecurity({ file_path, output_format, verbosity, engine }) {
+export async function scanSecurity({ file_path, output_format, verbosity, engine, project_context, include_context }) {
   if (!existsSync(file_path)) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -101,15 +105,30 @@ export async function scanSecurity({ file_path, output_format, verbosity, engine
   // Apply .scannerrc configuration (rule suppression, severity/confidence thresholds)
   const issues = applyConfig(frameworkAdjusted, file_path, config);
 
-  // Enhance issues with fix suggestions
+  // Enhance issues with fix suggestions and optional surrounding context
   const enhancedIssues = issues.map(issue => {
     const line = lines[issue.line] || '';
     const fix = generateFix(issue, line, language);
-    return {
+    const enhanced = {
       ...issue,
       line_content: line.trim(),
       suggested_fix: fix
     };
+
+    if (include_context) {
+      const lineIdx = issue.line;
+      const contextLines = 3;
+      enhanced.context_before = [];
+      enhanced.context_after = [];
+      for (let i = Math.max(0, lineIdx - contextLines); i < lineIdx; i++) {
+        enhanced.context_before.push({ line: i + 1, content: lines[i] || '' });
+      }
+      for (let i = lineIdx + 1; i <= Math.min(lines.length - 1, lineIdx + contextLines); i++) {
+        enhanced.context_after.push({ line: i + 1, content: lines[i] || '' });
+      }
+    }
+
+    return enhanced;
   });
 
   // Determine verbosity (default: compact)
@@ -137,6 +156,14 @@ export async function scanSecurity({ file_path, output_format, verbosity, engine
     case 'compact':
     default:
       result = formatCompact(file_path, language, enhancedIssues);
+  }
+
+  // Attach project context if requested
+  if (project_context) {
+    const projectDir = dirname(file_path);
+    result.project = discoverProjectContext(projectDir);
+    result.is_test_file = isTestFile(file_path);
+    result.file_imports = extractImports(content, language);
   }
 
   return {

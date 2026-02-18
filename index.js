@@ -181,6 +181,41 @@ server.tool(
 );
 
 // ===========================================
+// OPENCLAW SKILL SCANNING
+// ===========================================
+
+server.tool(
+  "scan_skill",
+  "Deep security scan of an OpenClaw skill. Multi-layer analysis: prompt injection detection, code analysis (AST+taint), ClawHavoc malware signatures, package supply chain verification, rug pull detection. Returns security grade A-F with detailed findings.",
+  {
+    skill_path: z.string().describe("Path to skill directory or SKILL.md file"),
+    verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level"),
+    baseline: z.boolean().optional().describe("Save current scan as baseline for rug pull detection"),
+  },
+  async ({ skill_path, verbosity, baseline }) => {
+    const { scanSkill } = await import('./src/tools/scan-skill.js');
+    return scanSkill({ skill_path, verbosity, baseline });
+  }
+);
+
+// ===========================================
+// PLUGIN HEALTH CHECK
+// ===========================================
+
+server.tool(
+  "clawproof_health",
+  "Check plugin health: engine status, daemon status, package data availability",
+  {},
+  async () => {
+    const { getHealthStatus } = await import('./src/plugin-health.js');
+    const health = await getHealthStatus();
+    return {
+      content: [{ type: "text", text: JSON.stringify(health, null, 2) }]
+    };
+  }
+);
+
+// ===========================================
 // CLI COMMANDS - Extracted to src/cli/
 // ===========================================
 // See src/cli/init.js, src/cli/doctor.js, src/cli/demo.js
@@ -397,6 +432,41 @@ if (cliArgs[0] === 'init') {
     console.error(JSON.stringify({ error: err.message }));
     process.exit(1);
   });
+} else if (cliArgs[0] === 'scan-skill') {
+  const skillPath = cliArgs[1];
+  if (!skillPath) {
+    console.error('Usage: agent-security-scanner-mcp scan-skill <skill-path> [--verbosity minimal|compact|full] [--baseline]');
+    process.exit(1);
+  }
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const baseline = cliArgs.includes('--baseline');
+
+  // Load package lists for supply chain scanning
+  const { loadPackageLists } = await import('./src/tools/check-package.js');
+  loadPackageLists();
+
+  const { scanSkill } = await import('./src/tools/scan-skill.js');
+  scanSkill({ skill_path: skillPath, verbosity, baseline }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.grade === 'F' || output.grade === 'D' ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'audit') {
+  const { runAudit } = await import('./src/cli/audit.js');
+  runAudit(cliArgs.slice(1)).then(() => process.exit(0)).catch(err => {
+    console.error(`  Error: ${err.message}\n`);
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'harden') {
+  const { runHarden } = await import('./src/cli/harden.js');
+  runHarden(cliArgs.slice(1)).then(() => process.exit(0)).catch(err => {
+    console.error(`  Error: ${err.message}\n`);
+    process.exit(1);
+  });
 } else if (cliArgs[0] === '--help' || cliArgs[0] === '-h' || cliArgs[0] === 'help') {
   console.log('\n  agent-security-scanner-mcp\n');
   console.log('  Commands:');
@@ -409,12 +479,15 @@ if (cliArgs[0] === 'init') {
   console.log('  CLI Tools (for scripts & OpenClaw):');
   console.log('    scan-prompt <text>   Scan prompt for injection attacks');
   console.log('    scan-security <file> Scan file for vulnerabilities');
+  console.log('    scan-skill <path>    Scan OpenClaw skill for security threats [--baseline]');
   console.log('    check-package <n> <e> Check if package exists in ecosystem');
   console.log('    scan-packages <f> <e> Scan file imports for hallucinated packages');
   console.log('    scan-project <dir>   Scan directory for vulnerabilities with grading');
   console.log('    scan-diff [base] [target] Scan git diff for new vulnerabilities');
   console.log('    scan-mcp <path>      Scan MCP server source for security issues');
-  console.log('    scan-action <t> <v>  Check agent action before execution\n');
+  console.log('    scan-action <t> <v>  Check agent action before execution');
+  console.log('    audit [--config-path] Audit OpenClaw config for security issues');
+  console.log('    harden [--fix]       Auto-harden OpenClaw configuration\n');
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
@@ -439,6 +512,13 @@ if (cliArgs[0] === 'init') {
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("Security Scanner MCP Server running on stdio");
+
+    // Pre-warm daemon in background (non-blocking)
+    if (process.env.SCANNER_PREWARM !== '0') {
+      import('./src/daemon-client.js').then(({ getDaemonClient }) => {
+        getDaemonClient().preWarm().catch(() => {});
+      }).catch(() => {});
+    }
 
     // Shutdown daemon when MCP server closes
     server.server.onclose = async () => {

@@ -163,7 +163,11 @@ const TEST_FILE_PATTERNS = [
   /[._](?:test|spec)\.[^.]+$/i,
   /[/\\]test[-_]?files?[/\\]/i,
   /[/\\]fixtures?[/\\]/i,
+  /[/\\]__fixtures__[/\\]/i,
+  /[/\\]__mocks__[/\\]/i,
+  /[/\\]mocks?[/\\]/i,
   /[/\\]demo[/\\]/i,
+  /[/\\]test[-_][^/\\]+\.[^.]+$/i,
 ];
 
 // Check if a file path looks like a test file

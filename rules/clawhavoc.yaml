@@ -1,0 +1,443 @@
+# ClawHavoc Malware Signature Rules
+# ===================================
+# ClawHavoc is a threat intelligence database for detecting known malicious
+# patterns in OpenClaw skills. These signatures cover reverse shells, crypto
+# miners, info stealers, keyloggers, C2 beacons, and OpenClaw-specific attacks
+# observed in the wild. Each rule maps to a MITRE ATT&CK technique or known
+# malware family. Patterns are JavaScript-compatible regex (used with RegExp).
+#
+# Maintained by the ClawProof security team.
+# Last updated: 2026-02-18
+
+rules:
+  # ==========================================================================
+  # CATEGORY 1: REVERSE SHELLS
+  # ==========================================================================
+
+  - id: clawhavoc.revshell.bash
+    severity: CRITICAL
+    message: "Bash reverse shell detected — opens interactive shell over TCP"
+    patterns:
+      - "bash\\s+-i\\s+>&\\s*/dev/tcp/"
+      - "/dev/tcp/\\d+\\.\\d+\\.\\d+\\.\\d+/\\d+"
+      - "bash\\s+.*>\\s*/dev/tcp/.*<&"
+      - "0<&\\d+;\\s*exec\\s+\\d+<>/dev/tcp/"
+    metadata:
+      category: reverse_shell
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.revshell.netcat
+    severity: CRITICAL
+    message: "Netcat reverse shell detected — executes shell via nc/ncat"
+    patterns:
+      - "\\bnc\\s+-e\\s+/bin/(ba)?sh"
+      - "\\bncat\\s+-e\\s+/bin/(ba)?sh"
+      - "\\bnetcat\\s+-e\\s+/bin/(ba)?sh"
+      - "\\bnc\\b.*\\|\\s*/bin/(ba)?sh"
+      - "mkfifo\\s+/tmp/.*\\bnc\\b"
+    metadata:
+      category: reverse_shell
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.revshell.python
+    severity: CRITICAL
+    message: "Python reverse shell detected — socket connect with dup2/subprocess"
+    patterns:
+      - "socket\\.connect\\s*\\(\\s*\\([\"']\\d+\\.\\d+\\.\\d+\\.\\d+[\"']"
+      - "os\\.dup2\\s*\\(\\s*s\\.fileno\\(\\)"
+      - "subprocess\\.call\\s*\\(\\s*\\[.*?/bin/(ba)?sh.*?\\].*?stdin\\s*=\\s*s"
+      - "socket\\.socket\\(.*?SOCK_STREAM\\).*?\\.connect\\(.*?\\).*?os\\.dup2"
+    metadata:
+      category: reverse_shell
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.revshell.perl
+    severity: CRITICAL
+    message: "Perl reverse shell detected — socket INET with exec"
+    patterns:
+      - "perl\\s+-e\\s+.*socket\\s*\\(\\s*S.*INET"
+      - "perl\\s+-e\\s+.*exec\\s*\\(.*?/bin/(ba)?sh"
+      - "IO::Socket::INET.*?\\bexec\\b.*?/bin/(ba)?sh"
+      - "perl\\s+.*?socket.*?connect.*?open.*?STDIN"
+    metadata:
+      category: reverse_shell
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.revshell.ruby
+    severity: CRITICAL
+    message: "Ruby reverse shell detected — TCPSocket with exec"
+    patterns:
+      - "TCPSocket\\.(new|open)\\s*\\(.*?\\d+\\.\\d+\\.\\d+\\.\\d+"
+      - "TCPSocket\\.open.*?exec\\s+.*?/bin/(ba)?sh"
+      - "require\\s+[\"']socket[\"'].*?TCPSocket.*?exec"
+    metadata:
+      category: reverse_shell
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  # ==========================================================================
+  # CATEGORY 2: CRYPTO MINERS
+  # ==========================================================================
+
+  - id: clawhavoc.miner.xmrig
+    severity: CRITICAL
+    message: "XMRig crypto miner detected — mines Monero using victim resources"
+    patterns:
+      - "\\bxmrig\\b"
+      - "stratum\\+tcp://"
+      - "pool\\.minexmr\\.com"
+      - "pool\\.hashvault\\.pro"
+      - "\\bRandomX\\b.*?--donate-level"
+    metadata:
+      category: crypto_miner
+      action: BLOCK
+      confidence: HIGH
+      malware_family: xmrig
+
+  - id: clawhavoc.miner.coinhive
+    severity: CRITICAL
+    message: "Browser-based crypto miner detected — mines via WebAssembly in browser"
+    patterns:
+      - "\\bcoinhive\\b"
+      - "CoinHive\\.Anonymous"
+      - "\\bwebminepool\\b"
+      - "coin-hive\\.com/lib"
+      - "\\bCryptoLoot\\b"
+    metadata:
+      category: crypto_miner
+      action: BLOCK
+      confidence: HIGH
+      malware_family: coinhive
+
+  # ==========================================================================
+  # CATEGORY 3: INFO STEALERS
+  # ==========================================================================
+
+  - id: clawhavoc.stealer.browser-cookies
+    severity: CRITICAL
+    message: "Browser cookie/credential theft detected — reads stored login data"
+    patterns:
+      - "Chrome/User\\s*Data/Default/Cookies"
+      - "Firefox/Profiles/.*?cookies\\.sqlite"
+      - "Chrome/User\\s*Data/Default/Login\\s*Data"
+      - "Google/Chrome.*?(Cookies|Login\\s*Data)"
+      - "Application\\s*Support/(Google/Chrome|Firefox).*?(cookies|login)"
+    metadata:
+      category: info_stealer
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.stealer.keychain
+    severity: CRITICAL
+    message: "macOS Keychain theft detected — dumps stored credentials"
+    patterns:
+      - "security\\s+find-generic-password"
+      - "security\\s+find-internet-password"
+      - "security\\s+dump-keychain"
+      - "security\\s+export\\s+-k\\s+.*?keychain"
+    metadata:
+      category: info_stealer
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.stealer.atomic
+    severity: CRITICAL
+    message: "Atomic Stealer pattern detected — osascript password prompt"
+    patterns:
+      - "osascript.*?display\\s+dialog.*?password"
+      - "osascript.*?display\\s+dialog.*?with\\s+hidden\\s+answer"
+      - "osascript\\s+-e.*?text\\s+returned.*?password"
+    metadata:
+      category: info_stealer
+      action: BLOCK
+      confidence: HIGH
+      malware_family: atomic_stealer
+      campaign: macos_atomic
+
+  - id: clawhavoc.stealer.redline
+    severity: CRITICAL
+    message: "RedLine stealer pattern detected — targets browser and system credentials"
+    patterns:
+      - "\\\\Browsers\\\\.*?Login\\s*Data"
+      - "\\bvaultcli\\.dll\\b"
+      - "\\bCredentialManager\\b"
+      - "VaultOpenVault|VaultEnumerateItems"
+      - "\\\\User\\s*Data\\\\.*?(Web\\s*Data|Login\\s*Data)"
+    metadata:
+      category: info_stealer
+      action: BLOCK
+      confidence: HIGH
+      malware_family: redline
+
+  - id: clawhavoc.stealer.lumma
+    severity: CRITICAL
+    message: "Lumma/wallet stealer pattern detected — targets crypto wallets"
+    patterns:
+      - "\\bwallet\\.dat\\b"
+      - "Exodus.*?passphrase"
+      - "metamask.*?vault"
+      - "\\bsollet\\b.*?keystore"
+      - "Ethereum/keystore"
+    metadata:
+      category: info_stealer
+      action: BLOCK
+      confidence: MEDIUM
+      malware_family: lumma
+
+  # ==========================================================================
+  # CATEGORY 4: KEYLOGGERS
+  # ==========================================================================
+
+  - id: clawhavoc.keylogger.macos
+    severity: CRITICAL
+    message: "macOS keylogger detected — captures keystrokes via system APIs"
+    patterns:
+      - "\\bCGEventTapCreate\\b"
+      - "\\bkCGEventKeyDown\\b"
+      - "NSEvent\\.addGlobalMonitor"
+      - "CGEventMaskBit\\(.*?kCGEventKeyDown"
+    metadata:
+      category: keylogger
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.keylogger.generic
+    severity: HIGH
+    message: "Generic keylogger pattern detected — captures keyboard input"
+    patterns:
+      - "\\bkeylogger\\b"
+      - "pynput\\.keyboard\\.Listener"
+      - "addEventListener\\s*\\(\\s*[\"']keydown[\"']"
+      - "on_press.*?keyboard.*?listener"
+      - "SetWindowsHookEx.*?WH_KEYBOARD"
+    metadata:
+      category: keylogger
+      action: BLOCK
+      confidence: MEDIUM
+      malware_family: generic
+
+  # ==========================================================================
+  # CATEGORY 5: SCREEN CAPTURE
+  # ==========================================================================
+
+  - id: clawhavoc.screencap.capture-upload
+    severity: HIGH
+    message: "Screenshot capture with upload detected — exfiltrates screen content"
+    patterns:
+      - "screenshot.*?upload"
+      - "screencapture.*?curl"
+      - "ImageGrab.*?(send|post|upload|requests)"
+      - "pyautogui\\.screenshot.*?(requests|urllib|http)"
+      - "screen\\s*capture.*?(webhook|http|curl)"
+    metadata:
+      category: screen_capture
+      action: BLOCK
+      confidence: MEDIUM
+      malware_family: generic
+
+  # ==========================================================================
+  # CATEGORY 6: DNS EXFILTRATION
+  # ==========================================================================
+
+  - id: clawhavoc.exfil.dns
+    severity: CRITICAL
+    message: "DNS exfiltration detected — encodes data in DNS queries"
+    patterns:
+      - "nslookup\\s+\\$\\("
+      - "dig\\s+\\$\\("
+      - "base64.*?nslookup"
+      - "nslookup.*?base64"
+      - "\\$\\(.*?\\)\\..*?\\.\\w{2,6}\\b"
+    metadata:
+      category: dns_exfiltration
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  # ==========================================================================
+  # CATEGORY 7: C2 BEACONS
+  # ==========================================================================
+
+  - id: clawhavoc.c2.periodic-http
+    severity: CRITICAL
+    message: "C2 beacon detected — periodic HTTP callbacks for command and control"
+    patterns:
+      - "setInterval\\s*\\(.*?fetch\\s*\\("
+      - "while\\s+(True|true|1).*?requests\\.(get|post).*?sleep"
+      - "setInterval\\s*\\(.*?(axios|http|XMLHttpRequest)"
+      - "schedule\\.every\\(.*?\\)\\.(get|post|fetch)"
+    metadata:
+      category: c2_beacon
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  - id: clawhavoc.c2.encoded-payload
+    severity: CRITICAL
+    message: "Encoded payload execution detected — decodes and executes hidden code"
+    patterns:
+      - "eval\\s*\\(\\s*atob\\s*\\("
+      - "exec\\s*\\(\\s*base64\\.b64decode\\s*\\("
+      - "eval\\s*\\(\\s*Buffer\\.from\\s*\\(.*?[\"']base64[\"']"
+      - "new\\s+Function\\s*\\(\\s*atob\\s*\\("
+      - "exec\\s*\\(\\s*codecs\\.decode\\s*\\("
+    metadata:
+      category: c2_beacon
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic
+
+  # ==========================================================================
+  # CATEGORY 8: OPENCLAW-SPECIFIC ATTACKS
+  # ==========================================================================
+
+  - id: clawhavoc.openclaw.soul-tampering
+    severity: CRITICAL
+    message: "SOUL.md tampering detected — modifies the agent's core identity/instructions"
+    patterns:
+      - "(write|echo|cat|tee)\\s+.*?>\\s*SOUL\\.md"
+      - "modify\\s+.*?SOUL\\.md"
+      - "sed\\s+-i.*?SOUL\\.md"
+      - "echo\\s+.*?>>\\s*SOUL\\.md"
+      - "(open|fs\\.writeFile).*?SOUL\\.md"
+    metadata:
+      category: openclaw_attack
+      action: BLOCK
+      confidence: HIGH
+      malware_family: openclaw_specific
+
+  - id: clawhavoc.openclaw.config-theft
+    severity: CRITICAL
+    message: "OpenClaw config theft detected — reads private agent configuration"
+    patterns:
+      - "~/\\.openclaw/"
+      - "\\$HOME/\\.openclaw"
+      - "cat\\s+.*?\\.openclaw"
+      - "read.*?\\.openclaw/config"
+      - "\\.openclaw/(credentials|tokens?|auth)"
+    metadata:
+      category: openclaw_attack
+      action: BLOCK
+      confidence: HIGH
+      malware_family: openclaw_specific
+
+  - id: clawhavoc.openclaw.session-hijack
+    severity: CRITICAL
+    message: "OpenClaw session hijack detected — steals authentication tokens"
+    patterns:
+      - "openclaw\\s+session\\s+token"
+      - "openclaw.*?auth\\s*cookie"
+      - "OPENCLAW_SESSION"
+      - "openclaw.*?bearer\\s+token"
+      - "steal.*?openclaw.*?(session|token|auth)"
+    metadata:
+      category: openclaw_attack
+      action: BLOCK
+      confidence: HIGH
+      malware_family: openclaw_specific
+
+  - id: clawhavoc.openclaw.skill-mutation
+    severity: CRITICAL
+    message: "SKILL.md self-mutation detected — skill modifies its own definition"
+    patterns:
+      - "(write|echo|cat|tee)\\s+.*?>\\s*SKILL\\.md"
+      - "echo\\s+.*?>>\\s*SKILL\\.md"
+      - "sed\\s+-i.*?SKILL\\.md"
+      - "modify\\s+.*?SKILL\\.md"
+      - "(open|fs\\.writeFile).*?SKILL\\.md"
+    metadata:
+      category: openclaw_attack
+      action: BLOCK
+      confidence: HIGH
+      malware_family: openclaw_specific
+
+  - id: clawhavoc.openclaw.gateway-token
+    severity: CRITICAL
+    message: "OpenClaw gateway token theft detected — targets API authentication"
+    patterns:
+      - "OPENCLAW_GATEWAY_TOKEN"
+      - "OPENCLAW_API_KEY"
+      - "OPENCLAW_SECRET"
+      - "openclaw.*?gateway.*?token"
+      - "export\\s+OPENCLAW_(GATEWAY_TOKEN|API_KEY)"
+    metadata:
+      category: openclaw_attack
+      action: BLOCK
+      confidence: HIGH
+      malware_family: openclaw_specific
+
+  # ==========================================================================
+  # CATEGORY 9: CAMPAIGN PATTERNS
+  # ==========================================================================
+
+  - id: clawhavoc.campaign.osascript-dialog
+    severity: HIGH
+    message: "osascript dialog social engineering — tricks user into entering credentials"
+    patterns:
+      - "osascript.*?display\\s+dialog"
+      - "osascript\\s+-e\\s+.*?display\\s+alert"
+      - "osascript.*?text\\s+returned"
+    metadata:
+      category: campaign
+      action: WARN
+      confidence: MEDIUM
+      campaign: macos_social_engineering
+
+  - id: clawhavoc.campaign.xattr-quarantine
+    severity: CRITICAL
+    message: "Quarantine bypass detected — removes macOS Gatekeeper protection"
+    patterns:
+      - "xattr\\s+-d\\s+com\\.apple\\.quarantine"
+      - "xattr\\s+-c\\s+com\\.apple\\.quarantine"
+      - "xattr\\s+-r\\s+-d.*?quarantine"
+      - "spctl\\s+--master-disable"
+    metadata:
+      category: campaign
+      action: BLOCK
+      confidence: HIGH
+      campaign: macos_gatekeeper_bypass
+
+  - id: clawhavoc.campaign.clickfix
+    severity: CRITICAL
+    message: "ClickFix social engineering detected — instructs user to paste commands"
+    patterns:
+      - "press\\s+(Win|Windows|Cmd|Command)\\s*\\+\\s*R.*?paste"
+      - "open\\s+(terminal|cmd|powershell).*?paste\\s+(the\\s+)?following"
+      - "copy\\s+and\\s+paste\\s+(this|the\\s+following)\\s+(into|in)\\s+(terminal|cmd|powershell|shell)"
+      - "run\\s+this\\s+(in|from)\\s+(your\\s+)?(terminal|command\\s+prompt)"
+    metadata:
+      category: campaign
+      action: BLOCK
+      confidence: HIGH
+      campaign: clickfix
+
+  # ==========================================================================
+  # CATEGORY 10: EXFIL ENDPOINTS
+  # ==========================================================================
+
+  - id: clawhavoc.campaign.webhook-exfil
+    severity: CRITICAL
+    message: "Known exfiltration endpoint detected — data sent to attacker-controlled webhook"
+    patterns:
+      - "webhook\\.site"
+      - "discord\\.com/api/webhooks"
+      - "hooks\\.slack\\.com"
+      - "pipedream\\.net"
+      - "requestbin\\.(com|net)"
+    metadata:
+      category: exfil_endpoint
+      action: BLOCK
+      confidence: HIGH
+      malware_family: generic

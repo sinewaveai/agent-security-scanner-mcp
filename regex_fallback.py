@@ -475,6 +475,8 @@ def _scan_javascript(lines: List[str]) -> List[Dict]:
 
         if re.search(r"\bdb\.query\s*\(.*\+\s*\w", line):
             findings.append(_make_finding("sql-injection", i, line))
+        if re.search(r"\"SELECT\b.*\"\s*\+\s*\w", line, re.IGNORECASE):
+            findings.append(_make_finding("sql-injection-concat", i, line))
 
         if re.search(r"createHash\s*\(\s*['\"]md5['\"]", line, re.IGNORECASE):
             findings.append(_make_finding("insecure-hash-md5", i, line))
