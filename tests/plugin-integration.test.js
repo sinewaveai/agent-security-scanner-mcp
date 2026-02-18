@@ -79,9 +79,11 @@ describe('scan-skill CLI', () => {
 
   it('should report error for nonexistent path', () => {
     const nonexistentPath = join(__dirname, 'fixtures', 'nonexistent-skill');
+    const projectRoot = join(__dirname, '..');
     const output = execFileSync('node', [CLI, 'scan-skill', nonexistentPath], {
       encoding: 'utf-8',
       timeout: 30000,
+      cwd: projectRoot,
     });
     const result = JSON.parse(output);
     expect(result.error).toContain('not found');
