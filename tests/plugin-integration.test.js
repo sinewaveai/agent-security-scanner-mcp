@@ -78,12 +78,22 @@ describe('scan-skill CLI', () => {
   });
 
   it('should report error for nonexistent path', () => {
-    const output = execFileSync('node', [CLI, 'scan-skill', '/nonexistent/path'], {
+    const nonexistentPath = join(__dirname, 'fixtures', 'nonexistent-skill');
+    const output = execFileSync('node', [CLI, 'scan-skill', nonexistentPath], {
       encoding: 'utf-8',
       timeout: 30000,
     });
     const result = JSON.parse(output);
     expect(result.error).toContain('not found');
+  });
+
+  it('should reject path traversal outside cwd', () => {
+    const output = execFileSync('node', [CLI, 'scan-skill', '/etc/passwd'], {
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    const result = JSON.parse(output);
+    expect(result.error).toContain('skill_path must be within');
   });
 
   it('should support minimal verbosity', () => {
@@ -114,7 +124,6 @@ describe('clawproof_health MCP tool', () => {
     const result = await client.callTool('clawproof_health', {});
     expect(result.name).toBe('agent-security-scanner-mcp');
     expect(result.version).toBeDefined();
-    expect(result.engine_mode).toBeDefined();
     expect(result.daemon).toBeDefined();
     expect(result.timestamp).toBeDefined();
   });

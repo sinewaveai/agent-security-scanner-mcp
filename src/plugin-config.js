@@ -35,7 +35,34 @@ export function loadPluginConfig() {
       try {
         const raw = readFileSync(configPath, 'utf-8');
         const parsed = JSON.parse(raw);
-        return { ...DEFAULT_PLUGIN_CONFIG, ...parsed, _source: configPath };
+
+        if (!parsed || typeof parsed !== 'object') {
+          continue;
+        }
+
+        const parsedFeatures = parsed.features && typeof parsed.features === 'object' ? parsed.features : {};
+        const parsedDaemon = parsed.daemon && typeof parsed.daemon === 'object' ? parsed.daemon : {};
+
+        return {
+          version: typeof parsed.version === 'number' ? parsed.version : DEFAULT_PLUGIN_CONFIG.version,
+          features: {
+            scan_on_write: parsedFeatures.scan_on_write ?? DEFAULT_PLUGIN_CONFIG.features.scan_on_write,
+            scan_on_skill_install: parsedFeatures.scan_on_skill_install ?? DEFAULT_PLUGIN_CONFIG.features.scan_on_skill_install,
+            prompt_firewall: parsedFeatures.prompt_firewall ?? DEFAULT_PLUGIN_CONFIG.features.prompt_firewall,
+            package_hallucination: parsedFeatures.package_hallucination ?? DEFAULT_PLUGIN_CONFIG.features.package_hallucination,
+            config_audit: parsedFeatures.config_audit ?? DEFAULT_PLUGIN_CONFIG.features.config_audit,
+          },
+          severity_threshold: ['info', 'warning', 'error'].includes(parsed.severity_threshold)
+            ? parsed.severity_threshold : DEFAULT_PLUGIN_CONFIG.severity_threshold,
+          auto_block: typeof parsed.auto_block === 'boolean' ? parsed.auto_block : DEFAULT_PLUGIN_CONFIG.auto_block,
+          output_format: ['json', 'text'].includes(parsed.output_format)
+            ? parsed.output_format : DEFAULT_PLUGIN_CONFIG.output_format,
+          daemon: {
+            prewarm: parsedDaemon.prewarm ?? DEFAULT_PLUGIN_CONFIG.daemon.prewarm,
+            cache_size: typeof parsedDaemon.cache_size === 'number' ? parsedDaemon.cache_size : DEFAULT_PLUGIN_CONFIG.daemon.cache_size,
+          },
+          _source: configPath,
+        };
       } catch {
         // Malformed config, fall through
       }

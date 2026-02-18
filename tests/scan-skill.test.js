@@ -49,7 +49,8 @@ describe('Path resolution', { timeout: 60000 }, () => {
   });
 
   it('returns error for nonexistent path', async () => {
-    const raw = await scanSkill({ skill_path: '/nonexistent/path' });
+    // Use a path within cwd that doesn't exist (avoids path containment check)
+    const raw = await scanSkill({ skill_path: join(__dirname, 'fixtures', 'nonexistent-skill') });
     const result = parseResult(raw);
     expect(result.error).toBeDefined();
     expect(result.error.toLowerCase()).toContain('not found');
@@ -239,7 +240,7 @@ describe('Layer 6: Rug pull detection', { timeout: 60000 }, () => {
 // 6. Grade calculation
 // ==========================================================================
 
-describe('Grade calculation', { timeout: 60000 }, () => {
+describe('Grade calculation', { timeout: 180000 }, () => {
   it('grades safe skill as A', async () => {
     // Remove any lingering baseline that could cause a false rug_pull finding
     try { rmSync(safeSkillBaseline, { force: true }); } catch { /* ignore */ }
@@ -316,7 +317,7 @@ describe('Verbosity', { timeout: 60000 }, () => {
 // 8. Output format
 // ==========================================================================
 
-describe('Output format', { timeout: 60000 }, () => {
+describe('Output format', { timeout: 180000 }, () => {
   it('returns MCP-compatible content structure', async () => {
     const raw = await scanSkill({ skill_path: fixturePath('safe-skill') });
     expect(raw).toHaveProperty('content');
@@ -351,5 +352,57 @@ describe('Output format', { timeout: 60000 }, () => {
     const raw = await scanSkill({ skill_path: fixturePath('malicious-skill'), verbosity: 'full' });
     const result = parseResult(raw);
     expect(result.findings_count).toBe(result.findings.length);
+  });
+});
+
+// ==========================================================================
+// 9. Security: Path traversal rejection
+// ==========================================================================
+
+describe('Path traversal protection', { timeout: 60000 }, () => {
+  it('rejects path outside cwd and ~/.openclaw/skills/', async () => {
+    const raw = await scanSkill({ skill_path: '../../etc' });
+    const result = parseResult(raw);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('skill_path must be within');
+  });
+
+  it('rejects absolute path to system directory', async () => {
+    const raw = await scanSkill({ skill_path: '/etc/passwd' });
+    const result = parseResult(raw);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('skill_path must be within');
+  });
+
+  it('rejects path with .. traversal to escape cwd', async () => {
+    const raw = await scanSkill({ skill_path: join(__dirname, '..', '..', '..', 'etc') });
+    const result = parseResult(raw);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('skill_path must be within');
+  });
+});
+
+// ==========================================================================
+// 10. Hard-fail grading on malware
+// ==========================================================================
+
+describe('Hard-fail grading', { timeout: 180000 }, () => {
+  it('ClawHavoc reverse shell results in grade F', async () => {
+    const raw = await scanSkill({ skill_path: fixturePath('clawhavoc-skill'), verbosity: 'full' });
+    const result = parseResult(raw);
+    expect(result.grade).toBe('F');
+    expect(result.recommendation).toContain('DO NOT INSTALL');
+  });
+
+  it('rug pull detection results in grade F', async () => {
+    // Save baseline then corrupt it
+    await scanSkill({ skill_path: fixturePath('safe-skill'), baseline: true });
+    const baseline = JSON.parse(readFileSync(safeSkillBaseline, 'utf-8'));
+    baseline.hash = 'dead' + baseline.hash.substring(4);
+    writeFileSync(safeSkillBaseline, JSON.stringify(baseline, null, 2), 'utf-8');
+
+    const raw = await scanSkill({ skill_path: fixturePath('safe-skill'), verbosity: 'full' });
+    const result = parseResult(raw);
+    expect(result.grade).toBe('F');
   });
 });

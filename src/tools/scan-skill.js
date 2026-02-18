@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
-import { resolve, basename, dirname, extname, join } from "path";
+import { resolve, basename, dirname, extname, join, sep } from "path";
 import { createHash } from "crypto";
 import { tmpdir, homedir } from "os";
 import { fileURLToPath } from "url";
@@ -55,6 +55,8 @@ const CODE_FILE_EXTENSIONS = new Set([
 ]);
 
 const MAX_FILE_SIZE = 500 * 1024; // 500 KB
+const MAX_SUPPORTING_FILES = 20;
+const SCAN_TIMEOUT_MS = 120_000; // 120s total scan timeout
 
 const PYTHON_BUILTINS = new Set([
   'os', 'sys', 'socket', 'json', 're', 'math', 'time', 'datetime',
@@ -295,8 +297,11 @@ async function runSupportingFilesScan(skillDir, skillFile) {
 
   try {
     const entries = readdirSync(skillDir);
+    let scannedCount = 0;
 
     for (const entry of entries) {
+      if (scannedCount >= MAX_SUPPORTING_FILES) break;
+
       const filePath = join(skillDir, entry);
 
       try {
@@ -311,6 +316,7 @@ async function runSupportingFilesScan(skillDir, skillFile) {
         if (!CODE_FILE_EXTENSIONS.has(ext)) continue;
 
         const issues = await runAnalyzerAsync(filePath);
+        scannedCount++;
         if (Array.isArray(issues)) {
           for (const issue of issues) {
             findings.push({
@@ -558,12 +564,22 @@ function deduplicateFindings(findings) {
 // ---------------------------------------------------------------------------
 
 function calculateGrade(findings) {
+  // Hard-fail: ClawHavoc, rug pull, critical prompt injection, or critical supply chain → F
+  for (const f of findings) {
+    if (f.source === 'clawhavoc') return 'F';
+    if (f.source === 'rug_pull') return 'F';
+    if (f.source === 'prompt_scanner' && f.severity === 'CRITICAL') return 'F';
+    if (f.source === 'supply_chain' && f.severity === 'CRITICAL') return 'F';
+  }
+
+  // Weighted model for remaining findings
   let score = 0;
 
   for (const f of findings) {
     const weight = SOURCE_WEIGHTS[f.source] || 1.0;
     const severityMul = SEVERITY_MULTIPLIER[f.severity] || 1;
-    score += weight * severityMul;
+    const confidenceDiscount = f.confidence === 'LOW' ? 0.5 : 1.0;
+    score += weight * severityMul * confidenceDiscount;
   }
 
   if (score === 0) return 'A';
@@ -589,6 +605,20 @@ function generateRecommendation(grade) {
 export async function scanSkill({ skill_path, verbosity, baseline }) {
   // Path resolution
   const resolvedPath = resolve(skill_path);
+
+  // Path containment — only allow paths within cwd or ~/.openclaw/skills/
+  const cwd = process.cwd();
+  const openclawSkills = resolve(homedir(), '.openclaw', 'skills');
+  const isAllowed = resolvedPath === cwd || resolvedPath.startsWith(cwd + sep)
+    || resolvedPath === openclawSkills || resolvedPath.startsWith(openclawSkills + sep);
+  if (!isAllowed) {
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        error: "skill_path must be within the current working directory or ~/.openclaw/skills/",
+        skill_path: resolvedPath
+      }) }]
+    };
+  }
 
   if (!existsSync(resolvedPath)) {
     return {
@@ -617,21 +647,48 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
   const codeBlocks = extractCodeBlocks(content);
 
   // ---------------------------------------------------------------------------
-  // Execute layers
+  // Execute layers with total timeout protection
   // L1, L2, L3, L5 run in parallel. L4 and L6 are synchronous — run after.
   // ---------------------------------------------------------------------------
 
-  const [promptFindings, codeBlockFindings, supportingFindings, supplyChainFindings] =
-    await Promise.all([
-      runPromptScan(content),                          // L1
-      runCodeBlockScan(codeBlocks),                    // L2
-      runSupportingFilesScan(skillDir, skillFile),     // L3
-      runSupplyChainScan(codeBlocks),                  // L5
-    ]);
+  const scanPromise = (async () => {
+    const [promptFindings, codeBlockFindings, supportingFindings, supplyChainFindings] =
+      await Promise.all([
+        runPromptScan(content),                          // L1
+        runCodeBlockScan(codeBlocks),                    // L2
+        runSupportingFilesScan(skillDir, skillFile),     // L3
+        runSupplyChainScan(codeBlocks),                  // L5
+      ]);
 
-  const clawHavocFindings = runClawHavocScan(content, codeBlocks);           // L4 (sync)
-  const { findings: rugPullFindings, hash: contentHash } =
-    runRugPullCheck(content, skillDir, !!baseline);                           // L6 (sync)
+    const clawHavocFindings = runClawHavocScan(content, codeBlocks);           // L4 (sync)
+    const { findings: rugPullFindings, hash: contentHash } =
+      runRugPullCheck(content, skillDir, !!baseline);                           // L6 (sync)
+
+    return { promptFindings, codeBlockFindings, supportingFindings, clawHavocFindings, supplyChainFindings, rugPullFindings, contentHash };
+  })();
+
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('Scan timed out after 120s')), SCAN_TIMEOUT_MS);
+  });
+
+  let layerResults;
+  try {
+    layerResults = await Promise.race([scanPromise, timeoutPromise]);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        error: error.message,
+        skill_path: resolvedPath,
+        grade: 'F',
+        recommendation: 'Scan failed — could not complete analysis within time limit',
+      }, null, 2) }]
+    };
+  }
+  clearTimeout(timeoutId);
+
+  const { promptFindings, codeBlockFindings, supportingFindings, clawHavocFindings, supplyChainFindings, rugPullFindings, contentHash } = layerResults;
 
   // ---------------------------------------------------------------------------
   // Merge, deduplicate, grade

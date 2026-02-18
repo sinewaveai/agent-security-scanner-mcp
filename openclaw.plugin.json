@@ -7,7 +7,7 @@
   "openclaw": {
     "extensions": ["tools", "skills"],
     "emoji": "shield",
-    "permissions": ["fs:read", "process:exec"]
+    "permissions": ["fs:read"]
   },
   "tools": [
     {
@@ -29,10 +29,6 @@
     {
       "name": "scan_skill",
       "description": "Scan an OpenClaw skill for security threats"
-    },
-    {
-      "name": "audit_config",
-      "description": "Audit OpenClaw configuration for security issues"
     },
     {
       "name": "clawproof_health",

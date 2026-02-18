@@ -486,8 +486,8 @@ if (cliArgs[0] === 'init') {
   console.log('    scan-diff [base] [target] Scan git diff for new vulnerabilities');
   console.log('    scan-mcp <path>      Scan MCP server source for security issues');
   console.log('    scan-action <t> <v>  Check agent action before execution');
-  console.log('    audit [--config-path] Audit OpenClaw config for security issues');
-  console.log('    harden [--fix]       Auto-harden OpenClaw configuration\n');
+  console.log('    audit [--config-path] Audit OpenClaw config for security issues [experimental]');
+  console.log('    harden [--fix]       Auto-harden OpenClaw configuration [experimental]\n');
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');

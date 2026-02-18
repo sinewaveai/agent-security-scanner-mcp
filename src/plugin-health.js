@@ -1,7 +1,6 @@
 // src/plugin-health.js — Plugin health check endpoint
 
 import { getDaemonClient } from './daemon-client.js';
-import { getEngineMode } from './utils.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -38,7 +37,6 @@ export async function getHealthStatus() {
   return {
     name: 'agent-security-scanner-mcp',
     version,
-    engine_mode: getEngineMode(),
     daemon: daemonHealth ? {
       status: 'running',
       pid: daemonHealth.pid,
