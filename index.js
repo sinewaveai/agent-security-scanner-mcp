@@ -26,6 +26,7 @@ import { runDoctor } from './src/cli/doctor.js';
 import { runDemo } from './src/cli/demo.js';
 import { runInitHooks } from './src/cli/init-hooks.js';
 import { runReport } from './src/cli/report.js';
+import { track, flush, setInvocationMode, withTelemetry, showFirstRunNotice, handleTelemetryCli } from './src/telemetry.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -58,7 +59,7 @@ server.tool(
   "scan_security",
   "Scan a file for security vulnerabilities. Use verbosity='minimal' for counts only (~50 tokens), 'compact' (default) for actionable info (~200 tokens), 'full' for complete metadata.",
   scanSecuritySchema,
-  scanSecurity
+  withTelemetry('scan_security', scanSecurity)
 );
 
 // Register fix_security tool
@@ -66,7 +67,7 @@ server.tool(
   "fix_security",
   "Scan a file and return fixes. Use verbosity='minimal' for summary only, 'compact' (default) for fix list, 'full' for complete fixed file content.",
   fixSecuritySchema,
-  fixSecurity
+  withTelemetry('fix_security', fixSecurity)
 );
 
 // Register list_security_rules tool
@@ -98,7 +99,7 @@ server.tool(
   "check_package",
   "Check if a package name is legitimate or potentially hallucinated (AI-invented)",
   checkPackageSchema,
-  checkPackage
+  withTelemetry('check_package', checkPackage)
 );
 
 // Register scan_packages tool
@@ -106,7 +107,7 @@ server.tool(
   "scan_packages",
   "Scan code for package imports and check for hallucinated (AI-invented) packages. Use verbosity='minimal' for counts, 'compact' (default) for flagged packages, 'full' for all details.",
   scanPackagesSchema,
-  scanPackages
+  withTelemetry('scan_packages', scanPackages)
 );
 
 // Register list_package_stats tool
@@ -137,7 +138,7 @@ server.tool(
   "scan_agent_prompt",
   "Scan a prompt for malicious intent. Returns BLOCK/WARN/LOG/ALLOW. Use verbosity='minimal' for action only, 'compact' (default) for findings, 'full' for audit details.",
   scanAgentPromptSchema,
-  scanAgentPrompt
+  withTelemetry('scan_agent_prompt', scanAgentPrompt)
 );
 
 // Register scan_git_diff tool
@@ -145,7 +146,7 @@ server.tool(
   "scan_git_diff",
   "Scan git diff for new security vulnerabilities. Only reports issues on changed lines. Use for PR reviews.",
   scanDiffSchema,
-  scanDiff
+  withTelemetry('scan_git_diff', scanDiff)
 );
 
 // Register scan_project tool
@@ -153,7 +154,7 @@ server.tool(
   "scan_project",
   "Scan an entire directory for security vulnerabilities with .gitignore support and security grading. Use verbosity='minimal' for grade + counts, 'compact' (default) for top issues, 'full' for all details.",
   scanProjectSchema,
-  scanProject
+  withTelemetry('scan_project', scanProject)
 );
 
 // ===========================================
@@ -165,7 +166,7 @@ server.tool(
   "scan_agent_action",
   "Pre-execution security check for agent actions (bash, file_write, file_read, http_request, file_delete). Returns ALLOW/WARN/BLOCK. Lighter than scan_agent_prompt — evaluates concrete actions.",
   scanAgentActionSchema,
-  scanAgentAction
+  withTelemetry('scan_agent_action', scanAgentAction)
 );
 
 // ===========================================
@@ -177,7 +178,7 @@ server.tool(
   "scan_mcp_server",
   "Scan an MCP server's source code for security vulnerabilities: overly broad permissions, missing input validation, data exfiltration, insecure patterns. Returns grade (A-F) and recommendations.",
   scanMcpServerSchema,
-  scanMcpServer
+  withTelemetry('scan_mcp_server', scanMcpServer)
 );
 
 // ===========================================
@@ -192,10 +193,10 @@ server.tool(
     verbosity: z.enum(['minimal', 'compact', 'full']).optional().describe("Response detail level"),
     baseline: z.boolean().optional().describe("Save current scan as baseline for rug pull detection"),
   },
-  async ({ skill_path, verbosity, baseline }) => {
+  withTelemetry('scan_skill', async ({ skill_path, verbosity, baseline }) => {
     const { scanSkill } = await import('./src/tools/scan-skill.js');
     return scanSkill({ skill_path, verbosity, baseline });
-  }
+  })
 );
 
 // ===========================================
@@ -206,13 +207,13 @@ server.tool(
   "clawproof_health",
   "Check plugin health: engine status, daemon status, package data availability",
   {},
-  async () => {
+  withTelemetry('clawproof_health', async () => {
     const { getHealthStatus } = await import('./src/plugin-health.js');
     const health = await getHealthStatus();
     return {
       content: [{ type: "text", text: JSON.stringify(health, null, 2) }]
     };
-  }
+  })
 );
 
 // ===========================================
@@ -220,8 +221,11 @@ server.tool(
 // ===========================================
 // See src/cli/init.js, src/cli/doctor.js, src/cli/demo.js
 
-// Handle CLI arguments before loading heavy package data
+// Set invocation mode for telemetry
 const cliArgs = process.argv.slice(2);
+setInvocationMode(cliArgs.length > 0 ? 'cli' : 'mcp');
+
+// Handle CLI arguments before loading heavy package data
 if (cliArgs[0] === 'init') {
   runInit(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
@@ -467,6 +471,9 @@ if (cliArgs[0] === 'init') {
     console.error(`  Error: ${err.message}\n`);
     process.exit(1);
   });
+} else if (cliArgs[0] === 'telemetry') {
+  handleTelemetryCli(cliArgs.slice(1));
+  process.exit(0);
 } else if (cliArgs[0] === '--help' || cliArgs[0] === '-h' || cliArgs[0] === 'help') {
   console.log('\n  agent-security-scanner-mcp\n');
   console.log('  Commands:');
@@ -487,7 +494,8 @@ if (cliArgs[0] === 'init') {
   console.log('    scan-mcp <path>      Scan MCP server source for security issues');
   console.log('    scan-action <t> <v>  Check agent action before execution');
   console.log('    audit [--config-path] Audit OpenClaw config for security issues [experimental]');
-  console.log('    harden [--fix]       Auto-harden OpenClaw configuration [experimental]\n');
+  console.log('    harden [--fix]       Auto-harden OpenClaw configuration [experimental]');
+  console.log('    telemetry [opt]      Manage anonymous telemetry (--on|--off|--status)\n');
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
@@ -520,14 +528,19 @@ if (cliArgs[0] === 'init') {
       }).catch(() => {});
     }
 
-    // Shutdown daemon when MCP server closes
+    // Show telemetry notice on first run (stderr only)
+    showFirstRunNotice();
+
+    // Shutdown daemon and flush telemetry when MCP server closes
     server.server.onclose = async () => {
+      flush();
       await shutdownDaemon();
     };
   }
 
   // Graceful shutdown on signals
   const shutdownHandler = async () => {
+    flush();
     await shutdownDaemon();
     process.exit(0);
   };

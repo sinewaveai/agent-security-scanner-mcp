@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import bloomFilters from "bloom-filters";
 const { BloomFilter } = bloomFilters;
 import { findSimilarPackages, checkDependencyConfusion } from '../typosquat.js';
+import { track } from '../telemetry.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -183,6 +184,14 @@ export async function checkPackage({ package_name, ecosystem }) {
       warning: confusionCheck.warning
     };
   }
+
+  // Telemetry: package checked
+  track('package.checked', {
+    tool_name: 'check_package',
+    ecosystem,
+    packages_checked: 1,
+    hallucinated_count: response.hallucinated ? 1 : 0,
+  });
 
   return {
     content: [{

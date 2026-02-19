@@ -12,6 +12,7 @@ import { scanAgentPrompt } from './scan-prompt.js';
 import { scanAgentAction } from './scan-action.js';
 import { runAnalyzerAsync } from '../utils.js';
 import { isHallucinated } from './check-package.js';
+import { track } from '../telemetry.js';
 
 // Handle both ESM and CJS bundling
 let __dirname;
@@ -736,6 +737,13 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
     result.findings = allFindings;
   }
   // 'minimal' — omit findings array and layers_executed
+
+  // Telemetry: skill scan completed
+  track('scan.completed', {
+    tool_name: 'scan_skill',
+    grade,
+    findings_count: allFindings.length,
+  });
 
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }]

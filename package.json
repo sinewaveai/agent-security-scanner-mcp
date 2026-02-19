@@ -83,6 +83,7 @@
     "src/tools/*.js",
     "src/cli/*.js",
     "src/fix-patterns.js",
+    "src/telemetry.js",
     "src/utils.js",
     "src/daemon-client.js",
     "src/dedup.js",

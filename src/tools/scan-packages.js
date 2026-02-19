@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { readFileSync, existsSync } from "fs";
 import { isHallucinated, getTotalPackages } from './check-package.js';
+import { track } from '../telemetry.js';
 
 // Package import patterns by ecosystem
 const IMPORT_PATTERNS = {
@@ -144,6 +145,14 @@ export async function scanPackages({ file_path, ecosystem, verbosity }) {
         recommendation
       };
   }
+
+  // Telemetry: packages checked
+  track('package.checked', {
+    tool_name: 'scan_packages',
+    ecosystem,
+    packages_checked: packages.length,
+    hallucinated_count: hallucinated.length,
+  });
 
   return {
     content: [{

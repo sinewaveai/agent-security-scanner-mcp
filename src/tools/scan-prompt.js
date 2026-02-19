@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { createHash } from "crypto";
+import { track } from '../telemetry.js';
 
 // Handle both ESM and CJS bundling
 let __dirname;
@@ -769,6 +770,17 @@ export async function scanAgentPrompt({ prompt_text, context, verbosity }) {
         recommendations
       };
   }
+
+  // Telemetry: prompt scanned
+  const categories = [...new Set(findings.map(f => f.category))];
+  track('prompt.scanned', {
+    tool_name: 'scan_agent_prompt',
+    action,
+    risk_level: riskLevel,
+    findings_count: findings.length,
+    categories,
+    has_context: !!context,
+  });
 
   return {
     content: [{

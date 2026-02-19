@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { join, resolve, relative, extname, basename } from "path";
+import { track } from '../telemetry.js';
 
 export const scanMcpServerSchema = {
   server_path: z.string().describe("Path to MCP server directory or entry file"),
@@ -912,6 +913,14 @@ export async function scanMcpServer({ server_path, verbosity, manifest, update_b
     default:
       result = formatCompact(resolvedPath, effectiveFilesScanned, dedupedFindings, grade);
   }
+
+  // Telemetry: MCP server scan completed
+  track('scan.completed', {
+    tool_name: 'scan_mcp_server',
+    grade,
+    findings_count: dedupedFindings.length,
+    files_scanned: effectiveFilesScanned,
+  });
 
   return {
     content: [{

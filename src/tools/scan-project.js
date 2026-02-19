@@ -6,6 +6,7 @@ import { execFileSync } from "child_process";
 import { scanSecurity } from './scan-security.js';
 import { matchGlob, loadConfig, shouldExcludeFile, evaluatePolicy } from '../config.js';
 import { detectLanguage } from '../utils.js';
+import { track } from '../telemetry.js';
 
 export const scanProjectSchema = {
   directory_path: z.string().describe("Path to the directory to scan"),
@@ -242,6 +243,18 @@ export async function scanProject({ directory_path, recursive, include_patterns,
 
   const grade = calculateGrade(allIssues.length, files.length, bySeverity.error);
   const level = verbosity || 'compact';
+
+  // Telemetry: project scan completed
+  const languages = [...new Set(files.map(f => detectLanguage(f)))];
+  track('scan.completed', {
+    tool_name: 'scan_project',
+    languages,
+    files_scanned: files.length,
+    issues_count: allIssues.length,
+    grade,
+    by_severity: { ...bySeverity },
+    has_cross_file: crossFileIssues.length > 0,
+  });
 
   // Evaluate policy
   const policyResult = evaluatePolicy(

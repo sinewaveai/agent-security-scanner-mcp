@@ -213,6 +213,15 @@ export async function runDoctor(args) {
     }
   }
 
+  // 6. Telemetry status
+  try {
+    const { isEnabled } = await import('../telemetry.js');
+    const telemetryEnabled = isEnabled();
+    console.log(`    ${telemetryEnabled ? '\u2713' : '\u2014'} Telemetry ${telemetryEnabled ? 'enabled' : 'disabled'} (anonymous usage stats)`);
+  } catch {
+    console.log(`    \u2014 Telemetry status unknown`);
+  }
+
   // --- Client configuration checks ---
   console.log('\n  Client Configurations');
 

@@ -94,16 +94,24 @@ export function runAnalyzer(filePath, engine = 'auto') {
   }
 }
 
+// Track whether the last analysis used the daemon
+let _lastAnalyzerUsedDaemon = false;
+export function lastAnalyzerUsedDaemon() {
+  return _lastAnalyzerUsedDaemon;
+}
+
 // Async analyzer — tries daemon first, falls back to sync execFileSync
 export async function runAnalyzerAsync(filePath, engine = 'auto') {
   try {
     const client = getDaemonClient();
     if (client.isAvailable) {
+      _lastAnalyzerUsedDaemon = true;
       return await client.analyze(filePath, engine);
     }
   } catch {
     // Daemon failed — fall through to sync
   }
+  _lastAnalyzerUsedDaemon = false;
   return runAnalyzer(filePath, engine);
 }
 

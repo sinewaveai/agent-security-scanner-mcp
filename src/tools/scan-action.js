@@ -1,5 +1,6 @@
 // src/tools/scan-action.js
 import { z } from "zod";
+import { track } from '../telemetry.js';
 
 export const scanAgentActionSchema = {
   action_type: z.enum(["bash", "file_write", "file_read", "http_request", "file_delete"])
@@ -479,6 +480,15 @@ export async function scanAgentAction({ action_type, action_value, verbosity }) 
     default:
       result = formatCompact(action, action_type, action_value, riskLevel, findings, recommendation);
   }
+
+  // Telemetry: action scanned
+  track('prompt.scanned', {
+    tool_name: 'scan_agent_action',
+    action,
+    action_type,
+    risk_level: riskLevel,
+    findings_count: findings.length,
+  });
 
   return {
     content: [{

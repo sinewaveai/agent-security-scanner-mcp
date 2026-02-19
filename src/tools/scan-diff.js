@@ -3,6 +3,7 @@ import { z } from "zod";
 import { execFileSync } from "child_process";
 import { existsSync } from "fs";
 import { scanSecurity } from './scan-security.js';
+import { track } from '../telemetry.js';
 
 export const scanDiffSchema = {
   base_ref: z.string().optional().describe("Base git ref (default: HEAD~1)"),
@@ -99,6 +100,13 @@ export async function scanDiff({ base_ref, target_ref, verbosity }) {
     }
     scannedFiles.push(filePath);
   }
+
+  // Telemetry: diff scan completed
+  track('scan.completed', {
+    tool_name: 'scan_git_diff',
+    files_scanned: scannedFiles.length,
+    issues_count: allIssues.length,
+  });
 
   // Format based on verbosity
   const level = verbosity || 'compact';
