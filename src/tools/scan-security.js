@@ -7,6 +7,7 @@ import { deduplicateFindings } from '../dedup.js';
 import { applyContextFilter, detectFrameworks, applyFrameworkAdjustments } from '../context.js';
 import { loadConfig, shouldExcludeFile, applyConfig } from '../config.js';
 import { discoverProjectContext } from './project-context.js';
+import { track } from '../telemetry.js';
 
 export const scanSecuritySchema = {
   file_path: z.string().describe("Path to the file to scan"),
@@ -20,7 +21,10 @@ export const scanSecuritySchema = {
 // Verbosity formatters
 function formatMinimal(file_path, language, issues) {
   const bySeverity = { error: 0, warning: 0, info: 0 };
-  issues.forEach(i => bySeverity[i.severity] = (bySeverity[i.severity] || 0) + 1);
+  issues.forEach(i => {
+    const key = (i.severity || '').toLowerCase();
+    bySeverity[key] = (bySeverity[key] || 0) + 1;
+  });
   return {
     file: file_path,
     language,
@@ -165,6 +169,21 @@ export async function scanSecurity({ file_path, output_format, verbosity, engine
     result.is_test_file = isTestFile(file_path);
     result.file_imports = extractImports(content, language);
   }
+
+  // Telemetry: scan completed
+  const bySev = { error: 0, warning: 0, info: 0 };
+  enhancedIssues.forEach(i => {
+    const key = (i.severity || '').toLowerCase();
+    bySev[key] = (bySev[key] || 0) + 1;
+  });
+  track('scan.completed', {
+    tool_name: 'scan_security',
+    language,
+    engine_mode: getEngineMode(),
+    issues_count: enhancedIssues.length,
+    by_severity: bySev,
+    output_format: output_format || 'json',
+  });
 
   return {
     content: [{

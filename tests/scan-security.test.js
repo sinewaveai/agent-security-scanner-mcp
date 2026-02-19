@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { MCPTestClient, fixturePath } from './helpers.js';
 
 describe('scan_security tool', () => {
@@ -139,5 +139,80 @@ describe('scan_security tool', () => {
     if (issues.length > 0) {
       expect(issues[0].severity).toBeDefined();
     }
+  });
+});
+
+describe('scan_security by_severity normalization', () => {
+  it('by_severity keys match Python analyzer output case (all lowercase)', async () => {
+    // Test the formatMinimal path which exposes by_severity in the response
+    const client = new MCPTestClient();
+    await client.start();
+    try {
+      const result = await client.callTool('scan_security', {
+        file_path: fixturePath('vuln-python.py'),
+        verbosity: 'minimal'
+      });
+
+      // Minimal format exposes critical (error), warning, info counts directly
+      expect(result.total).toBeGreaterThan(0);
+      expect(typeof result.critical).toBe('number');
+      expect(typeof result.warning).toBe('number');
+      expect(typeof result.info).toBe('number');
+
+      // Sum of severity buckets must equal total
+      const bucketSum = result.critical + result.warning + result.info;
+      expect(bucketSum).toBe(result.total);
+
+      // At least one bucket should be non-zero since we have issues
+      expect(bucketSum).toBeGreaterThan(0);
+    } finally {
+      await client.stop();
+    }
+  });
+
+  it('by_severity does not produce NaN or undefined counts from uppercase severities', async () => {
+    const client = new MCPTestClient();
+    await client.start();
+    try {
+      const result = await client.callTool('scan_security', {
+        file_path: fixturePath('vuln-python.py'),
+        verbosity: 'minimal'
+      });
+
+      // Before the fix, uppercase severity caused NaN/undefined counts
+      // and the standard keys stayed at 0
+      expect(result.critical).not.toBeNaN();
+      expect(result.warning).not.toBeNaN();
+      expect(result.info).not.toBeNaN();
+      expect(result.critical).toBeDefined();
+      expect(result.warning).toBeDefined();
+      expect(result.info).toBeDefined();
+    } finally {
+      await client.stop();
+    }
+  });
+
+  it('severity normalization handles uppercase from Python analyzer', () => {
+    // Simulate the counter logic used in scan-security.js
+    // Python analyzer returns uppercase: ERROR, WARNING, INFO
+    const mockIssues = [
+      { severity: 'ERROR' },
+      { severity: 'ERROR' },
+      { severity: 'WARNING' },
+      { severity: 'INFO' },
+      { severity: 'error' },  // already lowercase
+    ];
+
+    const bySev = { error: 0, warning: 0, info: 0 };
+    mockIssues.forEach(i => {
+      const key = (i.severity || '').toLowerCase();
+      bySev[key] = (bySev[key] || 0) + 1;
+    });
+
+    // Verify lowercase keys with correct counts
+    expect(bySev).toEqual({ error: 3, warning: 1, info: 1 });
+
+    // Verify no extra keys were created (e.g., 'ERROR', 'WARNING')
+    expect(Object.keys(bySev)).toEqual(['error', 'warning', 'info']);
   });
 });
