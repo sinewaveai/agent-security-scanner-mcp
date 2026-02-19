@@ -3,7 +3,7 @@
 // supply chain verification, and rug pull detection.
 
 import { z } from "zod";
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { resolve, basename, dirname, extname, join, sep } from "path";
 import { createHash } from "crypto";
 import { tmpdir, homedir } from "os";
@@ -309,8 +309,19 @@ async function runSupportingFilesScan(skillDir, skillFile) {
         if (!stat.isFile()) continue;
         if (stat.size > MAX_FILE_SIZE) continue;
 
+        // Reject symlinks that point outside skillDir (symlink escape prevention).
+        // realpathSync resolves the real destination; if it's outside skillDir the
+        // file is silently skipped rather than scanned.
+        let realFilePath;
+        try {
+          realFilePath = realpathSync(filePath);
+        } catch {
+          continue; // unresolvable path — skip
+        }
+        if (!realFilePath.startsWith(skillDir + sep) && realFilePath !== skillDir) continue;
+
         // Skip the SKILL.md itself — already scanned by L1/L2
-        if (resolve(filePath) === resolve(skillFile)) continue;
+        if (realFilePath === realpathSync(skillFile)) continue;
 
         const ext = extname(entry).toLowerCase();
         if (!CODE_FILE_EXTENSIONS.has(ext)) continue;
@@ -550,7 +561,9 @@ function deduplicateFindings(findings) {
   const unique = [];
 
   for (const f of findings) {
-    const key = `${f.rule_id || f.message}::${f.file}`;
+    // Include source in the key so ClawHavoc/rug_pull findings are never
+    // suppressed by a same rule_id finding from a different source (C2 fix).
+    const key = `${f.source}::${f.rule_id || f.message}::${f.file}`;
     if (seen.has(key)) continue;
     seen.add(key);
     unique.push(f);
@@ -603,26 +616,35 @@ function generateRecommendation(grade) {
 // ---------------------------------------------------------------------------
 
 export async function scanSkill({ skill_path, verbosity, baseline }) {
-  // Path resolution
-  const resolvedPath = resolve(skill_path);
+  // Path resolution — use realpathSync to follow symlinks so containment
+  // check cannot be bypassed with a symlink pointing outside the allowed dirs.
+  if (!existsSync(resolve(skill_path))) {
+    return {
+      content: [{ type: "text", text: JSON.stringify({ error: "Skill path not found", skill_path: resolve(skill_path) }) }]
+    };
+  }
+  let resolvedPath;
+  try {
+    resolvedPath = realpathSync(skill_path);
+  } catch {
+    resolvedPath = resolve(skill_path);
+  }
 
-  // Path containment — only allow paths within cwd or ~/.openclaw/skills/
+  // Path containment — only allow real paths within cwd or ~/.openclaw/skills/
+  // realpathSync on the allowed base dirs ensures symlinked base dirs also work.
   const cwd = process.cwd();
-  const openclawSkills = resolve(homedir(), '.openclaw', 'skills');
+  const openclawSkillsReal = (() => {
+    try { return realpathSync(resolve(homedir(), '.openclaw', 'skills')); }
+    catch { return resolve(homedir(), '.openclaw', 'skills'); }
+  })();
   const isAllowed = resolvedPath === cwd || resolvedPath.startsWith(cwd + sep)
-    || resolvedPath === openclawSkills || resolvedPath.startsWith(openclawSkills + sep);
+    || resolvedPath === openclawSkillsReal || resolvedPath.startsWith(openclawSkillsReal + sep);
   if (!isAllowed) {
     return {
       content: [{ type: "text", text: JSON.stringify({
         error: "skill_path must be within the current working directory or ~/.openclaw/skills/",
         skill_path: resolvedPath
       }) }]
-    };
-  }
-
-  if (!existsSync(resolvedPath)) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: "Skill path not found", skill_path: resolvedPath }) }]
     };
   }
 

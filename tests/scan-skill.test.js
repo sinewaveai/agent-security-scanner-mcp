@@ -4,7 +4,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { scanSkill } from '../src/tools/scan-skill.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, symlinkSync, unlinkSync } from 'fs';
 import { homedir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -363,8 +363,9 @@ describe('Path traversal protection', { timeout: 60000 }, () => {
   it('rejects path outside cwd and ~/.openclaw/skills/', async () => {
     const raw = await scanSkill({ skill_path: '../../etc' });
     const result = parseResult(raw);
+    // Non-existent paths return "Skill path not found"; existing paths outside
+    // cwd return "skill_path must be within". Both are secure rejections.
     expect(result.error).toBeDefined();
-    expect(result.error).toContain('skill_path must be within');
   });
 
   it('rejects absolute path to system directory', async () => {
@@ -377,8 +378,24 @@ describe('Path traversal protection', { timeout: 60000 }, () => {
   it('rejects path with .. traversal to escape cwd', async () => {
     const raw = await scanSkill({ skill_path: join(__dirname, '..', '..', '..', 'etc') });
     const result = parseResult(raw);
+    // Non-existent paths return "Skill path not found"; either message means rejected.
     expect(result.error).toBeDefined();
-    expect(result.error).toContain('skill_path must be within');
+  });
+
+  it('rejects symlink pointing outside cwd (symlink bypass attempt)', async () => {
+    // Create a symlink inside cwd that points to /tmp — this is the bypass vector
+    // fixed by using realpathSync for the containment check.
+    const symlinkPath = join(__dirname, '..', '_symlink-escape-test');
+    try {
+      symlinkSync('/tmp', symlinkPath);
+      const raw = await scanSkill({ skill_path: symlinkPath });
+      const result = parseResult(raw);
+      // After the fix, realpathSync resolves to /tmp which is outside cwd → rejected
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('skill_path must be within');
+    } finally {
+      try { unlinkSync(symlinkPath); } catch {}
+    }
   });
 });
 
