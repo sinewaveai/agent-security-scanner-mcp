@@ -78,7 +78,7 @@ Re-enable: `npx agent-security-scanner-mcp telemetry --on`
 
 ## Telemetry Endpoint
 
-Events are sent to `https://telemetry.prooflayer.com/v1/events`, operated by Sinewave AI (prooflayer.com). You can override the endpoint with the `SCANNER_TELEMETRY_ENDPOINT` environment variable:
+Events are sent to `https://telemetry.proof-layer.com/v1/events`, operated by Sinewave AI (proof-layer.com). You can override the endpoint with the `SCANNER_TELEMETRY_ENDPOINT` environment variable:
 
 ```bash
 SCANNER_TELEMETRY_ENDPOINT=https://your-proxy.example.com/events npx agent-security-scanner-mcp scan-security ./app.py

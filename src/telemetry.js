@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 // --- Constants ---
 
-const TELEMETRY_ENDPOINT = process.env.SCANNER_TELEMETRY_ENDPOINT || 'https://telemetry.prooflayer.com/v1/events';
+const TELEMETRY_ENDPOINT = process.env.SCANNER_TELEMETRY_ENDPOINT || 'https://telemetry.proof-layer.com/v1/events';
 const BATCH_SIZE = 10;
 const FLUSH_INTERVAL_MS = 30_000;
 const FETCH_TIMEOUT_MS = 5_000;
