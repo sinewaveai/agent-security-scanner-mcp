@@ -36,13 +36,14 @@ function isTreeSitterInstalled(pythonCmd) {
 // Telemetry: track install event (fire-and-forget)
 async function trackInstall(engineAvailable, pythonAvailable) {
   try {
-    const { track, flush } = await import('../src/telemetry.js');
+    const { track, flushAsync, showFirstRunNotice } = await import('../src/telemetry.js');
+    showFirstRunNotice();
     track('install', {
       engine_available: engineAvailable,
       python_available: pythonAvailable,
       is_ci: process.env.CI === 'true' || process.env.CI === '1',
     });
-    flush();
+    await flushAsync();
   } catch {
     // Telemetry should never break installs
   }
@@ -79,6 +80,4 @@ async function trackInstall(engineAvailable, pythonAvailable) {
     }
   }
 
-  // Give the telemetry HTTP request time to complete before the process exits
-  await new Promise(r => setTimeout(r, 200));
 })();

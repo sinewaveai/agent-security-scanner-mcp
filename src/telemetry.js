@@ -1,15 +1,15 @@
-// src/telemetry.js — Anonymous telemetry for agent-security-scanner-mcp
+// src/telemetry.js — Pseudonymous telemetry for agent-security-scanner-mcp
 // Zero external dependencies. Uses node:crypto, node:fs, node:os, node:path, global fetch.
 // See TELEMETRY.md for full transparency documentation.
 
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { homedir, hostname, userInfo, platform, arch } from 'node:os';
+import { homedir, platform, arch } from 'node:os';
 import { join } from 'node:path';
 
 // --- Constants ---
 
-const TELEMETRY_ENDPOINT = 'https://telemetry.prooflayer.com/v1/events';
+const TELEMETRY_ENDPOINT = process.env.SCANNER_TELEMETRY_ENDPOINT || 'https://telemetry.prooflayer.com/v1/events';
 const BATCH_SIZE = 10;
 const FLUSH_INTERVAL_MS = 30_000;
 const FETCH_TIMEOUT_MS = 5_000;
@@ -43,7 +43,9 @@ function getScannerVersion() {
   return _scannerVersion;
 }
 
-// --- Machine ID (SHA-256 hash, deterministic, irreversible) ---
+// --- Machine ID (Random per-install UUID) ---
+
+const _LEGACY_ID_RE = /^[a-f0-9]{64}$/;
 
 export function getMachineId() {
   if (_machineId) return _machineId;
@@ -51,31 +53,22 @@ export function getMachineId() {
   // Try to load from state file first
   const state = _loadState();
   if (state.machine_id) {
+    // Migrate legacy 64-char hex SHA-256 IDs to random UUID
+    if (_LEGACY_ID_RE.test(state.machine_id) && !state._legacy_id_migrated) {
+      _machineId = randomUUID();
+      _saveState({ ...state, machine_id: _machineId, _legacy_id_migrated: true });
+      return _machineId;
+    }
     _machineId = state.machine_id;
     return _machineId;
   }
 
-  // Generate deterministic machine ID
-  const raw = [
-    hostname(),
-    homedir(),
-    _safeUsername(),
-    platform(),
-    arch(),
-  ].join('|');
-  _machineId = createHash('sha256').update(raw).digest('hex');
+  // Generate random UUID for new installs
+  _machineId = randomUUID();
 
   // Persist to state file
   _saveState({ ...state, machine_id: _machineId });
   return _machineId;
-}
-
-function _safeUsername() {
-  try {
-    return userInfo().username;
-  } catch {
-    return 'unknown';
-  }
 }
 
 // --- State file management ---
@@ -138,8 +131,9 @@ export function showFirstRunNotice() {
   process.stderr.write(`
   Telemetry Notice
   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-  agent-security-scanner-mcp collects anonymous usage statistics
-  to improve the tool. No file paths, code, or personal data are collected.
+  agent-security-scanner-mcp collects usage statistics to improve
+  the tool. A random installation ID is used — it cannot be linked
+  to your identity. No file paths, code, or personal data are collected.
 
   Disable: set DO_NOT_TRACK=1, SCANNER_TELEMETRY_DISABLED=1,
            or run: npx agent-security-scanner-mcp telemetry --off
@@ -156,6 +150,9 @@ export function showFirstRunNotice() {
 
 export function track(eventName, properties = {}) {
   if (!isEnabled()) return;
+
+  // Ensure notice is shown before any telemetry is emitted
+  showFirstRunNotice();
 
   // Debug mode: print to stderr, don't send
   if (process.env.SCANNER_TELEMETRY_DEBUG === '1') {
@@ -215,6 +212,21 @@ async function _sendBatch(events) {
   } catch {
     // Silently discard — telemetry failure never impacts scans
   }
+}
+
+export async function flushAsync(timeoutMs = FETCH_TIMEOUT_MS + 500) {
+  if (_queue.length === 0) return;
+  const batch = _queue.splice(0);
+  if (_flushTimer) {
+    clearTimeout(_flushTimer);
+    _flushTimer = null;
+  }
+  try {
+    await Promise.race([
+      _sendBatch(batch),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('flush timeout')), timeoutMs)),
+    ]);
+  } catch { /* telemetry never blocks exit */ }
 }
 
 function _scheduleFlush() {
@@ -289,7 +301,7 @@ export function handleTelemetryCli(args) {
     const state = _loadState();
     _saveState({ ...state, telemetry_enabled: true });
     _isEnabledCache = null;
-    console.log('Telemetry enabled. Anonymous usage statistics will be collected.');
+    console.log('Telemetry enabled. Pseudonymous usage statistics will be collected.');
     return;
   }
 
@@ -304,6 +316,7 @@ export function handleTelemetryCli(args) {
     if (process.env.CI === 'true' || process.env.CI === '1') console.log('  Reason:     CI environment detected');
     if (state.telemetry_enabled === false) console.log('  Reason:     Disabled via CLI');
     console.log(`  Machine ID: ${getMachineId().substring(0, 12)}...`);
+    console.log(`  Endpoint:   ${TELEMETRY_ENDPOINT}`);
     console.log(`  State file: ${STATE_FILE}`);
     console.log(`\n  Manage:`);
     console.log(`    npx agent-security-scanner-mcp telemetry --off`);
@@ -346,4 +359,4 @@ export function _resetForTesting(testDir) {
 process.on('beforeExit', () => flush());
 
 export { _sessionId as getSessionId };
-export { STATE_FILE, STATE_DIR, BATCH_SIZE, _DEFAULT_STATE_DIR };
+export { STATE_FILE, STATE_DIR, BATCH_SIZE, _DEFAULT_STATE_DIR, TELEMETRY_ENDPOINT };

@@ -1,6 +1,6 @@
 # Telemetry
 
-`agent-security-scanner-mcp` collects **anonymous** usage statistics to help us understand how the tool is used and where to focus improvements. This document provides full transparency about what is collected, how to opt out, and how the data is handled.
+`agent-security-scanner-mcp` collects **pseudonymous** usage statistics to help us understand how the tool is used and where to focus improvements. A random installation ID is used — it cannot be linked to your identity. This document provides full transparency about what is collected, how to opt out, and how the data is handled.
 
 ## Why We Collect Telemetry
 
@@ -19,7 +19,7 @@ All events include a common envelope:
 | `schema_version` | Event schema version (currently `1`) |
 | `event` | Event name (e.g., `tool.invoked`, `scan.completed`) |
 | `timestamp` | ISO 8601 UTC timestamp |
-| `machine_id` | SHA-256 hash (see below) — not reversible to identity |
+| `machine_id` | Random UUID per installation (see below) |
 | `session_id` | Random UUID per process |
 | `scanner_version` | Package version |
 | `os_platform` | `darwin`, `linux`, or `win32` |
@@ -32,7 +32,7 @@ All events include a common envelope:
 | Event | When | Key Fields |
 |-------|------|------------|
 | `install` | After `npm install` | `engine_available`, `python_available`, `is_ci` |
-| `tool.invoked` | Every tool call | `tool_name`, `duration_ms`, `success`, `error_code` |
+| `tool.invoked` | Every MCP tool call (MCP mode only) | `tool_name`, `duration_ms`, `success`, `error_code` |
 | `scan.completed` | After scans | `engine_mode`, `language`, `files_scanned`, `issues_count`, `grade` |
 | `prompt.scanned` | Prompt/action scans | `action` (BLOCK/WARN/ALLOW), `risk_level`, `findings_count` |
 | `package.checked` | Package checks | `ecosystem`, `packages_checked`, `hallucinated_count` |
@@ -54,11 +54,14 @@ All events include a common envelope:
 
 ## Machine ID
 
-The machine ID is a **SHA-256 hash** of `hostname + homedir + username + platform + arch`. This produces a stable, deterministic identifier that:
+The machine ID is a **random UUID** generated on first run via `crypto.randomUUID()`. It is:
 
-- Cannot be reversed to recover hostname, username, or home directory
-- Is used only to count unique machines (not identify individuals)
-- Can be reset by deleting `~/.agent-security-scanner-mcp/telemetry.json` (note: the same hash will be regenerated since it's derived from stable system properties; to get a different ID, the underlying hostname, homedir, username, platform, or arch must change)
+- Not derived from any system property — it cannot be linked to your hostname, username, or home directory
+- Used only to count unique installations (not identify individuals)
+- Persisted in `~/.agent-security-scanner-mcp/telemetry.json`
+- Resettable by deleting the state file — a new random ID will be generated on the next run
+
+**Migration from legacy format:** Versions prior to v3.10.0 used a SHA-256 hash of system properties. On upgrade, the legacy ID is automatically replaced with a random UUID. The flag `_legacy_id_migrated: true` is set in the state file to record the migration.
 
 ## How to Opt Out
 
@@ -72,6 +75,14 @@ Any of the following will disable telemetry entirely:
 Check status: `npx agent-security-scanner-mcp telemetry --status`
 
 Re-enable: `npx agent-security-scanner-mcp telemetry --on`
+
+## Telemetry Endpoint
+
+Events are sent to `https://telemetry.prooflayer.com/v1/events`, operated by Sinewave AI (prooflayer.com). You can override the endpoint with the `SCANNER_TELEMETRY_ENDPOINT` environment variable:
+
+```bash
+SCANNER_TELEMETRY_ENDPOINT=https://your-proxy.example.com/events npx agent-security-scanner-mcp scan-security ./app.py
+```
 
 ## Debug Mode
 

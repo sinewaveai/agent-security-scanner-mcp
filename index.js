@@ -26,7 +26,7 @@ import { runDoctor } from './src/cli/doctor.js';
 import { runDemo } from './src/cli/demo.js';
 import { runInitHooks } from './src/cli/init-hooks.js';
 import { runReport } from './src/cli/report.js';
-import { track, flush, setInvocationMode, withTelemetry, showFirstRunNotice, handleTelemetryCli } from './src/telemetry.js';
+import { track, flush, flushAsync, setInvocationMode, withTelemetry, showFirstRunNotice, handleTelemetryCli } from './src/telemetry.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -225,31 +225,37 @@ server.tool(
 const cliArgs = process.argv.slice(2);
 setInvocationMode(cliArgs.length > 0 ? 'cli' : 'mcp');
 
+// Await telemetry flush before exiting CLI commands
+async function cliExit(code) {
+  await flushAsync();
+  process.exit(code);
+}
+
 // Handle CLI arguments before loading heavy package data
 if (cliArgs[0] === 'init') {
-  runInit(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
+  runInit(cliArgs.slice(1)).then(() => cliExit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'doctor') {
-  runDoctor(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
+  runDoctor(cliArgs.slice(1)).then(() => cliExit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'demo') {
-  runDemo(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
+  runDemo(cliArgs.slice(1)).then(() => cliExit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'init-hooks') {
-  runInitHooks(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
+  runInitHooks(cliArgs.slice(1)).then(() => cliExit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'report') {
-  runReport(cliArgs.slice(1)).then(() => process.exit(0)).catch((err) => {
+  runReport(cliArgs.slice(1)).then(() => cliExit(0)).catch((err) => {
     console.error(`  Error: ${err.message}\n`);
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'scan-prompt') {
   // CLI mode: scan-prompt <text> [--verbosity minimal|compact|full]
@@ -265,10 +271,10 @@ if (cliArgs[0] === 'init') {
   scanAgentPrompt({ prompt_text: text, verbosity }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.action === 'BLOCK' ? 1 : 0);
+    cliExit(output.action === 'BLOCK' ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'scan-security') {
   // CLI mode: scan-security <file> [--verbosity minimal|compact|full] [--format json|sarif]
@@ -286,10 +292,10 @@ if (cliArgs[0] === 'init') {
   scanSecurity({ file_path: filePath, verbosity, output_format: outputFormat }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.issues_count > 0 || output.total > 0 ? 1 : 0);
+    cliExit(output.issues_count > 0 || output.total > 0 ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'check-package') {
   // CLI mode: check-package <name> <ecosystem>
@@ -305,10 +311,10 @@ if (cliArgs[0] === 'init') {
   checkPackage({ package_name: packageName, ecosystem }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.legitimate ? 0 : 1);
+    cliExit(output.legitimate ? 0 : 1);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'scan-packages') {
   // CLI mode: scan-packages <file> <ecosystem> [--verbosity minimal|compact|full]
@@ -326,10 +332,10 @@ if (cliArgs[0] === 'init') {
   scanPackages({ file_path: filePath, ecosystem, verbosity }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.hallucinated_count > 0 ? 1 : 0);
+    cliExit(output.hallucinated_count > 0 ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'scan-project') {
   // CLI mode: scan-project <dir> [--recursive] [--diff-only] [--cross-file] [--include '*.py'] [--exclude '*.test.js'] [--verbosity minimal|compact|full]
@@ -352,10 +358,10 @@ if (cliArgs[0] === 'init') {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
     const total = output.issues_count || output.total || 0;
-    process.exit(total > 0 ? 1 : 0);
+    cliExit(total > 0 ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'scan-diff') {
   // CLI mode: scan-diff [base] [target] [--verbosity minimal|compact|full]
@@ -370,10 +376,10 @@ if (cliArgs[0] === 'init') {
   scanDiff({ base_ref: baseRef, target_ref: targetRef, verbosity }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.issues_count > 0 || output.total > 0 ? 1 : 0);
+    cliExit(output.issues_count > 0 || output.total > 0 ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'benchmark') {
   // CLI mode: benchmark [--save] [--json-only] [--compare-latest] [--corpus <path>]
@@ -411,10 +417,10 @@ if (cliArgs[0] === 'init') {
   scanMcpServer({ server_path: serverPath, verbosity }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.findings_count > 0 ? 1 : 0);
+    cliExit(output.findings_count > 0 ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'scan-action') {
   // CLI mode: scan-action <type> <value> [--verbosity minimal|compact|full]
@@ -431,10 +437,10 @@ if (cliArgs[0] === 'init') {
   scanAgentAction({ action_type: actionType, action_value: actionValue, verbosity }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.action === 'BLOCK' ? 1 : 0);
+    cliExit(output.action === 'BLOCK' ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'scan-skill') {
   const skillPath = cliArgs[1];
@@ -454,22 +460,22 @@ if (cliArgs[0] === 'init') {
   scanSkill({ skill_path: skillPath, verbosity, baseline }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
-    process.exit(output.grade === 'F' || output.grade === 'D' ? 1 : 0);
+    cliExit(output.grade === 'F' || output.grade === 'D' ? 1 : 0);
   }).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'audit') {
   const { runAudit } = await import('./src/cli/audit.js');
-  runAudit(cliArgs.slice(1)).then(() => process.exit(0)).catch(err => {
+  runAudit(cliArgs.slice(1)).then(() => cliExit(0)).catch(err => {
     console.error(`  Error: ${err.message}\n`);
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'harden') {
   const { runHarden } = await import('./src/cli/harden.js');
-  runHarden(cliArgs.slice(1)).then(() => process.exit(0)).catch(err => {
+  runHarden(cliArgs.slice(1)).then(() => cliExit(0)).catch(err => {
     console.error(`  Error: ${err.message}\n`);
-    process.exit(1);
+    cliExit(1);
   });
 } else if (cliArgs[0] === 'telemetry') {
   handleTelemetryCli(cliArgs.slice(1));
@@ -495,7 +501,7 @@ if (cliArgs[0] === 'init') {
   console.log('    scan-action <t> <v>  Check agent action before execution');
   console.log('    audit [--config-path] Audit OpenClaw config for security issues [experimental]');
   console.log('    harden [--fix]       Auto-harden OpenClaw configuration [experimental]');
-  console.log('    telemetry [opt]      Manage anonymous telemetry (--on|--off|--status)\n');
+  console.log('    telemetry [opt]      Manage telemetry (--on|--off|--status)\n');
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
@@ -533,14 +539,14 @@ if (cliArgs[0] === 'init') {
 
     // Shutdown daemon and flush telemetry when MCP server closes
     server.server.onclose = async () => {
-      flush();
+      await flushAsync();
       await shutdownDaemon();
     };
   }
 
   // Graceful shutdown on signals
   const shutdownHandler = async () => {
-    flush();
+    await flushAsync();
     await shutdownDaemon();
     process.exit(0);
   };

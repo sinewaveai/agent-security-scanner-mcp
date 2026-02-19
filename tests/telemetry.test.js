@@ -3,6 +3,8 @@ import { join } from 'path';
 import { existsSync, unlinkSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir, homedir, hostname, platform, arch } from 'os';
 
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 // Each test gets a unique temp directory — never touches real ~/.agent-security-scanner-mcp/
 let TEST_STATE_DIR;
 let TEST_STATE_FILE;
@@ -64,9 +66,9 @@ describe('telemetry module', () => {
     expect(id1).toBe(id2);
   });
 
-  it('machine ID is 64-char hex SHA-256', () => {
+  it('machine ID is a UUID v4', () => {
     const id = telemetry.getMachineId();
-    expect(id).toMatch(/^[a-f0-9]{64}$/);
+    expect(id).toMatch(UUID_V4_RE);
   });
 
   // --- Session ID ---
@@ -101,7 +103,7 @@ describe('telemetry module', () => {
     expect(event.schema_version).toBe(1);
     expect(event.event).toBe('test.event');
     expect(event.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(event.machine_id).toMatch(/^[a-f0-9]{64}$/);
+    expect(event.machine_id).toMatch(UUID_V4_RE);
     expect(event.session_id).toBeDefined();
     expect(event.scanner_version).toBeDefined();
     expect(event.os_platform).toBe(platform());
@@ -447,13 +449,14 @@ describe('telemetry module', () => {
     expect(id2).toBe(id1);
   });
 
-  it('getMachineId regenerates same hash after state file deletion', () => {
+  it('getMachineId generates new random ID after state file deletion', () => {
     const id1 = telemetry.getMachineId();
     // Delete state file
     unlinkSync(join(TEST_STATE_DIR, 'telemetry.json'));
     telemetry._resetForTesting(TEST_STATE_DIR);
     const id2 = telemetry.getMachineId();
-    expect(id2).toBe(id1); // deterministic hash
+    expect(id2).toMatch(UUID_V4_RE);
+    expect(id2).not.toBe(id1); // random, not deterministic
   });
 
   it('state file is created in STATE_DIR if directory missing', () => {
@@ -841,8 +844,8 @@ describe('telemetry privacy', () => {
     const serialized = JSON.stringify(event);
     expect(serialized).not.toContain(hostname());
     expect(serialized).not.toContain(homedir());
-    // machine_id is a hash, should not contain raw system info
-    expect(event.machine_id).toMatch(/^[a-f0-9]{64}$/);
+    // machine_id is a random UUID, should not contain raw system info
+    expect(event.machine_id).toMatch(UUID_V4_RE);
   });
 
   it('no event payload contains file contents, source code, or paths', () => {
@@ -883,10 +886,10 @@ describe('telemetry privacy', () => {
     expect(serialized).not.toMatch(/"name":\s*"/);
   });
 
-  it('machine_id is exactly 64 hex characters (SHA-256)', () => {
+  it('machine_id is a valid UUID v4', () => {
     const id = telemetry.getMachineId();
-    expect(id).toMatch(/^[a-f0-9]{64}$/);
-    expect(id.length).toBe(64);
+    expect(id).toMatch(UUID_V4_RE);
+    expect(id.length).toBe(36);
   });
 
   it('events serialized to JSON contain no unexpected keys beyond ALLOWED_FIELDS', () => {
@@ -914,5 +917,156 @@ describe('telemetry privacy', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
     logSpy.mockRestore();
     globalThis.fetch = originalFetch;
+  });
+});
+
+describe('telemetry new features', () => {
+  let telemetry;
+  let TEST_STATE_DIR;
+
+  beforeEach(async () => {
+    TEST_STATE_DIR = join(tmpdir(), `scanner-telemetry-new-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    delete process.env.DO_NOT_TRACK;
+    delete process.env.SCANNER_TELEMETRY_DISABLED;
+    delete process.env.CI;
+    delete process.env.SCANNER_TELEMETRY_DEBUG;
+    delete process.env.SCANNER_TELEMETRY_ENDPOINT;
+    telemetry = await import('../src/telemetry.js');
+    telemetry._resetForTesting(TEST_STATE_DIR);
+  });
+
+  afterEach(() => {
+    delete process.env.SCANNER_TELEMETRY_ENDPOINT;
+    try {
+      if (existsSync(TEST_STATE_DIR)) {
+        rmSync(TEST_STATE_DIR, { recursive: true, force: true });
+      }
+    } catch {}
+  });
+
+  // --- Legacy machine ID migration ---
+
+  it('legacy 64-char hex machine ID is migrated to UUID', () => {
+    mkdirSync(TEST_STATE_DIR, { recursive: true });
+    writeFileSync(join(TEST_STATE_DIR, 'telemetry.json'), JSON.stringify({
+      machine_id: 'a'.repeat(64),
+    }));
+    telemetry._resetForTesting(TEST_STATE_DIR);
+
+    const id = telemetry.getMachineId();
+    expect(id).toMatch(UUID_V4_RE);
+    expect(id).not.toBe('a'.repeat(64));
+
+    // State file should have the new UUID and migration flag
+    const state = JSON.parse(readFileSync(join(TEST_STATE_DIR, 'telemetry.json'), 'utf-8'));
+    expect(state.machine_id).toBe(id);
+    expect(state._legacy_id_migrated).toBe(true);
+  });
+
+  it('already-migrated legacy ID is not re-migrated', () => {
+    const existingUuid = '12345678-1234-4abc-8def-1234567890ab';
+    mkdirSync(TEST_STATE_DIR, { recursive: true });
+    writeFileSync(join(TEST_STATE_DIR, 'telemetry.json'), JSON.stringify({
+      machine_id: existingUuid,
+      _legacy_id_migrated: true,
+    }));
+    telemetry._resetForTesting(TEST_STATE_DIR);
+
+    // Should keep the existing UUID, not generate a new one
+    // (even though it doesn't match the 64-char hex pattern, _legacy_id_migrated is set)
+    const id = telemetry.getMachineId();
+    expect(id).toBe(existingUuid);
+  });
+
+  // --- flushAsync ---
+
+  it('flushAsync() awaits batch send', async () => {
+    const originalFetch = globalThis.fetch;
+    let fetchCalled = false;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      fetchCalled = true;
+      return { ok: true };
+    });
+
+    telemetry.track('flush.async.test', {});
+    expect(telemetry._getQueue().length).toBe(1);
+
+    await telemetry.flushAsync();
+    expect(telemetry._getQueue().length).toBe(0);
+    expect(fetchCalled).toBe(true);
+
+    globalThis.fetch = originalFetch;
+  });
+
+  it('flushAsync() respects timeout', async () => {
+    const originalFetch = globalThis.fetch;
+    // Simulate a fetch that never resolves
+    globalThis.fetch = vi.fn().mockImplementation(() => new Promise(() => {}));
+
+    telemetry.track('timeout.test', {});
+    const start = Date.now();
+    await telemetry.flushAsync(100); // 100ms timeout
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeGreaterThanOrEqual(80); // at least ~80ms
+    expect(elapsed).toBeLessThan(2000); // well under 2s
+    expect(telemetry._getQueue().length).toBe(0); // queue still drained
+
+    globalThis.fetch = originalFetch;
+  });
+
+  it('flushAsync() with empty queue is a no-op', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+    await telemetry.flushAsync();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+
+    globalThis.fetch = originalFetch;
+  });
+
+  // --- Notice before track ---
+
+  it('track() calls showFirstRunNotice before queuing events', () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    telemetry.track('first.event', { foo: 'bar' });
+
+    // Notice should have been shown
+    const noticeWrites = stderrSpy.mock.calls.filter(c => c[0].includes('Telemetry Notice'));
+    expect(noticeWrites.length).toBe(1);
+
+    // Event should still be queued
+    expect(telemetry._getQueue().length).toBe(1);
+    expect(telemetry._getQueue()[0].event).toBe('first.event');
+
+    stderrSpy.mockRestore();
+  });
+
+  it('track() does not show notice twice', () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    telemetry.track('first.event', {});
+    telemetry.track('second.event', {});
+
+    const noticeWrites = stderrSpy.mock.calls.filter(c => c[0].includes('Telemetry Notice'));
+    expect(noticeWrites.length).toBe(1);
+
+    stderrSpy.mockRestore();
+  });
+
+  // --- Endpoint override ---
+
+  it('TELEMETRY_ENDPOINT defaults to prooflayer.com', () => {
+    expect(telemetry.TELEMETRY_ENDPOINT).toBe('https://telemetry.prooflayer.com/v1/events');
+  });
+
+  it('--status output includes endpoint', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    telemetry.handleTelemetryCli(['--status']);
+    const outputs = logSpy.mock.calls.map(c => c[0]).join(' ');
+    expect(outputs).toContain('Endpoint:');
+    expect(outputs).toContain('prooflayer.com');
+    logSpy.mockRestore();
   });
 });
