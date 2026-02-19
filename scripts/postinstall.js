@@ -33,28 +33,52 @@ function isTreeSitterInstalled(pythonCmd) {
   }
 }
 
-const pythonCmd = findPython();
-
-if (!pythonCmd) {
-  console.log(
-    "[postinstall] Python 3 not found. The scanner will run in regex-only mode.\n" +
-    "             Install Python 3 and run: pip install -r requirements.txt"
-  );
-} else if (isTreeSitterInstalled(pythonCmd)) {
-  console.log("[postinstall] tree-sitter already installed — AST engine enabled.");
-} else {
+// Telemetry: track install event (fire-and-forget)
+async function trackInstall(engineAvailable, pythonAvailable) {
   try {
-    execFileSync(pythonCmd, ["-m", "pip", "install", "-r", requirementsPath, "--user", "--quiet"], {
-      timeout: 120000,
-      stdio: "inherit",
+    const { track, flush } = await import('../src/telemetry.js');
+    track('install', {
+      engine_available: engineAvailable,
+      python_available: pythonAvailable,
+      is_ci: process.env.CI === 'true' || process.env.CI === '1',
     });
-    console.log("[postinstall] Python dependencies installed — AST engine enabled.");
+    flush();
   } catch {
-    console.log(
-      "[postinstall] Could not install Python dependencies (tree-sitter).\n" +
-      "             The scanner will run in regex-only mode, which still catches common vulnerabilities.\n" +
-      "             To enable AST analysis later, run: python3 -m pip install -r requirements.txt\n" +
-      "             Or run: npx agent-security-scanner-mcp doctor --fix"
-    );
+    // Telemetry should never break installs
   }
 }
+
+(async () => {
+  const pythonCmd = findPython();
+
+  if (!pythonCmd) {
+    console.log(
+      "[postinstall] Python 3 not found. The scanner will run in regex-only mode.\n" +
+      "             Install Python 3 and run: pip install -r requirements.txt"
+    );
+    await trackInstall('regex-only', false);
+  } else if (isTreeSitterInstalled(pythonCmd)) {
+    console.log("[postinstall] tree-sitter already installed — AST engine enabled.");
+    await trackInstall('ast', true);
+  } else {
+    try {
+      execFileSync(pythonCmd, ["-m", "pip", "install", "-r", requirementsPath, "--user", "--quiet"], {
+        timeout: 120000,
+        stdio: "inherit",
+      });
+      console.log("[postinstall] Python dependencies installed — AST engine enabled.");
+      await trackInstall('ast', true);
+    } catch {
+      console.log(
+        "[postinstall] Could not install Python dependencies (tree-sitter).\n" +
+        "             The scanner will run in regex-only mode, which still catches common vulnerabilities.\n" +
+        "             To enable AST analysis later, run: python3 -m pip install -r requirements.txt\n" +
+        "             Or run: npx agent-security-scanner-mcp doctor --fix"
+      );
+      await trackInstall('regex', true);
+    }
+  }
+
+  // Give the telemetry HTTP request time to complete before the process exits
+  await new Promise(r => setTimeout(r, 200));
+})();

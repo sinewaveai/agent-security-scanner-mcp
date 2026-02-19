@@ -27,6 +27,7 @@ let _queue = [];
 let _flushTimer = null;
 let _noticeShown = false;
 let _scannerVersion = null;
+let _isEnabledCache = null;
 
 // --- Version ---
 
@@ -104,20 +105,22 @@ function _saveState(state) {
 // --- Opt-out check ---
 
 export function isEnabled() {
+  if (_isEnabledCache !== null) return _isEnabledCache;
+
   // 1. DO_NOT_TRACK universal standard
-  if (process.env.DO_NOT_TRACK === '1') return false;
+  if (process.env.DO_NOT_TRACK === '1') return (_isEnabledCache = false);
 
   // 2. Scanner-specific env var
-  if (process.env.SCANNER_TELEMETRY_DISABLED === '1') return false;
+  if (process.env.SCANNER_TELEMETRY_DISABLED === '1') return (_isEnabledCache = false);
 
   // 3. CI environment auto-disable
-  if (process.env.CI === 'true' || process.env.CI === '1') return false;
+  if (process.env.CI === 'true' || process.env.CI === '1') return (_isEnabledCache = false);
 
   // 4. State file opt-out
   const state = _loadState();
-  if (state.telemetry_enabled === false) return false;
+  if (state.telemetry_enabled === false) return (_isEnabledCache = false);
 
-  return true;
+  return (_isEnabledCache = true);
 }
 
 // --- First-run notice ---
@@ -277,6 +280,7 @@ export function handleTelemetryCli(args) {
   if (cmd === '--off' || cmd === 'off') {
     const state = _loadState();
     _saveState({ ...state, telemetry_enabled: false });
+    _isEnabledCache = null;
     console.log('Telemetry disabled. No data will be collected.');
     return;
   }
@@ -284,6 +288,7 @@ export function handleTelemetryCli(args) {
   if (cmd === '--on' || cmd === 'on') {
     const state = _loadState();
     _saveState({ ...state, telemetry_enabled: true });
+    _isEnabledCache = null;
     console.log('Telemetry enabled. Anonymous usage statistics will be collected.');
     return;
   }
@@ -318,6 +323,7 @@ export function _getQueue() {
 
 export function _resetForTesting(testDir) {
   _queue = [];
+  _isEnabledCache = null;
   _machineId = null;
   _noticeShown = false;
   _scannerVersion = null;
@@ -335,6 +341,9 @@ export function _resetForTesting(testDir) {
     STATE_FILE = join(STATE_DIR, 'telemetry.json');
   }
 }
+
+// Flush remaining events before process exits (CLI mode)
+process.on('beforeExit', () => flush());
 
 export { _sessionId as getSessionId };
 export { STATE_FILE, STATE_DIR, BATCH_SIZE, _DEFAULT_STATE_DIR };
