@@ -606,15 +606,18 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
   // Path resolution
   const resolvedPath = resolve(skill_path);
 
-  // Path containment — only allow paths within cwd or ~/.openclaw/skills/
+  // Path containment — only allow paths within cwd or known OpenClaw skill roots
   const cwd = process.cwd();
-  const openclawSkills = resolve(homedir(), '.openclaw', 'skills');
+  const allowedSkillRoots = [
+    resolve(homedir(), '.openclaw', 'skills'),
+    resolve(homedir(), '.openclaw', 'workspace', 'skills'),
+  ];
   const isAllowed = resolvedPath === cwd || resolvedPath.startsWith(cwd + sep)
-    || resolvedPath === openclawSkills || resolvedPath.startsWith(openclawSkills + sep);
+    || allowedSkillRoots.some(root => resolvedPath === root || resolvedPath.startsWith(root + sep));
   if (!isAllowed) {
     return {
       content: [{ type: "text", text: JSON.stringify({
-        error: "skill_path must be within the current working directory or ~/.openclaw/skills/",
+        error: "skill_path must be within the current working directory or ~/.openclaw/skills/ (or ~/.openclaw/workspace/skills/)",
         skill_path: resolvedPath
       }) }]
     };
