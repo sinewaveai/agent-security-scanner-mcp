@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, writeFileSync, copyFileSync, mkdirSync } from "fs";
 import { spawnSync } from "child_process";
 import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { homedir, platform } from "os";
 import { createInterface } from "readline";
 
@@ -167,8 +168,13 @@ async function installOpenClawSkill(client, flags) {
   const skillFile = client.configPath();
 
   // Find the source skill file (bundled with the package)
-  const __dirname = dirname(new URL(import.meta.url).pathname);
-  const sourceSkill = join(__dirname, '..', '..', 'skills', 'openclaw', 'SKILL.md');
+  let __initDir;
+  try {
+    __initDir = dirname(fileURLToPath(import.meta.url));
+  } catch {
+    __initDir = process.cwd();
+  }
+  const sourceSkill = join(__initDir, '..', '..', 'skills', 'openclaw', 'SKILL.md');
 
   console.log(`\n  Client:  ${client.name}`);
   console.log(`  Skill:   ${skillDir}`);
@@ -248,9 +254,9 @@ async function installCodexMCP(flags, serverName) {
   console.log(`  Config:  ~/.codex/config.toml (managed by codex CLI)`);
   console.log(`  OS:      ${platform()} (${process.arch})\n`);
 
-  // Check codex CLI is available
-  const which = spawnSync('which', ['codex'], { encoding: 'utf-8' });
-  if (which.status !== 0) {
+  // Check codex CLI is available (cross-platform: probe directly instead of using which/where)
+  const codexCheck = spawnSync('codex', ['--version'], { encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] });
+  if (codexCheck.status !== 0 && codexCheck.error) {
     console.error(`  ERROR: 'codex' CLI not found in PATH.`);
     console.error(`  Install it first: https://github.com/openai/codex\n`);
     process.exit(1);
