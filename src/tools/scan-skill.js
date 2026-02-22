@@ -769,7 +769,9 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
 
   // Path containment — check on resolved path FIRST (before existence)
   // so that invalid external paths get rejected with the right error message.
-  const cwd = process.cwd();
+  // Canonicalize cwd so comparisons work even if the working directory is a symlink.
+  let cwd;
+  try { cwd = realpathSync(process.cwd()); } catch { cwd = process.cwd(); }
   const allowedSkillRoots = [
     resolve(homedir(), '.openclaw', 'skills'),
     resolve(homedir(), '.openclaw', 'workspace', 'skills'),

@@ -70,6 +70,7 @@ function loadAgentAttackRules() {
     const rulesPath = join(__dirname, '..', '..', 'rules', 'agent-attacks.security.yaml');
     if (!existsSync(rulesPath)) {
       console.error("Agent attack rules file not found");
+      _agentAttackRulesCache = [];
       return [];
     }
 

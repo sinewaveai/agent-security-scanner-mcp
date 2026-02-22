@@ -28,7 +28,7 @@ Security scanner for AI coding agents and autonomous assistants. Scans code for 
 | `scan_agent_action` | Pre-execution safety check for agent actions (bash, file ops, HTTP). Returns ALLOW/WARN/BLOCK | Before running any agent-generated shell command or file operation |
 | `scan_mcp_server` | Scan MCP server source for vulnerabilities: unicode poisoning, name spoofing, rug pull detection, manifest analysis. Returns A-F grade | When auditing or installing an MCP server |
 | `scan_skill` | Deep security scan of an OpenClaw skill: prompt injection, AST+taint code analysis, ClawHavoc malware signatures, supply chain, rug pull. Returns A-F grade | Before installing any OpenClaw skill |
-| `clawproof_health` | Check ClawProof plugin health: engine status, daemon status, package data availability | Diagnostics and plugin status |
+| `scanner_health` | Check plugin health: engine status, daemon status, package data availability | Diagnostics and plugin status |
 | `list_security_rules` | List available security rules and fix templates | To check rule coverage for a language |
 
 ## Quick Start
@@ -1073,7 +1073,7 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ### v3.10.0
 - **`scan_skill` Tool** — 6-layer deep security scanner for OpenClaw skills: prompt injection (59+ rules), AST+taint code analysis, ClawHavoc malware signatures, package supply chain verification, and SHA-256 rug pull detection. Returns A-F grade with hard-fail on ClawHavoc/rug pull/critical findings
 - **ClawHavoc Signature Database** (`rules/clawhavoc.yaml`) — 27 rules, 121 regex patterns across 10 threat categories (reverse shells, crypto miners, info stealers, keyloggers, screen capture, DNS exfiltration, C2 beacons, OpenClaw-specific attacks, campaign patterns, exfil endpoints), mapped to MITRE ATT&CK
-- **OpenClaw Plugin Skeleton** — Native plugin manifest (`openclaw.plugin.json`), config loader (`~/.openclaw/scanner-config.json`), and health check endpoint (`clawproof_health` MCP tool)
+- **OpenClaw Plugin Skeleton** — Native plugin manifest (`openclaw.plugin.json`), config loader (`~/.openclaw/scanner-config.json`), and health check endpoint (`scanner_health` MCP tool)
 - **CLI**: `scan-skill <path>` command with `--baseline` flag; `audit` and `harden` stubs (experimental)
 - **Security fixes**: Path containment uses `realpathSync` to prevent symlink bypass; dedup key includes `source` to prevent ClawHavoc findings from being suppressed by same-named code_analysis findings
 - **Bug fix**: SQL injection concat detection now covers JavaScript (was C#-only) — single-quoted and template literal strings now detected

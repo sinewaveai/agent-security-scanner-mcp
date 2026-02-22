@@ -110,7 +110,7 @@ agent-security-scanner-mcp/
 | `scan_git_diff` | `src/tools/scan-diff.js` | Git diff scanning |
 | `scan_mcp_server` | `src/tools/scan-mcp.js` | MCP server audit |
 | `scan_skill` | `src/tools/scan-skill.js` | OpenClaw skill scanning |
-| `clawproof_health` | `src/plugin-health.js` | Plugin health check |
+| `scanner_health` | `src/plugin-health.js` | Plugin health check |
 
 ### CLI Commands
 

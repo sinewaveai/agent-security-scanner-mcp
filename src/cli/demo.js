@@ -4,6 +4,7 @@ import { join } from "path";
 import { createInterface } from "readline";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
+import { resolvePythonCommand, pythonArgs } from "../python.js";
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -178,22 +179,11 @@ export async function runDemo(args) {
 
   // Run the analyzer
   const analyzerPath = join(__dirname, '..', '..', 'analyzer.py');
-  let pythonCmd = 'python3';
-  const py3 = checkCommand('python3', ['--version']);
-  if (!py3.ok) {
-    const py = checkCommand('python', ['--version']);
-    if (py.ok && py.output.includes('3.')) {
-      pythonCmd = 'python';
-    } else {
-      console.log(`  Error: Python 3 not found. Run "npx agent-security-scanner-mcp doctor" to diagnose.\n`);
-      unlinkSync(filepath);
-      process.exit(1);
-    }
-  }
+  const pythonCmd = resolvePythonCommand();
 
   let results;
   try {
-    const output = execFileSync(pythonCmd, [analyzerPath, filepath], { timeout: 30000, encoding: 'utf-8' });
+    const output = execFileSync(pythonCmd, [...pythonArgs(), analyzerPath, filepath], { timeout: 30000, encoding: 'utf-8' });
     results = JSON.parse(output);
   } catch (e) {
     console.log(`  Error running analyzer: ${e.message}\n`);

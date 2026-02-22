@@ -208,9 +208,22 @@ function runPythonAnalyzer(document: vscode.TextDocument) {
 
     outputChannel.appendLine(`[Security] Scanning: ${filePath}`);
 
-    const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
+    // Resolve Python 3 command: Windows py launcher → python → python3
+    let pythonCommand: string;
+    let pythonPrefixArgs: string[] = [];
+    if (process.platform === 'win32') {
+        try {
+            cp.execFileSync('py', ['-3', '--version'], { timeout: 5000, stdio: 'pipe' });
+            pythonCommand = 'py';
+            pythonPrefixArgs = ['-3'];
+        } catch {
+            pythonCommand = 'python';
+        }
+    } else {
+        pythonCommand = 'python3';
+    }
 
-    cp.execFile(pythonCommand, [scriptPath, filePath], (error, stdout, stderr) => {
+    cp.execFile(pythonCommand, [...pythonPrefixArgs, scriptPath, filePath], (error, stdout, stderr) => {
         if (error) {
             outputChannel.appendLine(`[Error] Execution failed: ${error.message}`);
             if (stderr) outputChannel.appendLine(`[Stderr]: ${stderr}`);
