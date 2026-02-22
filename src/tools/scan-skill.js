@@ -501,11 +501,9 @@ function extractPackagesFromManifest(filePath, content) {
       return { ecosystem: 'crates', packages };
     }
 
-    if (fileName === 'go.mod') {
-      const reqMatches = content.matchAll(/^\s*(\S+)\s+v[\d.]+/gm);
-      for (const m of reqMatches) packages.push(m[1]);
-      return { ecosystem: 'go', packages };
-    }
+    // go.mod: parsed for informational purposes but Go is not yet supported
+    // by the hallucination bloom filter — skip to avoid false positives.
+    // if (fileName === 'go.mod') { ... }
   } catch {
     // Parse failed — return empty
   }
@@ -769,14 +767,13 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
 
   // Path containment — check on resolved path FIRST (before existence)
   // so that invalid external paths get rejected with the right error message.
-  // Canonicalize cwd so comparisons work even if the working directory is a symlink.
-  let cwd;
-  try { cwd = realpathSync(process.cwd()); } catch { cwd = process.cwd(); }
+  // Use raw cwd here (resolvedPath is also non-canonical at this point).
+  const rawCwd = process.cwd();
   const allowedSkillRoots = [
     resolve(homedir(), '.openclaw', 'skills'),
     resolve(homedir(), '.openclaw', 'workspace', 'skills'),
   ];
-  const isAllowed = resolvedPath === cwd || resolvedPath.startsWith(cwd + sep)
+  const isAllowed = resolvedPath === rawCwd || resolvedPath.startsWith(rawCwd + sep)
     || allowedSkillRoots.some(root => resolvedPath === root || resolvedPath.startsWith(root + sep));
   if (!isAllowed) {
     return {
@@ -805,8 +802,11 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
   }
 
   // Resolve to real path and re-verify containment (defeats symlink escapes)
+  // Use canonical cwd here since realPath is also canonical.
   const realPath = realpathSync(resolvedPath);
-  const realAllowed = realPath === cwd || realPath.startsWith(cwd + sep)
+  let canonCwd;
+  try { canonCwd = realpathSync(rawCwd); } catch { canonCwd = rawCwd; }
+  const realAllowed = realPath === canonCwd || realPath.startsWith(canonCwd + sep)
     || allowedSkillRoots.some(root => realPath === root || realPath.startsWith(root + sep));
   if (!realAllowed) {
     return {
@@ -844,6 +844,7 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
 
   const scanPromise = (async () => {
     const timings = {};
+    const wallStart = Date.now();
 
     // Timed wrapper
     async function timed(label, fn) {
@@ -871,7 +872,7 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
     const { findings: rugPullFindings, hash: contentHash } =
       timedSync('rug_pull', () => runRugPullCheck(content, skillDir, !!baseline));                    // L6
 
-    timings.total = Object.values(timings).reduce((a, b) => Math.max(a, b), 0);
+    timings.total = Date.now() - wallStart;
 
     return { promptFindings, codeBlockFindings, supportingFindings, clawHavocFindings, supplyChainFindings, rugPullFindings, contentHash, timings };
   })();

@@ -170,7 +170,7 @@ server.tool(
 // Register scan_agent_action tool
 server.tool(
   "scan_agent_action",
-  "Pre-execution security check for agent actions (bash, file_write, file_read, http_request, file_delete). Returns ALLOW/WARN/BLOCK. Lighter than scan_agent_prompt — evaluates concrete actions.",
+  "Pre-execution security check for agent actions (bash, file_write, file_read, http_request, file_delete, cron, process_spawn, git, docker). Returns ALLOW/WARN/BLOCK.",
   scanAgentActionSchema,
   scanAgentAction
 );
@@ -436,7 +436,7 @@ if (cliArgs[0] === 'init') {
   const actionValue = cliArgs[2];
   if (!actionType || !actionValue) {
     console.error('Usage: agent-security-scanner-mcp scan-action <type> <value> [--verbosity minimal|compact|full]');
-    console.error('Types: bash, file_write, file_read, http_request, file_delete');
+    console.error('Types: bash, file_write, file_read, http_request, file_delete, cron, process_spawn, git, docker');
     process.exit(1);
   }
   const verbosityIdx = cliArgs.indexOf('--verbosity');
