@@ -2,10 +2,10 @@
 import { z } from "zod";
 
 export const scanAgentActionSchema = {
-  action_type: z.enum(["bash", "file_write", "file_read", "http_request", "file_delete"])
+  action_type: z.enum(["bash", "file_write", "file_read", "http_request", "file_delete", "cron", "process_spawn", "git", "docker"])
     .describe("Type of agent action to evaluate"),
   action_value: z.string()
-    .describe("The command, file path, or URL to check"),
+    .describe("The command, file path, URL, or structured input to check"),
   verbosity: z.enum(["minimal", "compact", "full"]).optional()
     .describe("Response detail level: 'minimal' (action only), 'compact' (default), 'full' (all details)")
 };
@@ -197,6 +197,159 @@ const EXFILTRATION_PATTERNS = [
   { pattern: /burpcollaborator/i, label: "Burp Collaborator" }
 ];
 
+// --- Cron rules ---
+
+const CRON_RULES = [
+  {
+    rule: "cron.persistence.at-boot",
+    pattern: /@reboot/,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Cron entry runs at reboot — potential persistence mechanism"
+  },
+  {
+    rule: "cron.frequency.every-minute",
+    pattern: /^\s*\*\s+\*\s+\*\s+\*\s+\*/,
+    severity: "MEDIUM",
+    action: "WARN",
+    message: "Cron entry runs every minute — high frequency may indicate abuse"
+  },
+  {
+    rule: "cron.rce.curl-pipe",
+    pattern: /\b(curl|wget)\b.*\|\s*(sh|bash|python|perl|ruby)\b/,
+    severity: "CRITICAL",
+    action: "BLOCK",
+    message: "Cron entry downloads and executes remote code"
+  },
+  {
+    rule: "cron.exfiltration.redirect",
+    pattern: /\b(curl|wget)\b.*(-d|--data|--upload-file)\b/,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Cron entry sends data to a remote server — potential exfiltration"
+  }
+];
+
+// --- Process spawn rules ---
+
+const PROCESS_SPAWN_RULES = [
+  {
+    rule: "process_spawn.reverse-shell",
+    pattern: /\b(nc|ncat|netcat)\s+.*-e\s+\/bin\/(sh|bash)\b/,
+    severity: "CRITICAL",
+    action: "BLOCK",
+    message: "Reverse shell via netcat"
+  },
+  {
+    rule: "process_spawn.python-shell",
+    pattern: /python.*\bsocket\b.*\bconnect\b/,
+    severity: "CRITICAL",
+    action: "BLOCK",
+    message: "Python-based reverse shell or socket connection"
+  },
+  {
+    rule: "process_spawn.background-daemon",
+    pattern: /\bnohup\b.*&\s*$/,
+    severity: "MEDIUM",
+    action: "WARN",
+    message: "Background daemon spawned with nohup — may persist after session"
+  },
+  {
+    rule: "process_spawn.privilege-escalation",
+    pattern: /\bsudo\b/,
+    severity: "MEDIUM",
+    action: "WARN",
+    message: "Process spawned with elevated privileges via sudo"
+  }
+];
+
+// --- Git rules ---
+
+const GIT_RULES = [
+  {
+    rule: "git.destructive.force-push",
+    pattern: /\bgit\s+push\s+.*--force\b/,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Git force push — can overwrite remote history and cause data loss"
+  },
+  {
+    rule: "git.destructive.reset-hard",
+    pattern: /\bgit\s+reset\s+--hard\b/,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Git hard reset — discards all uncommitted changes"
+  },
+  {
+    rule: "git.destructive.clean-fd",
+    pattern: /\bgit\s+clean\s+-[a-zA-Z]*f[a-zA-Z]*d/,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Git clean with force+directory flags — permanently deletes untracked files and directories"
+  },
+  {
+    rule: "git.credential.config-password",
+    pattern: /\bgit\s+(config|credential)\b.*\b(password|token)\b/i,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Git command may expose or set credentials in config"
+  },
+  {
+    rule: "git.remote.add-untrusted",
+    pattern: /\bgit\s+remote\s+add\b/,
+    severity: "MEDIUM",
+    action: "WARN",
+    message: "Adding a new git remote — verify the URL is trusted"
+  }
+];
+
+// --- Docker rules ---
+
+const DOCKER_RULES = [
+  {
+    rule: "docker.privileged",
+    pattern: /--privileged/,
+    severity: "CRITICAL",
+    action: "BLOCK",
+    message: "Docker container with --privileged flag — full host access"
+  },
+  {
+    rule: "docker.host-mount.root",
+    pattern: /-v\s+\/:/,
+    severity: "CRITICAL",
+    action: "BLOCK",
+    message: "Docker container mounts host root filesystem"
+  },
+  {
+    rule: "docker.host-mount.docker-sock",
+    pattern: /-v\s+\/var\/run\/docker\.sock/,
+    severity: "CRITICAL",
+    action: "BLOCK",
+    message: "Docker container mounts Docker socket — can control host Docker daemon"
+  },
+  {
+    rule: "docker.host-network",
+    pattern: /--net(work)?=host\b/,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Docker container uses host network — no network isolation"
+  },
+  {
+    rule: "docker.host-pid",
+    pattern: /--pid=host\b/,
+    severity: "HIGH",
+    action: "WARN",
+    message: "Docker container shares host PID namespace — can see/signal host processes"
+  },
+  {
+    rule: "docker.cap-add",
+    pattern: /--cap-add\s+(SYS_ADMIN|ALL)\b/,
+    severity: "CRITICAL",
+    action: "BLOCK",
+    message: "Docker container adds dangerous Linux capability"
+  }
+];
+
 // --- Detection logic per action type ---
 
 function checkBash(value) {
@@ -303,6 +456,61 @@ function checkHttpRequest(value) {
     }
   }
 
+  return findings;
+}
+
+function checkCron(value) {
+  const findings = [];
+  for (const rule of CRON_RULES) {
+    if (rule.pattern.test(value)) {
+      findings.push({ rule: rule.rule, severity: rule.severity, action: rule.action, message: rule.message });
+    }
+  }
+  // Also run bash rules on the command portion (after the schedule)
+  const cmdPortion = value.replace(/^[@*0-9,\-\/\s]+/, '').trim();
+  if (cmdPortion) {
+    for (const rule of BASH_RULES) {
+      if (rule.pattern.test(cmdPortion)) {
+        findings.push({ rule: rule.rule, severity: rule.severity, action: rule.action, message: rule.message });
+      }
+    }
+  }
+  return findings;
+}
+
+function checkProcessSpawn(value) {
+  const findings = [];
+  for (const rule of PROCESS_SPAWN_RULES) {
+    if (rule.pattern.test(value)) {
+      findings.push({ rule: rule.rule, severity: rule.severity, action: rule.action, message: rule.message });
+    }
+  }
+  // Also apply bash rules for general command safety
+  for (const rule of BASH_RULES) {
+    if (rule.pattern.test(value)) {
+      findings.push({ rule: rule.rule, severity: rule.severity, action: rule.action, message: rule.message });
+    }
+  }
+  return findings;
+}
+
+function checkGit(value) {
+  const findings = [];
+  for (const rule of GIT_RULES) {
+    if (rule.pattern.test(value)) {
+      findings.push({ rule: rule.rule, severity: rule.severity, action: rule.action, message: rule.message });
+    }
+  }
+  return findings;
+}
+
+function checkDocker(value) {
+  const findings = [];
+  for (const rule of DOCKER_RULES) {
+    if (rule.pattern.test(value)) {
+      findings.push({ rule: rule.rule, severity: rule.severity, action: rule.action, message: rule.message });
+    }
+  }
   return findings;
 }
 
@@ -458,6 +666,18 @@ export async function scanAgentAction({ action_type, action_value, verbosity }) 
       break;
     case "file_delete":
       findings = checkFileDelete(action_value);
+      break;
+    case "cron":
+      findings = checkCron(action_value);
+      break;
+    case "process_spawn":
+      findings = checkProcessSpawn(action_value);
+      break;
+    case "git":
+      findings = checkGit(action_value);
+      break;
+    case "docker":
+      findings = checkDocker(action_value);
       break;
   }
 
