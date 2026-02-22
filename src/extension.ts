@@ -210,7 +210,7 @@ function runPythonAnalyzer(document: vscode.TextDocument) {
 
     const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
 
-    cp.exec(`"${pythonCommand}" "${scriptPath}" "${filePath}"`, (error, stdout, stderr) => {
+    cp.execFile(pythonCommand, [scriptPath, filePath], (error, stdout, stderr) => {
         if (error) {
             outputChannel.appendLine(`[Error] Execution failed: ${error.message}`);
             if (stderr) outputChannel.appendLine(`[Stderr]: ${stderr}`);
