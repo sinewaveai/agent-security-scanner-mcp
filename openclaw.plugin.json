@@ -1,6 +1,6 @@
 {
-  "name": "agent-security-scanner",
-  "version": "3.9.0",
+  "name": "agent-security-scanner-mcp",
+  "version": "3.10.3",
   "description": "Security scanner for OpenClaw: prompt injection firewall, package hallucination detection, code vulnerability scanning, auto-fix",
   "author": "Sinewave AI",
   "license": "MIT",
@@ -31,7 +31,7 @@
       "description": "Scan an OpenClaw skill for security threats"
     },
     {
-      "name": "clawproof_health",
+      "name": "scanner_health",
       "description": "Check plugin health status"
     }
   ],

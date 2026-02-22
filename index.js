@@ -35,11 +35,18 @@ try {
   __dirname = process.cwd();
 }
 
+// Read version from package.json
+let _pkgVersion = '0.0.0';
+try {
+  const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'));
+  _pkgVersion = pkg.version || '0.0.0';
+} catch { /* fallback */ }
+
 // Create MCP Server
 const server = new McpServer(
   {
-    name: "security-scanner",
-    version: "1.0.0",
+    name: "agent-security-scanner-mcp",
+    version: _pkgVersion,
   },
   {
     capabilities: {
@@ -202,17 +209,27 @@ server.tool(
 // PLUGIN HEALTH CHECK
 // ===========================================
 
+const _healthHandler = async () => {
+  const { getHealthStatus } = await import('./src/plugin-health.js');
+  const health = await getHealthStatus();
+  return {
+    content: [{ type: "text", text: JSON.stringify(health, null, 2) }]
+  };
+};
+
 server.tool(
-  "clawproof_health",
+  "scanner_health",
   "Check plugin health: engine status, daemon status, package data availability",
   {},
-  async () => {
-    const { getHealthStatus } = await import('./src/plugin-health.js');
-    const health = await getHealthStatus();
-    return {
-      content: [{ type: "text", text: JSON.stringify(health, null, 2) }]
-    };
-  }
+  _healthHandler
+);
+
+// Backward-compatible alias (will be removed in a future major version)
+server.tool(
+  "clawproof_health",
+  "Alias for scanner_health (deprecated, use scanner_health instead)",
+  {},
+  _healthHandler
 );
 
 // ===========================================
