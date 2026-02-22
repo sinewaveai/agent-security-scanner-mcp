@@ -4,6 +4,7 @@ import { dirname, join } from "path";
 import { homedir, platform } from "os";
 import { fileURLToPath } from "url";
 import { getDaemonClient } from '../daemon-client.js';
+import { resolvePythonCommand, pythonArgs } from '../python.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -123,22 +124,23 @@ export async function runDoctor(args) {
     issues++;
   }
 
-  // 2. Python 3
+  // 2. Python 3 (uses the same resolver as the runtime)
   let pythonCmd = null;
-  const py3 = checkCommand('python3', ['--version']);
-  if (py3.ok) {
-    pythonCmd = 'python3';
-    console.log(`    \u2713 ${py3.output}`);
-  } else {
-    const py = checkCommand('python', ['--version']);
-    if (py.ok && py.output.includes('3.')) {
-      pythonCmd = 'python';
-      console.log(`    \u2713 ${py.output}`);
+  try {
+    pythonCmd = resolvePythonCommand();
+    const pyVer = checkCommand(pythonCmd, [...pythonArgs(), '--version']);
+    if (pyVer.ok) {
+      console.log(`    \u2713 ${pyVer.output} (resolved as '${pythonCmd}${pythonArgs().length ? ' ' + pythonArgs().join(' ') : ''}')`);
     } else {
+      pythonCmd = null;
       console.log(`    \u2717 Python 3 not found`);
       console.log(`      Install: https://python.org/downloads/`);
       issues++;
     }
+  } catch {
+    console.log(`    \u2717 Python 3 not found`);
+    console.log(`      Install: https://python.org/downloads/`);
+    issues++;
   }
 
   // 3. analyzer.py reachable
@@ -173,7 +175,7 @@ export async function runDoctor(args) {
 
   // 4. Python can import yaml (analyzer dependency check)
   if (pythonCmd && existsSync(analyzerPath)) {
-    const yamlCheck = checkCommand(pythonCmd, ['-c', 'import yaml; print("ok")']);
+    const yamlCheck = checkCommand(pythonCmd, [...pythonArgs(), '-c', 'import yaml; print("ok")']);
     if (yamlCheck.ok && yamlCheck.output === 'ok') {
       console.log(`    \u2713 Analyzer engine ready (PyYAML installed)`);
     } else {
@@ -184,7 +186,7 @@ export async function runDoctor(args) {
 
   // 5. tree-sitter AST engine (optional but recommended)
   if (pythonCmd) {
-    const tsCheck = checkCommand(pythonCmd, ['-c', 'import tree_sitter; print(tree_sitter.__version__)']);
+    const tsCheck = checkCommand(pythonCmd, [...pythonArgs(), '-c', 'import tree_sitter; print(tree_sitter.__version__)']);
     if (tsCheck.ok && tsCheck.output) {
       console.log(`    \u2713 AST engine ready (tree-sitter ${tsCheck.output})`);
     } else {
@@ -193,7 +195,7 @@ export async function runDoctor(args) {
         console.log(`      Installing tree-sitter dependencies...`);
         const requirementsPath = join(__dirname, '..', '..', 'requirements.txt');
         if (existsSync(requirementsPath)) {
-          const installResult = checkCommand(pythonCmd, ['-m', 'pip', 'install', '-r', requirementsPath, '--user', '--quiet']);
+          const installResult = checkCommand(pythonCmd, [...pythonArgs(), '-m', 'pip', 'install', '-r', requirementsPath, '--user', '--quiet']);
           if (installResult.ok) {
             console.log(`      \u2713 Fixed: tree-sitter dependencies installed — AST engine enabled`);
             fixed++;

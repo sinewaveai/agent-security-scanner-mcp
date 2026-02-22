@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { execFileSync } from 'child_process';
+import { resolvePythonCommand, pythonArgs } from './python.js';
 
 const DEFAULT_CONFIG = {
   version: 1,
@@ -86,7 +87,9 @@ function findConfigFile(startPath) {
 
 function parseYaml(filePath) {
   try {
-    const result = execFileSync('python3', [
+    const pyCmd = resolvePythonCommand();
+    const result = execFileSync(pyCmd, [
+      ...pythonArgs(),
       '-c',
       'import yaml,json,sys; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))',
       filePath,

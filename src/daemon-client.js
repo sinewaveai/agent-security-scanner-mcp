@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { resolvePythonCommand, pythonArgs } from './python.js';
 
 let __dirname;
 try {
@@ -64,7 +65,8 @@ class DaemonClient {
       // Cleanup any previous process
       this._cleanup();
 
-      const proc = spawn('python3', [DAEMON_SCRIPT], {
+      const pyCmd = resolvePythonCommand();
+      const proc = spawn(pyCmd, [...pythonArgs(), DAEMON_SCRIPT], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, PYTHONUNBUFFERED: '1' },
       });

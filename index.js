@@ -373,8 +373,9 @@ if (cliArgs[0] === 'init') {
   });
 } else if (cliArgs[0] === 'benchmark') {
   // CLI mode: benchmark [--save] [--json-only] [--compare-latest] [--corpus <path>]
+  const { resolvePythonCommand, pythonArgs } = await import('./src/python.js');
   const benchmarkPath = join(__dirname, 'benchmarks', 'benchmark_runner.py');
-  const benchArgs = [benchmarkPath];
+  const benchArgs = [...pythonArgs(), benchmarkPath];
 
   // Pass through supported flags
   for (let i = 1; i < cliArgs.length; i++) {
@@ -387,7 +388,7 @@ if (cliArgs[0] === 'init') {
   }
 
   try {
-    execFileSync('python3', benchArgs, { stdio: 'inherit', timeout: 300000 });
+    execFileSync(resolvePythonCommand(), benchArgs, { stdio: 'inherit', timeout: 300000 });
   } catch (err) {
     if (err.status) process.exit(err.status);
     console.error(`Benchmark error: ${err.message}`);

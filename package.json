@@ -90,6 +90,7 @@
     "src/config.js",
     "src/history.js",
     "src/typosquat.js",
+    "src/python.js",
     "src/plugin-config.js",
     "src/plugin-health.js",
     "openclaw.plugin.json",
