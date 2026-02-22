@@ -55,8 +55,17 @@ const CONFIDENCE_MULTIPLIERS = {
   "LOW": 0.4
 };
 
+// Maximum prompt size to prevent DoS via large inputs (100KB)
+const MAX_PROMPT_SIZE = 100 * 1024;
+
+// Rule caches — loaded once per process, not on every call
+let _agentAttackRulesCache = null;
+let _promptInjectionRulesCache = null;
+let _openClawRulesCache = null;
+
 // Load agent attack rules from YAML
 function loadAgentAttackRules() {
+  if (_agentAttackRulesCache !== null) return _agentAttackRulesCache;
   try {
     const rulesPath = join(__dirname, '..', '..', 'rules', 'agent-attacks.security.yaml');
     if (!existsSync(rulesPath)) {
@@ -120,18 +129,22 @@ function loadAgentAttackRules() {
       }
     }
 
+    _agentAttackRulesCache = rules;
     return rules;
   } catch (error) {
     console.error("Error loading agent attack rules:", error.message);
+    _agentAttackRulesCache = [];
     return [];
   }
 }
 
 // Also load prompt injection rules
 function loadPromptInjectionRules() {
+  if (_promptInjectionRulesCache !== null) return _promptInjectionRulesCache;
   try {
     const rulesPath = join(__dirname, '..', '..', 'rules', 'prompt-injection.security.yaml');
     if (!existsSync(rulesPath)) {
+      _promptInjectionRulesCache = [];
       return [];
     }
 
@@ -188,18 +201,22 @@ function loadPromptInjectionRules() {
       }
     }
 
+    _promptInjectionRulesCache = rules;
     return rules;
   } catch (error) {
     console.error("Error loading prompt injection rules:", error.message);
+    _promptInjectionRulesCache = [];
     return [];
   }
 }
 
 // Load OpenClaw-specific rules
 function loadOpenClawRules() {
+  if (_openClawRulesCache !== null) return _openClawRulesCache;
   try {
     const rulesPath = join(__dirname, '..', '..', 'rules', 'openclaw.security.yaml');
     if (!existsSync(rulesPath)) {
+      _openClawRulesCache = [];
       return [];
     }
 
@@ -251,9 +268,11 @@ function loadOpenClawRules() {
       }
     }
 
+    _openClawRulesCache = rules;
     return rules;
   } catch (error) {
     console.error("Error loading OpenClaw rules:", error.message);
+    _openClawRulesCache = [];
     return [];
   }
 }
@@ -441,6 +460,20 @@ export const scanAgentPromptSchema = {
 
 // Export handler function
 export async function scanAgentPrompt({ prompt_text, context, verbosity }) {
+  // Guard against oversized inputs that could cause DoS via regex scanning
+  if (prompt_text.length > MAX_PROMPT_SIZE) {
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          action: "BLOCK",
+          risk_level: "HIGH",
+          error: `Prompt too large (${prompt_text.length} bytes, max ${MAX_PROMPT_SIZE}). Reduce size or split into smaller chunks.`
+        }, null, 2)
+      }]
+    };
+  }
+
   const findings = [];
 
   // Load rules
