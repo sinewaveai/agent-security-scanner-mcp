@@ -204,6 +204,21 @@ async function runPromptScan(content) {
   try {
     const result = await scanAgentPrompt({ prompt_text: content, verbosity: 'full' });
     const parsed = JSON.parse(result.content[0].text);
+
+    // Handle oversized-input or error responses from the prompt scanner
+    if (parsed.error) {
+      return [{
+        category: 'prompt_scan_error',
+        severity: 'CRITICAL',
+        message: parsed.error,
+        matched_text: '',
+        file: 'SKILL.md',
+        source: 'prompt_scanner',
+        rule_id: 'prompt_scanner.oversized_or_error',
+        confidence: 'HIGH',
+      }];
+    }
+
     return (parsed.findings || []).map(f => ({
       category: f.category || 'prompt_injection',
       severity: f.severity === 'ERROR' ? 'CRITICAL' : f.severity === 'WARNING' ? 'HIGH' : 'MEDIUM',
@@ -226,7 +241,7 @@ async function runPromptScan(content) {
 
 function extractCodeBlocks(content) {
   const blocks = [];
-  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+  const codeBlockRegex = /```(\w*)\r?\n([\s\S]*?)```/g;
   let match;
   while ((match = codeBlockRegex.exec(content)) !== null) {
     const lang = (match[1] || '').toLowerCase();
@@ -749,8 +764,26 @@ function generateRecommendation(grade) {
 // ---------------------------------------------------------------------------
 
 export async function scanSkill({ skill_path, verbosity, baseline }) {
-  // Path resolution — resolve first, then verify real path to defeat symlink escapes
+  // Path resolution
   const resolvedPath = resolve(skill_path);
+
+  // Path containment — check on resolved path FIRST (before existence)
+  // so that invalid external paths get rejected with the right error message.
+  const cwd = process.cwd();
+  const allowedSkillRoots = [
+    resolve(homedir(), '.openclaw', 'skills'),
+    resolve(homedir(), '.openclaw', 'workspace', 'skills'),
+  ];
+  const isAllowed = resolvedPath === cwd || resolvedPath.startsWith(cwd + sep)
+    || allowedSkillRoots.some(root => resolvedPath === root || resolvedPath.startsWith(root + sep));
+  if (!isAllowed) {
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        error: "skill_path must be within the current working directory or ~/.openclaw/skills/ (or ~/.openclaw/workspace/skills/)",
+        skill_path: resolvedPath
+      }) }]
+    };
+  }
 
   if (!existsSync(resolvedPath)) {
     return {
@@ -769,18 +802,11 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
     };
   }
 
-  // Resolve to real path (follows any remaining intermediate symlinks)
+  // Resolve to real path and re-verify containment (defeats symlink escapes)
   const realPath = realpathSync(resolvedPath);
-
-  // Path containment — only allow paths within cwd or known OpenClaw skill roots
-  const cwd = process.cwd();
-  const allowedSkillRoots = [
-    resolve(homedir(), '.openclaw', 'skills'),
-    resolve(homedir(), '.openclaw', 'workspace', 'skills'),
-  ];
-  const isAllowed = realPath === cwd || realPath.startsWith(cwd + sep)
+  const realAllowed = realPath === cwd || realPath.startsWith(cwd + sep)
     || allowedSkillRoots.some(root => realPath === root || realPath.startsWith(root + sep));
-  if (!isAllowed) {
+  if (!realAllowed) {
     return {
       content: [{ type: "text", text: JSON.stringify({
         error: "skill_path must be within the current working directory or ~/.openclaw/skills/ (or ~/.openclaw/workspace/skills/)",

@@ -2,10 +2,11 @@
 
 import { describe, it, expect, afterAll } from 'vitest';
 import { scanSkill } from '../src/tools/scan-skill.js';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, realpathSync } from 'fs';
 import { homedir } from 'os';
+import { createHash } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -17,10 +18,18 @@ function fixturePath(name) {
   return join(__dirname, 'fixtures', name);
 }
 
+// Compute baseline path using the same slug + hash scheme as scan-skill.js
+function computeBaselinePath(skillDir) {
+  const realDir = realpathSync(resolve(skillDir));
+  const slug = realDir.split(/[\\/]/).pop();
+  const pathHash = createHash('sha256').update(realDir).digest('hex').substring(0, 12);
+  return join(homedir(), '.openclaw', '.scanner-baselines', `${slug}-${pathHash}.json`);
+}
+
 // Paths to clean up after tests
 const tempDirPath = join(__dirname, 'fixtures', '_empty-temp-dir');
 const baselineDir = join(homedir(), '.openclaw', '.scanner-baselines');
-const safeSkillBaseline = join(baselineDir, 'safe-skill.json');
+const safeSkillBaseline = computeBaselinePath(fixturePath('safe-skill'));
 
 afterAll(() => {
   // Clean up temp empty directory
