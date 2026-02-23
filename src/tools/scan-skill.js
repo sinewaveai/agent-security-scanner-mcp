@@ -120,6 +120,14 @@ const SOURCE_WEIGHTS = {
 
 const SEVERITY_MULTIPLIER = { CRITICAL: 4, HIGH: 2, MEDIUM: 1 };
 
+// On Windows, paths are case-insensitive; normalize for containment checks.
+const IS_WIN = process.platform === 'win32';
+function normPath(p) { return IS_WIN ? p.toLowerCase() : p; }
+function pathStartsWith(child, parent) {
+  return normPath(child) === normPath(parent) || normPath(child).startsWith(normPath(parent) + sep);
+}
+const MAX_CLAWHAVOC_SCAN_LEN = 2 * 1024 * 1024; // 2 MB cap for regex matching
+
 // ---------------------------------------------------------------------------
 // Layer 4: ClawHavoc YAML loader (cached)
 // ---------------------------------------------------------------------------
@@ -203,17 +211,30 @@ function loadClawHavocRules() {
 
 async function runPromptScan(content) {
   try {
-    // Strip YAML frontmatter (---\n...\n---) so metadata keys don't trigger
-    // false positives in the prompt injection scanner.
+    // Strip YAML frontmatter (---\n...\n---) to reduce false positives from
+    // benign metadata keys.  However, we still scan the frontmatter VALUES
+    // separately so that malicious content hidden in metadata is not missed.
     let textToScan = content;
+    let frontmatterValues = '';
     if (textToScan.startsWith('---\n') || textToScan.startsWith('---\r\n')) {
       const endMarker = textToScan.match(/\r?\n---\s*(?:\r?\n|$)/);
       if (endMarker) {
+        const rawFrontmatter = textToScan.substring(0, endMarker.index + endMarker[0].length);
         textToScan = textToScan.substring(endMarker.index + endMarker[0].length);
+        // Extract YAML values (everything after the colon on each line)
+        for (const line of rawFrontmatter.split('\n')) {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx > 0) {
+            const val = line.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+            if (val.length > 10) frontmatterValues += val + '\n';
+          }
+        }
       }
     }
 
-    const result = await scanAgentPrompt({ prompt_text: textToScan, verbosity: 'full' });
+    // Scan body + frontmatter values together
+    const combinedText = frontmatterValues ? textToScan + '\n' + frontmatterValues : textToScan;
+    const result = await scanAgentPrompt({ prompt_text: combinedText, verbosity: 'full' });
     const parsed = JSON.parse(result.content[0].text);
 
     // Handle oversized-input or error responses from the prompt scanner
@@ -262,12 +283,13 @@ async function runPromptScan(content) {
 
 function extractCodeBlocks(content) {
   const blocks = [];
-  // Match both backtick (```) and tilde (~~~) fenced code blocks
-  const codeBlockRegex = /(?:`{3,}|~{3,})(\w*)\r?\n([\s\S]*?)(?:`{3,}|~{3,})/g;
+  // Match both backtick (```) and tilde (~~~) fenced code blocks.
+  // Uses backreference (\1) to ensure closing fence uses the same character as opening.
+  const codeBlockRegex = /(`{3,}|~{3,})(\w*)\r?\n([\s\S]*?)\1/g;
   let match;
   while ((match = codeBlockRegex.exec(content)) !== null) {
-    const lang = (match[1] || '').toLowerCase();
-    const code = match[2];
+    const lang = (match[2] || '').toLowerCase();
+    const code = match[3];
     if (code.length < 10) continue;
     blocks.push({ lang, code });
   }
@@ -445,7 +467,9 @@ function runClawHavocScan(content, codeBlocks) {
     const rules = loadClawHavocRules();
     // Concatenate all code block content for matching
     const allCode = codeBlocks.map(b => b.code).join('\n');
-    const scanText = content + '\n' + allCode;
+    // Cap total text to prevent ReDoS on pathological input
+    const raw = content + '\n' + allCode;
+    const scanText = raw.length > MAX_CLAWHAVOC_SCAN_LEN ? raw.substring(0, MAX_CLAWHAVOC_SCAN_LEN) : raw;
 
     for (const rule of rules) {
       let matched = false;
@@ -687,13 +711,9 @@ function getBaselineDir() {
 function getBaselinePath(skillDir) {
   // Use slug + hash of canonical path to avoid collisions between skills with
   // the same folder name in different locations.
-  const slug = basename(skillDir);
+  const slug = basename(skillDir).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64);
   const pathHash = createHash('sha256').update(skillDir).digest('hex').substring(0, 12);
   return join(getBaselineDir(), `${slug}-${pathHash}.json`);
-}
-
-function computeHash(content) {
-  return createHash('sha256').update(content).digest('hex');
 }
 
 function runRugPullCheck(content, skillDir, saveBaseline, collectedFiles) {
@@ -728,7 +748,12 @@ function runRugPullCheck(content, skillDir, saveBaseline, collectedFiles) {
       }, null, 2);
       const tmpFile = baselinePath + `.tmp.${process.pid}.${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       writeFileSync(tmpFile, data, { encoding: 'utf-8', mode: 0o600 });
-      renameSync(tmpFile, baselinePath);
+      try {
+        renameSync(tmpFile, baselinePath);
+      } catch (renameErr) {
+        try { unlinkSync(tmpFile); } catch { /* best effort cleanup */ }
+        throw renameErr;
+      }
       // On platforms where rename doesn't preserve mode, enforce it
       try { chmodSync(baselinePath, 0o600); } catch { /* best effort */ }
     } else if (existsSync(baselinePath)) {
@@ -834,8 +859,8 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
     resolve(homedir(), '.openclaw', 'skills'),
     resolve(homedir(), '.openclaw', 'workspace', 'skills'),
   ];
-  const isAllowed = resolvedPath === rawCwd || resolvedPath.startsWith(rawCwd + sep)
-    || allowedSkillRoots.some(root => resolvedPath === root || resolvedPath.startsWith(root + sep));
+  const isAllowed = pathStartsWith(resolvedPath, rawCwd)
+    || allowedSkillRoots.some(root => pathStartsWith(resolvedPath, root));
   if (!isAllowed) {
     return {
       content: [{ type: "text", text: JSON.stringify({
@@ -867,8 +892,11 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
   const realPath = realpathSync(resolvedPath);
   let canonCwd;
   try { canonCwd = realpathSync(rawCwd); } catch { canonCwd = rawCwd; }
-  const realAllowed = realPath === canonCwd || realPath.startsWith(canonCwd + sep)
-    || allowedSkillRoots.some(root => realPath === root || realPath.startsWith(root + sep));
+  const canonRoots = allowedSkillRoots.map(root => {
+    try { return realpathSync(root); } catch { return root; }
+  });
+  const realAllowed = pathStartsWith(realPath, canonCwd)
+    || canonRoots.some(root => pathStartsWith(realPath, root));
   if (!realAllowed) {
     return {
       content: [{ type: "text", text: JSON.stringify({
