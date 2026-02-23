@@ -3,7 +3,7 @@
 // supply chain verification, and rug pull detection.
 
 import { z } from "zod";
-import { existsSync, readFileSync, readdirSync, statSync, lstatSync, realpathSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync, lstatSync, realpathSync, writeFileSync, mkdirSync, unlinkSync, renameSync, chmodSync } from "fs";
 import { resolve, basename, dirname, extname, join, sep } from "path";
 import { createHash } from "crypto";
 import { tmpdir, homedir } from "os";
@@ -65,6 +65,7 @@ const MANIFEST_FILES = new Set([
 ]);
 
 const MAX_FILE_SIZE = 500 * 1024; // 500 KB
+const MAX_SKILL_MD_SIZE = 1024 * 1024; // 1 MB cap for SKILL.md
 const MAX_SUPPORTING_FILES = 50;
 const MAX_WALK_DEPTH = 5;
 const MAX_TOTAL_WALK_BYTES = 5 * 1024 * 1024; // 5 MB cumulative
@@ -202,7 +203,17 @@ function loadClawHavocRules() {
 
 async function runPromptScan(content) {
   try {
-    const result = await scanAgentPrompt({ prompt_text: content, verbosity: 'full' });
+    // Strip YAML frontmatter (---\n...\n---) so metadata keys don't trigger
+    // false positives in the prompt injection scanner.
+    let textToScan = content;
+    if (textToScan.startsWith('---\n') || textToScan.startsWith('---\r\n')) {
+      const endMarker = textToScan.match(/\r?\n---\s*(?:\r?\n|$)/);
+      if (endMarker) {
+        textToScan = textToScan.substring(endMarker.index + endMarker[0].length);
+      }
+    }
+
+    const result = await scanAgentPrompt({ prompt_text: textToScan, verbosity: 'full' });
     const parsed = JSON.parse(result.content[0].text);
 
     // Handle oversized-input or error responses from the prompt scanner
@@ -231,7 +242,17 @@ async function runPromptScan(content) {
     }));
   } catch (error) {
     console.error("Layer 1 (prompt scan) failed:", error.message);
-    return [];
+    // Fail-closed: a crashed prompt scanner should not silently improve the grade
+    return [{
+      category: 'prompt_scan_error',
+      severity: 'HIGH',
+      message: `Prompt scanner failed: ${error.message}`,
+      matched_text: '',
+      file: 'SKILL.md',
+      source: 'prompt_scanner',
+      rule_id: 'prompt_scanner.layer_failure',
+      confidence: 'MEDIUM',
+    }];
   }
 }
 
@@ -241,7 +262,8 @@ async function runPromptScan(content) {
 
 function extractCodeBlocks(content) {
   const blocks = [];
-  const codeBlockRegex = /```(\w*)\r?\n([\s\S]*?)```/g;
+  // Match both backtick (```) and tilde (~~~) fenced code blocks
+  const codeBlockRegex = /(?:`{3,}|~{3,})(\w*)\r?\n([\s\S]*?)(?:`{3,}|~{3,})/g;
   let match;
   while ((match = codeBlockRegex.exec(content)) !== null) {
     const lang = (match[1] || '').toLowerCase();
@@ -252,13 +274,14 @@ function extractCodeBlocks(content) {
   return blocks;
 }
 
-async function runCodeBlockScan(blocks) {
+async function runCodeBlockScan(blocks, signal) {
   const findings = [];
 
   for (const { lang, code } of blocks) {
+    if (signal && signal.aborted) break;
     try {
-      // Shell blocks -> scanAgentAction
-      if (['bash', 'sh', 'shell', 'zsh'].includes(lang)) {
+      // Shell-like blocks -> scanAgentAction
+      if (['bash', 'sh', 'shell', 'zsh', 'powershell', 'ps1', 'bat', 'cmd', 'fish'].includes(lang)) {
         const result = await scanAgentAction({
           action_type: 'bash',
           action_value: code,
@@ -366,14 +389,18 @@ function collectSupportingFiles(dir, skillFile, depth, state) {
   }
 }
 
-async function runSupportingFilesScan(skillDir, skillFile) {
+async function runSupportingFilesScan(skillDir, skillFile, preCollected, signal) {
   const findings = [];
 
   try {
-    const state = { files: [], totalBytes: 0, rootLen: skillDir.length };
-    collectSupportingFiles(skillDir, skillFile, 0, state);
+    const fileList = preCollected || (() => {
+      const state = { files: [], totalBytes: 0, rootLen: skillDir.length };
+      collectSupportingFiles(skillDir, skillFile, 0, state);
+      return state.files;
+    })();
 
-    for (const { filePath, relPath } of state.files) {
+    for (const { filePath, relPath } of fileList) {
+      if (signal && signal.aborted) break;
       try {
         const ext = extname(filePath).toLowerCase();
 
@@ -492,10 +519,23 @@ function extractPackagesFromManifest(filePath, content) {
     }
 
     if (fileName === 'cargo.toml') {
-      const depMatches = content.matchAll(/^\s*(\S+)\s*=\s*(?:"|{)/gm);
-      for (const m of depMatches) {
-        if (!['package', 'dependencies', 'dev-dependencies', 'build-dependencies', 'workspace', 'lib', 'bin', 'features', 'profile'].includes(m[1])) {
-          packages.push(m[1]);
+      // Section-aware: only extract keys under [dependencies], [dev-dependencies],
+      // [build-dependencies], or [*dependencies.*] (e.g. [target.'...'.dependencies])
+      let inDepSection = false;
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        // Detect section headers
+        const sectionMatch = trimmed.match(/^\[([^\]]+)\]/);
+        if (sectionMatch) {
+          const section = sectionMatch[1].toLowerCase();
+          inDepSection = /(?:^|\.)(?:dependencies|dev-dependencies|build-dependencies)$/.test(section);
+          continue;
+        }
+        if (!inDepSection) continue;
+        // Extract "name = ..." lines within dependency sections
+        const depMatch = trimmed.match(/^([a-zA-Z0-9_-]+)\s*=/);
+        if (depMatch) {
+          packages.push(depMatch[1]);
         }
       }
       return { ecosystem: 'crates', packages };
@@ -511,13 +551,14 @@ function extractPackagesFromManifest(filePath, content) {
   return { ecosystem: null, packages: [] };
 }
 
-async function runSupplyChainScan(codeBlocks, skillDir, skillFile) {
+async function runSupplyChainScan(codeBlocks, skillDir, skillFile, preCollected, signal) {
   const findings = [];
   const checked = new Set();
 
   try {
     // 1. Scan code blocks (existing behavior)
     for (const { lang, code } of codeBlocks) {
+      if (signal && signal.aborted) break;
       let packages = [];
       let ecosystem = null;
 
@@ -582,9 +623,13 @@ async function runSupplyChainScan(codeBlocks, skillDir, skillFile) {
     }
 
     // 2. Scan manifest / dependency files in skill directory
-    const state = { files: [], totalBytes: 0, rootLen: skillDir.length };
-    collectSupportingFiles(skillDir, skillFile, 0, state);
-    for (const { filePath } of state.files) {
+    const fileList = preCollected || (() => {
+      const state = { files: [], totalBytes: 0, rootLen: skillDir.length };
+      collectSupportingFiles(skillDir, skillFile, 0, state);
+      return state.files;
+    })();
+    for (const { filePath } of fileList) {
+      if (signal && signal.aborted) break;
       const fname = basename(filePath).toLowerCase();
       if (!MANIFEST_FILES.has(fname)) continue;
 
@@ -651,25 +696,41 @@ function computeHash(content) {
   return createHash('sha256').update(content).digest('hex');
 }
 
-function runRugPullCheck(content, skillDir, saveBaseline) {
+function runRugPullCheck(content, skillDir, saveBaseline, collectedFiles) {
   const findings = [];
-  const hash = computeHash(content);
+  // Hash SKILL.md + all supporting files so rug pull detection covers the
+  // entire skill directory, not just the readme.
+  const hasher = createHash('sha256');
+  hasher.update(content);
+  if (collectedFiles) {
+    for (const { filePath } of collectedFiles) {
+      try {
+        hasher.update(readFileSync(filePath));
+      } catch { /* skip unreadable */ }
+    }
+  }
+  const hash = hasher.digest('hex');
 
   try {
     const baselinePath = getBaselinePath(skillDir);
 
     if (saveBaseline) {
-      // Save baseline
+      // Save baseline with atomic write (temp + rename) and restrictive perms
       const baselineDir = getBaselineDir();
       if (!existsSync(baselineDir)) {
-        mkdirSync(baselineDir, { recursive: true });
+        mkdirSync(baselineDir, { recursive: true, mode: 0o700 });
       }
-      writeFileSync(baselinePath, JSON.stringify({
+      const data = JSON.stringify({
         hash,
         skill_path: skillDir,
         saved_at: new Date().toISOString(),
         content_length: content.length,
-      }, null, 2), 'utf-8');
+      }, null, 2);
+      const tmpFile = baselinePath + `.tmp.${process.pid}`;
+      writeFileSync(tmpFile, data, { encoding: 'utf-8', mode: 0o600 });
+      renameSync(tmpFile, baselinePath);
+      // On platforms where rename doesn't preserve mode, enforce it
+      try { chmodSync(baselinePath, 0o600); } catch { /* best effort */ }
     } else if (existsSync(baselinePath)) {
       // Compare against baseline
       try {
@@ -834,6 +895,19 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
     };
   }
 
+  // Enforce size cap before reading to prevent OOM on adversarial inputs
+  const skillStat = statSync(skillFile);
+  if (skillStat.size > MAX_SKILL_MD_SIZE) {
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        error: `SKILL.md exceeds size limit (${(skillStat.size / 1024 / 1024).toFixed(1)} MB > 1 MB)`,
+        skill_path: realPath,
+        grade: 'F',
+        recommendation: 'SKILL.md is abnormally large — possible resource exhaustion attack',
+      }, null, 2) }]
+    };
+  }
+
   const content = readFileSync(skillFile, 'utf-8');
   const codeBlocks = extractCodeBlocks(content);
 
@@ -841,6 +915,16 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
   // Execute layers with total timeout protection
   // L1, L2, L3, L5 run in parallel. L4 and L6 are synchronous — run after.
   // ---------------------------------------------------------------------------
+
+  // Collect supporting files once and share between L3 and L5
+  const supportingState = { files: [], totalBytes: 0, rootLen: skillDir.length };
+  collectSupportingFiles(skillDir, skillFile, 0, supportingState);
+  const collectedFiles = supportingState.files;
+
+  // AbortController allows layers to check signal.aborted between iterations
+  // so they stop starting new work after the timeout fires.
+  const abortController = new AbortController();
+  const { signal } = abortController;
 
   const scanPromise = (async () => {
     const timings = {};
@@ -862,15 +946,17 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
 
     const [promptFindings, codeBlockFindings, supportingFindings, supplyChainFindings] =
       await Promise.all([
-        timed('prompt_scan', () => runPromptScan(content)),                             // L1
-        timed('code_blocks', () => runCodeBlockScan(codeBlocks)),                       // L2
-        timed('supporting_files', () => runSupportingFilesScan(skillDir, skillFile)),    // L3
-        timed('supply_chain', () => runSupplyChainScan(codeBlocks, skillDir, skillFile)), // L5
+        timed('prompt_scan', () => runPromptScan(content)),                                                  // L1
+        timed('code_blocks', () => runCodeBlockScan(codeBlocks, signal)),                                    // L2
+        timed('supporting_files', () => runSupportingFilesScan(skillDir, skillFile, collectedFiles, signal)), // L3
+        timed('supply_chain', () => runSupplyChainScan(codeBlocks, skillDir, skillFile, collectedFiles, signal)), // L5
       ]);
+
+    if (signal.aborted) throw new Error('Scan timed out after 120s');
 
     const clawHavocFindings = timedSync('clawhavoc', () => runClawHavocScan(content, codeBlocks));  // L4
     const { findings: rugPullFindings, hash: contentHash } =
-      timedSync('rug_pull', () => runRugPullCheck(content, skillDir, !!baseline));                    // L6
+      timedSync('rug_pull', () => runRugPullCheck(content, skillDir, !!baseline, collectedFiles));    // L6
 
     timings.total = Date.now() - wallStart;
 
@@ -879,7 +965,10 @@ export async function scanSkill({ skill_path, verbosity, baseline }) {
 
   let timeoutId;
   const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('Scan timed out after 120s')), SCAN_TIMEOUT_MS);
+    timeoutId = setTimeout(() => {
+      abortController.abort();
+      reject(new Error('Scan timed out after 120s'));
+    }, SCAN_TIMEOUT_MS);
   });
 
   let layerResults;
