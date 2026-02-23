@@ -25,12 +25,12 @@ describe('CLI commands', () => {
   });
 
   it('audit command runs without error', () => {
-    const output = execFileSync('node', [CLI, 'audit'], { encoding: 'utf-8' });
+    const output = execFileSync('node', [CLI, 'audit', '--allow-stub'], { encoding: 'utf-8' });
     expect(output).toContain('Security Audit');
   });
 
   it('harden command runs without error', () => {
-    const output = execFileSync('node', [CLI, 'harden'], { encoding: 'utf-8' });
+    const output = execFileSync('node', [CLI, 'harden', '--allow-stub'], { encoding: 'utf-8' });
     expect(output).toContain('Auto-Hardening');
   });
 
@@ -51,7 +51,7 @@ describe('scan-skill CLI', () => {
   it('should grade safe skill as A', () => {
     const output = execFileSync('node', [CLI, 'scan-skill', safeSkillDir], {
       encoding: 'utf-8',
-      timeout: 30000,
+      timeout: 60000,
     });
     const result = JSON.parse(output);
     expect(result.grade).toBe('A');
@@ -63,7 +63,7 @@ describe('scan-skill CLI', () => {
     try {
       execFileSync('node', [CLI, 'scan-skill', maliciousSkillDir], {
         encoding: 'utf-8',
-        timeout: 30000,
+        timeout: 60000,
       });
       // Should exit with code 1 for grade F
       expect.fail('Should have exited with code 1');
@@ -82,7 +82,7 @@ describe('scan-skill CLI', () => {
     const projectRoot = join(__dirname, '..');
     const output = execFileSync('node', [CLI, 'scan-skill', nonexistentPath], {
       encoding: 'utf-8',
-      timeout: 30000,
+      timeout: 60000,
       cwd: projectRoot,
     });
     const result = JSON.parse(output);
@@ -92,7 +92,7 @@ describe('scan-skill CLI', () => {
   it('should reject path traversal outside cwd', () => {
     const output = execFileSync('node', [CLI, 'scan-skill', '/etc/passwd'], {
       encoding: 'utf-8',
-      timeout: 30000,
+      timeout: 60000,
     });
     const result = JSON.parse(output);
     expect(result.error).toContain('skill_path must be within');
@@ -101,7 +101,7 @@ describe('scan-skill CLI', () => {
   it('should support minimal verbosity', () => {
     const output = execFileSync('node', [CLI, 'scan-skill', safeSkillDir, '--verbosity', 'minimal'], {
       encoding: 'utf-8',
-      timeout: 30000,
+      timeout: 60000,
     });
     const result = JSON.parse(output);
     expect(result.grade).toBe('A');

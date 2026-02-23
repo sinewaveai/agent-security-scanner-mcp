@@ -256,7 +256,7 @@ async function installCodexMCP(flags, serverName) {
 
   // Check codex CLI is available (cross-platform: probe directly instead of using which/where)
   const codexCheck = spawnSync('codex', ['--version'], { encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] });
-  if (codexCheck.status !== 0 && codexCheck.error) {
+  if (codexCheck.status !== 0 || codexCheck.error) {
     console.error(`  ERROR: 'codex' CLI not found in PATH.`);
     console.error(`  Install it first: https://github.com/openai/codex\n`);
     process.exit(1);

@@ -197,7 +197,8 @@ describe('init codex — successful registration', () => {
     } catch (e) {}
 
     restore();
-    const codexCall = spawnSync.mock.calls.find(args => args[0] === 'codex');
+    // Skip the --version probe; find the 'codex mcp add' invocation
+    const codexCall = spawnSync.mock.calls.find(args => args[0] === 'codex' && args[1]?.includes('mcp'));
     expect(codexCall).toBeDefined();
     expect(codexCall[1]).toContain('mcp');
     expect(codexCall[1]).toContain('add');
@@ -212,7 +213,7 @@ describe('init codex — successful registration', () => {
     } catch (e) {}
 
     restore();
-    const codexCall = spawnSync.mock.calls.find(args => args[0] === 'codex');
+    const codexCall = spawnSync.mock.calls.find(args => args[0] === 'codex' && args[1]?.includes('mcp'));
     expect(codexCall[1]).toContain('npx');
     expect(codexCall[1]).toContain('-y');
     expect(codexCall[1]).toContain('agent-security-scanner-mcp');
@@ -238,7 +239,7 @@ describe('init codex — successful registration', () => {
     } catch (e) {}
 
     restore();
-    const codexCall = spawnSync.mock.calls.find(args => args[0] === 'codex');
+    const codexCall = spawnSync.mock.calls.find(args => args[0] === 'codex' && args[1]?.includes('mcp'));
     expect(codexCall[1]).toContain('custom-name');
   });
 });
@@ -248,8 +249,10 @@ describe('init codex — codex mcp add failure', () => {
 
   beforeEach(() => {
     exitMock = vi.spyOn(process, 'exit').mockImplementation((code) => { throw new Error(`process.exit(${code})`); });
-    spawnSync.mockImplementation((cmd) => {
+    spawnSync.mockImplementation((cmd, args) => {
       if (cmd === 'which') return { status: 0, stdout: '/usr/local/bin/codex', stderr: '' };
+      // codex --version succeeds (CLI is installed)
+      if (cmd === 'codex' && args?.[0] === '--version') return { status: 0, stdout: '1.0.0', stderr: '' };
       // codex mcp add fails
       return { status: 2, stdout: '', stderr: 'error: server already exists' };
     });
