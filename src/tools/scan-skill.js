@@ -380,8 +380,10 @@ function collectSupportingFiles(dir, skillFile, depth, state) {
     if (state.files.length >= MAX_SUPPORTING_FILES) break;
     if (state.totalBytes >= MAX_TOTAL_WALK_BYTES) break;
 
-    // Skip hidden directories, node_modules, __pycache__
-    if (entry.startsWith('.') || entry === 'node_modules' || entry === '__pycache__') continue;
+    // Skip most hidden entries, node_modules, __pycache__.
+    // Allow security-sensitive hidden files (.env*, .npmrc) through.
+    if (entry === 'node_modules' || entry === '__pycache__') continue;
+    if (entry.startsWith('.') && !entry.startsWith('.env') && entry !== '.npmrc' && entry !== '.github') continue;
 
     const filePath = join(dir, entry);
     let lst;
@@ -402,7 +404,10 @@ function collectSupportingFiles(dir, skillFile, depth, state) {
     if (resolve(filePath) === resolve(skillFile)) continue;
 
     const ext = extname(entry).toLowerCase();
-    if (!CODE_FILE_EXTENSIONS.has(ext) && !MANIFEST_FILES.has(entry.toLowerCase())) continue;
+    const lowerEntry = entry.toLowerCase();
+    // Accept code files, manifest files, and security-sensitive dotfiles
+    const isSecurityDotfile = lowerEntry.startsWith('.env') || lowerEntry === '.npmrc';
+    if (!CODE_FILE_EXTENSIONS.has(ext) && !MANIFEST_FILES.has(lowerEntry) && !isSecurityDotfile) continue;
 
     state.totalBytes += lst.size;
     // Relative path from skillDir for the file field
@@ -565,9 +570,11 @@ function extractPackagesFromManifest(filePath, content) {
       return { ecosystem: 'crates', packages };
     }
 
-    // go.mod: parsed for informational purposes but Go is not yet supported
-    // by the hallucination bloom filter — skip to avoid false positives.
-    // if (fileName === 'go.mod') { ... }
+    // go.mod: Go ecosystem not yet supported by the hallucination bloom filter.
+    // Return a sentinel so callers can surface an informational finding.
+    if (fileName === 'go.mod') {
+      return { ecosystem: 'go', packages: [], unsupported: true };
+    }
   } catch {
     // Parse failed — return empty
   }
@@ -659,8 +666,27 @@ async function runSupplyChainScan(codeBlocks, skillDir, skillFile, preCollected,
 
       try {
         const content = readFileSync(filePath, 'utf-8');
-        const { ecosystem, packages } = extractPackagesFromManifest(filePath, content);
-        if (!ecosystem || packages.length === 0) continue;
+        const manifest = extractPackagesFromManifest(filePath, content);
+        const { ecosystem, packages } = manifest;
+        if (!ecosystem) continue;
+
+        // Surface unsupported ecosystems as informational finding
+        if (manifest.unsupported) {
+          const relPath = filePath.substring(skillDir.length).replace(/\\/g, '/').replace(/^\//, '');
+          findings.push({
+            category: 'unsupported_ecosystem',
+            severity: 'MEDIUM',
+            message: `${fname} found but "${ecosystem}" ecosystem is not yet supported for supply-chain verification`,
+            matched_text: fname,
+            file: relPath,
+            source: 'supply_chain',
+            rule_id: `supply_chain.unsupported.${ecosystem}`,
+            confidence: 'HIGH',
+          });
+          continue;
+        }
+
+        if (packages.length === 0) continue;
 
         for (let pkg of packages) {
           if (ecosystem === 'npm' && NODE_BUILTINS.has(pkg)) continue;
@@ -718,13 +744,17 @@ function getBaselinePath(skillDir) {
 
 function runRugPullCheck(content, skillDir, saveBaseline, collectedFiles) {
   const findings = [];
-  // Hash SKILL.md + all supporting files so rug pull detection covers the
-  // entire skill directory, not just the readme.
+  // Hash SKILL.md + all supporting files with path boundaries and sorted
+  // order so the hash is canonical and structural changes are detected.
   const hasher = createHash('sha256');
+  hasher.update('SKILL.md\0');
   hasher.update(content);
   if (collectedFiles) {
-    for (const { filePath } of collectedFiles) {
+    // Sort by relative path for deterministic ordering (readdirSync order is OS-dependent)
+    const sorted = [...collectedFiles].sort((a, b) => a.relPath.localeCompare(b.relPath));
+    for (const { filePath, relPath } of sorted) {
       try {
+        hasher.update('\0' + relPath + '\0');
         hasher.update(readFileSync(filePath));
       } catch { /* skip unreadable */ }
     }

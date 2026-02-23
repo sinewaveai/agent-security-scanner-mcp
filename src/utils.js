@@ -1,4 +1,4 @@
-import { execFileSync } from "child_process";
+import { execFileSync, execFile } from "child_process";
 import { createHash } from "crypto";
 import { readFileSync, existsSync } from "fs";
 import { dirname, join, extname, basename } from "path";
@@ -98,8 +98,8 @@ export function runAnalyzer(filePath, engine = 'auto') {
   }
 }
 
-// Async analyzer — tries daemon first, falls back to sync execFileSync.
-// Accepts an optional AbortSignal to cancel in-flight work.
+// Async analyzer — tries daemon first, falls back to async execFile.
+// Accepts an optional AbortSignal to truly cancel in-flight work (kills child process).
 export async function runAnalyzerAsync(filePath, engine = 'auto', signal) {
   if (signal && signal.aborted) throw new DOMException('Analysis aborted', 'AbortError');
   try {
@@ -121,10 +121,48 @@ export async function runAnalyzerAsync(filePath, engine = 'auto', signal) {
     }
   } catch (err) {
     if (err.name === 'AbortError') throw err;
-    // Daemon failed — fall through to sync
+    // Daemon failed — fall through to async execFile
   }
   if (signal && signal.aborted) throw new DOMException('Analysis aborted', 'AbortError');
-  return runAnalyzer(filePath, engine);
+
+  // Async fallback with true cancellation — kill child process on abort
+  return new Promise((resolve, reject) => {
+    const analyzerPath = join(__dirname, '..', 'analyzer.py');
+    const pyCmd = resolvePythonCommand();
+    const args = [...pythonArgs(), analyzerPath, filePath];
+    if (engine !== 'auto') args.push('--engine', engine);
+
+    const child = execFile(pyCmd, args, { encoding: 'utf-8', timeout: 45000 }, (error, stdout) => {
+      if (error) {
+        if (error.killed || error.signal) {
+          reject(new DOMException('Analysis aborted', 'AbortError'));
+        } else {
+          resolve({ error: error.message });
+        }
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout));
+      } catch {
+        resolve({ error: 'Failed to parse analyzer output' });
+      }
+    });
+
+    if (signal) {
+      const onAbort = () => {
+        child.kill();
+        reject(new DOMException('Analysis aborted', 'AbortError'));
+      };
+      if (signal.aborted) {
+        child.kill();
+        reject(new DOMException('Analysis aborted', 'AbortError'));
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+      // Clean up listener when child completes normally
+      child.on('exit', () => signal.removeEventListener('abort', onAbort));
+    }
+  });
 }
 
 // Async cross-file analyzer — tries daemon first, falls back to sync
