@@ -312,7 +312,7 @@ async function runCodeBlockScan(blocks, signal) {
 
       try {
         writeFileSync(tmpPath, code, 'utf-8');
-        const issues = await runAnalyzerAsync(tmpPath);
+        const issues = await runAnalyzerAsync(tmpPath, 'auto', signal);
         if (Array.isArray(issues)) {
           for (const issue of issues) {
             findings.push({
@@ -407,7 +407,7 @@ async function runSupportingFilesScan(skillDir, skillFile, preCollected, signal)
         // Manifest / dependency files are handled by supply-chain layer — skip code analysis
         if (MANIFEST_FILES.has(basename(filePath).toLowerCase())) continue;
 
-        const issues = await runAnalyzerAsync(filePath);
+        const issues = await runAnalyzerAsync(filePath, 'auto', signal);
         if (Array.isArray(issues)) {
           for (const issue of issues) {
             findings.push({
@@ -726,7 +726,7 @@ function runRugPullCheck(content, skillDir, saveBaseline, collectedFiles) {
         saved_at: new Date().toISOString(),
         content_length: content.length,
       }, null, 2);
-      const tmpFile = baselinePath + `.tmp.${process.pid}`;
+      const tmpFile = baselinePath + `.tmp.${process.pid}.${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       writeFileSync(tmpFile, data, { encoding: 'utf-8', mode: 0o600 });
       renameSync(tmpFile, baselinePath);
       // On platforms where rename doesn't preserve mode, enforce it

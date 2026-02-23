@@ -98,16 +98,32 @@ export function runAnalyzer(filePath, engine = 'auto') {
   }
 }
 
-// Async analyzer — tries daemon first, falls back to sync execFileSync
-export async function runAnalyzerAsync(filePath, engine = 'auto') {
+// Async analyzer — tries daemon first, falls back to sync execFileSync.
+// Accepts an optional AbortSignal to cancel in-flight work.
+export async function runAnalyzerAsync(filePath, engine = 'auto', signal) {
+  if (signal && signal.aborted) throw new DOMException('Analysis aborted', 'AbortError');
   try {
     const client = getDaemonClient();
     if (client.isAvailable) {
-      return await client.analyze(filePath, engine);
+      const analyzePromise = client.analyze(filePath, engine);
+      if (signal) {
+        return await Promise.race([
+          analyzePromise,
+          new Promise((_, reject) => {
+            signal.addEventListener('abort', () =>
+              reject(new DOMException('Analysis aborted', 'AbortError')),
+              { once: true }
+            );
+          }),
+        ]);
+      }
+      return await analyzePromise;
     }
-  } catch {
+  } catch (err) {
+    if (err.name === 'AbortError') throw err;
     // Daemon failed — fall through to sync
   }
+  if (signal && signal.aborted) throw new DOMException('Analysis aborted', 'AbortError');
   return runAnalyzer(filePath, engine);
 }
 
