@@ -304,8 +304,16 @@ export function scanWithRegex(fileContent, language) {
           continue;
         }
 
+        // Strip Python-style inline (?i) flag — JS doesn't support it
+        let effectivePattern = patternStr;
+        let flags = 'gm';
+        if (effectivePattern.startsWith('(?i)')) {
+          effectivePattern = effectivePattern.slice(4);
+          flags = 'gmi';
+        }
+
         // Standard regex matching for simpler patterns
-        const regex = new RegExp(patternStr, 'gm');
+        const regex = new RegExp(effectivePattern, flags);
         let match;
         let iterations = 0;
         const maxIterations = 100;  // Lower limit to prevent runaway matches
@@ -371,7 +379,8 @@ export async function analyzeFile(filePath, engine = 'regex') {
       'cs': 'csharp', 'rs': 'rust', 'c': 'c', 'cpp': 'cpp',
       'cc': 'cpp', 'cxx': 'cpp', 'h': 'c', 'hpp': 'cpp',
       'yaml': 'generic', 'yml': 'generic', 'txt': 'generic',
-      'md': 'generic', 'sql': 'sql'
+      'md': 'generic', 'sql': 'sql',
+      'tf': 'terraform', 'hcl': 'terraform'
     };
 
     // Check basename for Docker files

@@ -6,9 +6,10 @@
 
 [![npm](https://img.shields.io/npm/v/@prooflayer/scanner-lite)](https://www.npmjs.com/package/@prooflayer/scanner-lite)
 [![license](https://img.shields.io/npm/l/@prooflayer/scanner-lite)](./LICENSE)
-[![tests](https://img.shields.io/badge/tests-158%20passing-brightgreen)]()
+[![tests](https://img.shields.io/badge/tests-311%20passing-brightgreen)]()
+[![OWASP](https://img.shields.io/badge/OWASP-Agentic%20Top%2010-blue)]()
 
-400+ YAML rules | 7 MCP tools | 13 languages | MIT licensed | Fully offline
+418 YAML rules | 8 MCP tools | 13 languages | OWASP Agentic Top 10 | MIT licensed | Fully offline
 
 </div>
 
@@ -19,10 +20,11 @@
 | Feature | scanner-lite | AgentAudit-MCP |
 |---------|-------------|----------------|
 | License | **MIT** | AGPL-3.0 |
-| Detection rules | **400+ YAML + 41 JS** | 12 regex |
+| Detection rules | **418 YAML + 33 JS** | 12 regex |
+| OWASP Agentic Top 10 | **ASI-01 through ASI-10** | None |
 | Deep analysis | Deterministic + optional LLM | LLM-only |
 | Offline capable | **Yes** | No (registry lookups) |
-| Test coverage | **7 files, 158 assertions** | 1 file, ~30 assertions |
+| Test coverage | **8 files, 311 assertions** | 1 file, ~30 assertions |
 | Privacy | LLM opt-in with consent | Sends code by default |
 | Architecture | **Clean modular src/** | Monolithic 88KB cli.mjs |
 | Package detection | Typosquat + bloom filters (4.3M+) | None |
@@ -57,6 +59,10 @@ Add to your MCP client config (Claude Desktop, Cursor, Windsurf, etc.):
 # Scan a file or directory
 npx @prooflayer/scanner-lite scan ./src
 
+# Inspect a live MCP server for tool poisoning
+npx @prooflayer/scanner-lite inspect -- node server.js
+npx @prooflayer/scanner-lite inspect --json -- npx -y @modelcontextprotocol/server-filesystem /tmp
+
 # Check if a package is hallucinated
 npx @prooflayer/scanner-lite check-package rekat
 
@@ -70,6 +76,16 @@ npx @prooflayer/scanner-lite audit server.js --provider anthropic --yes
 npx @prooflayer/scanner-lite download-data
 ```
 
+### As GitHub Action
+
+```yaml
+- uses: sinewaveai/agent-security-scanner-mcp/scanner-lite@main
+  with:
+    path: ./src
+    format: text    # or json, sarif
+    fail-on: 'true' # exit 1 on findings
+```
+
 ## MCP Tools
 
 | Tool | Description |
@@ -81,6 +97,24 @@ npx @prooflayer/scanner-lite download-data
 | `scan_packages` | Bulk import scanning across 7 ecosystems |
 | `fix_security` | Auto-fix generation with 165 fix templates |
 | `deep_audit` | Optional LLM deep security audit (5 providers) |
+| `inspect_mcp_server` | Live MCP server inspection — connect via stdio, scan tool definitions for poisoning |
+
+## OWASP Agentic Security Top 10
+
+All 418 rules are tagged with OWASP Agentic Security Initiative categories:
+
+| Category | Description | Rules |
+|----------|-------------|-------|
+| ASI-01 | Goal Hijacking & Prompt Injection | ~80 |
+| ASI-02 | Tool Misuse & Unsafe Execution | ~60 |
+| ASI-03 | Identity & Privilege Escalation | ~30 |
+| ASI-04 | Supply Chain & Dependency Risks | ~15 |
+| ASI-05 | Arbitrary Code Execution | ~50 |
+| ASI-06 | Memory Poisoning (vector stores, RAG) | 4 |
+| ASI-07 | Inter-Agent Communication | 3 |
+| ASI-08 | Cascading Failures (loops, timeouts) | 4 |
+| ASI-09 | Trust Exploitation (auto-approve) | 3 |
+| ASI-10 | Rogue Agents (kill switch, spawning) | 4 |
 
 ## Supported Languages
 
@@ -91,6 +125,7 @@ JavaScript, TypeScript, Python, Go, Java, PHP, Ruby, C/C++, Rust, Dockerfile, Te
 ```
 COMMANDS:
   scan <path>              Scan file or directory for vulnerabilities
+  inspect -- <cmd> [args]  Inspect a live MCP server for tool poisoning
   audit <path>             LLM deep security audit (requires API key)
   check-package <name>     Check if a package is hallucinated
   prompt <text>            Scan text for prompt injection
@@ -102,6 +137,7 @@ FLAGS:
   --quiet                Suppress non-essential output
   --no-color             Disable ANSI colors
   --verbose              Show full details
+  --timeout <ms>         Inspection timeout (default: 10000)
   --provider <p>         LLM provider: anthropic, openai, gemini, ollama, openrouter
   --model <m>            LLM model name
   --ecosystem <e>        Package ecosystem (default: npm)
@@ -158,7 +194,7 @@ Only 2 runtime dependencies:
 ```bash
 cd scanner-lite
 npm install
-npm test          # Run 158 tests across 7 files
+npm test          # Run 311 tests across 8 files
 ```
 
 ## License

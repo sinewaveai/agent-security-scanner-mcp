@@ -91,6 +91,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.shell-exec-no-validation',
     severity: 'ERROR',
     category: 'overly-broad-permissions',
+    asi: 'ASI-02,ASI-05',
     message: 'Shell command execution without input validation. User-controlled input may reach exec/execSync, enabling arbitrary command execution.',
     pattern: /\b(exec|execSync)\s*\(\s*(`[^`]*\$\{|['"][^'"]*['"]\s*\+|[a-zA-Z_$][\w$]*(\s*\+|\s*,\s*\{[^}]*shell\s*:\s*true))/g,
     fileTypes: ['.js', '.ts']
@@ -99,6 +100,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.shell-exec-direct',
     severity: 'ERROR',
     category: 'overly-broad-permissions',
+    asi: 'ASI-02,ASI-05',
     message: 'Direct use of exec/execSync with potential string concatenation. Prefer execFile/execFileSync with explicit argument arrays and shell:false.',
     pattern: /\bchild_process\b.*\b(exec|execSync)\b|\b(exec|execSync)\s*\(/g,
     fileTypes: ['.js', '.ts']
@@ -107,6 +109,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.spawn-shell-true',
     severity: 'ERROR',
     category: 'overly-broad-permissions',
+    asi: 'ASI-02,ASI-05',
     message: 'spawn/spawnSync called with shell:true, allowing shell injection. Use shell:false and pass arguments as an array.',
     pattern: /\b(spawn|spawnSync)\s*\([^)]*\{[^}]*shell\s*:\s*true/g,
     fileTypes: ['.js', '.ts']
@@ -115,6 +118,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.subprocess-shell',
     severity: 'ERROR',
     category: 'overly-broad-permissions',
+    asi: 'ASI-02,ASI-05',
     message: 'subprocess called with shell=True, allowing shell injection. Use shell=False with a command list.',
     pattern: /subprocess\.(run|call|Popen|check_output|check_call)\s*\([^)]*shell\s*=\s*True/g,
     fileTypes: ['.py']
@@ -123,6 +127,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.os-system',
     severity: 'ERROR',
     category: 'overly-broad-permissions',
+    asi: 'ASI-02,ASI-05',
     message: 'os.system() executes commands through the shell. Use subprocess with shell=False instead.',
     pattern: /\bos\.system\s*\(/g,
     fileTypes: ['.py']
@@ -131,6 +136,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.fs-write-no-path-validation',
     severity: 'WARNING',
     category: 'overly-broad-permissions',
+    asi: 'ASI-02',
     message: 'Filesystem write operation without visible path validation. Ensure paths are validated with path.resolve and confined to an allowed directory.',
     pattern: /\b(writeFileSync|writeFile|createWriteStream|appendFileSync|appendFile)\s*\(\s*[a-zA-Z_$][\w$.]*(?!\s*(?:path\.resolve|path\.join|path\.normalize))/g,
     fileTypes: ['.js', '.ts']
@@ -139,6 +145,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.http-request-user-url',
     severity: 'WARNING',
     category: 'overly-broad-permissions',
+    asi: 'ASI-02',
     message: 'HTTP request to a potentially user-controlled URL. Validate and allowlist target URLs to prevent SSRF.',
     pattern: /\b(fetch|axios\.(get|post|put|delete|request)|http\.request|https\.request|got|request)\s*\(\s*[a-zA-Z_$][\w$.]*(?!\s*['"`])/g,
     fileTypes: ['.js', '.ts']
@@ -147,6 +154,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.env-var-exposure',
     severity: 'WARNING',
     category: 'overly-broad-permissions',
+    asi: 'ASI-03',
     message: 'Environment variables accessed and potentially exposed in tool output. Ensure secrets are not leaked through MCP responses.',
     pattern: /process\.env\b/g,
     fileTypes: ['.js', '.ts']
@@ -155,6 +163,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.env-var-exposure-python',
     severity: 'WARNING',
     category: 'overly-broad-permissions',
+    asi: 'ASI-03',
     message: 'Environment variables accessed and potentially exposed in tool output. Ensure secrets are not leaked through MCP responses.',
     pattern: /os\.environ\b|os\.getenv\s*\(/g,
     fileTypes: ['.py']
@@ -165,6 +174,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.no-input-validation',
     severity: 'WARNING',
     category: 'missing-input-validation',
+    asi: 'ASI-02',
     message: 'Tool handler accepts string input without visible validation or sanitization. Use zod, joi, or manual validation to constrain inputs.',
     // Matches tool handler patterns that take params but don't appear to validate
     pattern: /\.tool\s*\(\s*["'][^"']+["']\s*,\s*["'][^"']*["']\s*,\s*\{[^}]*\}\s*,\s*(async\s+)?\(\s*\{/g,
@@ -180,6 +190,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.path-no-normalize',
     severity: 'WARNING',
     category: 'missing-input-validation',
+    asi: 'ASI-02',
     message: 'File path used without normalization. Use path.resolve() or path.normalize() to prevent path traversal attacks.',
     pattern: /\b(readFileSync|readFile|existsSync|statSync|stat|unlink|unlinkSync|rmdir|rmdirSync|mkdir|mkdirSync)\s*\(\s*[a-zA-Z_$][\w$.]*(?!\s*(?:path\.|resolve|normalize))/g,
     fileTypes: ['.js', '.ts'],
@@ -194,6 +205,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.url-no-validation',
     severity: 'WARNING',
     category: 'missing-input-validation',
+    asi: 'ASI-02',
     message: 'URL used without validation. Validate URL scheme and host to prevent SSRF and open redirect vulnerabilities.',
     pattern: /new\s+URL\s*\(\s*[a-zA-Z_$][\w$.]*\s*\)|url\.parse\s*\(\s*[a-zA-Z_$][\w$.]*\s*\)/g,
     fileTypes: ['.js', '.ts'],
@@ -209,6 +221,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.exfiltration-external-request',
     severity: 'ERROR',
     category: 'data-exfiltration',
+    asi: 'ASI-01',
     message: 'Data sent to an external URL. MCP servers should not exfiltrate data to third-party endpoints without explicit user consent.',
     pattern: /\b(fetch|axios\.(post|put|patch)|http\.request|https\.request)\s*\(\s*['"`](https?:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|::1)[^'"` ]+)['"`]/g,
     fileTypes: ['.js', '.ts']
@@ -217,6 +230,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.exfiltration-external-request-python',
     severity: 'ERROR',
     category: 'data-exfiltration',
+    asi: 'ASI-01',
     message: 'Data sent to an external URL. MCP servers should not exfiltrate data to third-party endpoints without explicit user consent.',
     pattern: /\b(requests\.(post|put|patch)|urllib\.request\.urlopen|httpx\.(post|put|patch))\s*\(\s*['"`](https?:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|::1)[^'"` ]+)['"`]/g,
     fileTypes: ['.py']
@@ -225,6 +239,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.exfiltration-network-socket',
     severity: 'WARNING',
     category: 'data-exfiltration',
+    asi: 'ASI-01',
     message: 'Network socket created. Verify this is not used to exfiltrate data to external hosts.',
     pattern: /\bnet\.(createConnection|connect|Socket)\s*\(|new\s+WebSocket\s*\(/g,
     fileTypes: ['.js', '.ts']
@@ -233,6 +248,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.exfiltration-log-secrets',
     severity: 'WARNING',
     category: 'data-exfiltration',
+    asi: 'ASI-03',
     message: 'Potentially sensitive data (keys, tokens, passwords) logged or printed. This may leak secrets through MCP server stderr.',
     pattern: /\b(console\.(log|error|warn|info)|print|logging\.(info|warning|error|debug))\s*\([^)]*\b(key|token|password|secret|credential|api_key|apiKey|auth|bearer)\b/gi,
     fileTypes: ['.js', '.ts', '.py']
@@ -243,6 +259,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.eval-usage',
     severity: 'ERROR',
     category: 'insecure-patterns',
+    asi: 'ASI-05',
     message: 'eval() executes arbitrary code. Never use eval with user-controlled input in an MCP server.',
     pattern: /\beval\s*\(/g,
     fileTypes: ['.js', '.ts', '.py']
@@ -251,6 +268,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.function-constructor',
     severity: 'ERROR',
     category: 'insecure-patterns',
+    asi: 'ASI-05',
     message: 'new Function() is equivalent to eval(). Avoid constructing functions from strings.',
     pattern: /new\s+Function\s*\(/g,
     fileTypes: ['.js', '.ts']
@@ -259,6 +277,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.exec-string-concat',
     severity: 'ERROR',
     category: 'insecure-patterns',
+    asi: 'ASI-02,ASI-05',
     message: 'child_process.exec() with string concatenation is vulnerable to command injection. Use execFile() with argument arrays.',
     pattern: /\bexec\s*\(\s*['"`][^'"`]*['"`]\s*\+/g,
     fileTypes: ['.js', '.ts']
@@ -267,6 +286,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.cors-wildcard',
     severity: 'WARNING',
     category: 'insecure-patterns',
+    asi: 'ASI-03',
     message: 'CORS configured with wildcard origin (*). This allows any website to interact with the MCP server.',
     pattern: /cors\s*\(\s*\{[^}]*origin\s*:\s*['"]\*['"]/g,
     fileTypes: ['.js', '.ts']
@@ -275,6 +295,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.cors-permissive',
     severity: 'INFO',
     category: 'insecure-patterns',
+    asi: 'ASI-03',
     message: 'CORS enabled. Verify the origin configuration is appropriately restrictive.',
     pattern: /\bcors\s*\(\s*\)/g,
     fileTypes: ['.js', '.ts']
@@ -283,6 +304,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.no-auth-check',
     severity: 'INFO',
     category: 'insecure-patterns',
+    asi: 'ASI-03',
     message: 'No authentication or authorization checks detected. If this MCP server is network-accessible, add authentication.',
     pattern: /\b(createServer|listen)\s*\(/g,
     fileTypes: ['.js', '.ts'],
@@ -296,6 +318,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.pickle-load',
     severity: 'ERROR',
     category: 'insecure-patterns',
+    asi: 'ASI-05',
     message: 'pickle.load/loads deserializes arbitrary Python objects. This can execute arbitrary code if the input is attacker-controlled.',
     pattern: /\bpickle\.(load|loads)\s*\(/g,
     fileTypes: ['.py']
@@ -304,6 +327,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.yaml-unsafe-load',
     severity: 'ERROR',
     category: 'insecure-patterns',
+    asi: 'ASI-05',
     message: 'yaml.load() without SafeLoader can execute arbitrary Python. Use yaml.safe_load() instead.',
     pattern: /\byaml\.load\s*\([^)]*(?!Loader\s*=\s*yaml\.SafeLoader)/g,
     fileTypes: ['.py']
@@ -314,6 +338,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.unicode-zero-width',
     severity: 'ERROR',
     category: 'unicode-poisoning',
+    asi: 'ASI-01',
     message: 'Zero-width or invisible Unicode character detected in source. This is a common technique to hide injected instructions in tool descriptions.',
     // U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ, U+FEFF BOM, U+2060 WORD JOINER
     pattern: /[\u200B\u200C\u200D\uFEFF\u2060]/g,
@@ -323,6 +348,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.unicode-bidi-override',
     severity: 'ERROR',
     category: 'unicode-poisoning',
+    asi: 'ASI-01',
     message: 'Bidirectional text override character detected. Attackers use these to make malicious code appear differently in editors vs. execution.',
     // U+202A-202E, U+2066-2069, U+200E, U+200F, U+061C
     pattern: /[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/g,
@@ -332,6 +358,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.unicode-homoglyph',
     severity: 'WARNING',
     category: 'unicode-poisoning',
+    asi: 'ASI-01',
     message: 'Cyrillic character found adjacent to ASCII characters. This is a common homoglyph substitution pattern — Cyrillic letters (а, е, о, р, с) are visually identical to ASCII equivalents and used in tool name spoofing attacks.',
     // Cyrillic block (U+0400-U+04FF) adjacent to ASCII — catches common confusables (а/a, е/e, о/o, р/p, с/c)
     pattern: /[a-zA-Z][\u0400-\u04FF]|[\u0400-\u04FF][a-zA-Z]/g,
@@ -343,6 +370,7 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.description-injection',
     severity: 'ERROR',
     category: 'description-injection',
+    asi: 'ASI-01',
     message: 'Tool description contains imperative language directed at the LLM. This pattern is used in tool poisoning attacks to inject hidden instructions.',
     // Matches server.tool() calls where the description string contains injection phrases
     pattern: /server\.tool\s*\(\s*["'`][^"'`]*["'`]\s*,\s*["'`][^"'`]*(ignore\s+previous|exfiltrat|override\s+.*instruction|do\s+not\s+tell|hidden\s+instruction|bypass\s+.*filter|disregard\s+|extract\s+.*credential)[^"'`]*["'`]/gi,
@@ -354,11 +382,48 @@ const MCP_SECURITY_RULES = [
     id: 'mcp.tool-name-spoofing',
     severity: 'ERROR',
     category: 'tool-name-spoofing',
+    asi: 'ASI-01',
     message: 'Tool name is suspiciously similar to a well-known MCP tool. This may be a name spoofing attack.',
     // Extracts the tool name (1st arg to server.tool) for Levenshtein comparison
     pattern: /server\.tool\s*\(\s*["'`]([a-zA-Z_$][\w$]*)["'`]/g,
     fileTypes: ['.js', '.ts'],
     isSpoofingRule: true
+  },
+
+  // ---- Category 8: ASI-09 Trust exploitation (MCP-specific) ----
+  {
+    id: 'mcp.auto-approve-config',
+    severity: 'ERROR',
+    category: 'trust-exploitation',
+    asi: 'ASI-09',
+    message: 'MCP server configured with auto-approve. All tool invocations should require user confirmation.',
+    pattern: /(?:auto_?approve|autoConfirm|skip_?confirm|require_?approval\s*:\s*false)\b/gi,
+    fileTypes: ['.js', '.ts', '.py']
+  },
+
+  // ---- Category 9: ASI-10 Rogue agent patterns (MCP-specific) ----
+  {
+    id: 'mcp.unrestricted-tool-registration',
+    severity: 'WARNING',
+    category: 'rogue-agents',
+    asi: 'ASI-10',
+    message: 'Dynamic tool registration from external input. Verify tool definitions are from trusted sources to prevent rogue tool injection.',
+    pattern: /server\.tool\s*\(\s*[a-zA-Z_$][\w$.]*\s*,/g,
+    fileTypes: ['.js', '.ts'],
+    contextCheck: (line) => {
+      // Flag when tool name is a variable (dynamic), not a string literal
+      return /server\.tool\s*\(\s*[a-zA-Z_$][\w$.]*\s*,/.test(line) &&
+             !/server\.tool\s*\(\s*["'`]/.test(line);
+    }
+  },
+  {
+    id: 'mcp.self-modifying-tools',
+    severity: 'ERROR',
+    category: 'rogue-agents',
+    asi: 'ASI-10',
+    message: 'MCP server modifies its own tool definitions at runtime. Self-modifying servers can become rogue.',
+    pattern: /server\._tools|server\.tools\s*\[|tools\.delete\s*\(|tools\.set\s*\(/g,
+    fileTypes: ['.js', '.ts']
   }
 ];
 

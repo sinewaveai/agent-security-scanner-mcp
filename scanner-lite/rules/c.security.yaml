@@ -10,6 +10,7 @@ rules:
     patterns:
       - "\\bstrcpy\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-120"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: HIGH
@@ -24,6 +25,7 @@ rules:
     patterns:
       - "\\bstrcat\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-120"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: HIGH
@@ -37,6 +39,7 @@ rules:
     patterns:
       - "\\bgets\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-242"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: HIGH
@@ -51,6 +54,7 @@ rules:
     patterns:
       - "\\bsprintf\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-120"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: HIGH
@@ -65,6 +69,7 @@ rules:
     patterns:
       - "\\bvsprintf\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-120"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: HIGH
@@ -84,6 +89,7 @@ rules:
       - "fprintf\\s*\\([^,]*,\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\)"
       - "sprintf\\s*\\([^,]*,\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-134"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -98,6 +104,7 @@ rules:
     patterns:
       - "syslog\\s*\\([^,]*,\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-134"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -115,6 +122,7 @@ rules:
     patterns:
       - "free\\s*\\([^)]+\\)\\s*;(?!\\s*\\w+\\s*=\\s*NULL)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-416"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: MEDIUM
@@ -129,6 +137,7 @@ rules:
     patterns:
       - "free\\s*\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\)[^}]*free\\s*\\(\\s*\\1\\s*\\)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-415"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: MEDIUM
@@ -144,6 +153,7 @@ rules:
       - "\\*\\s*\\([^)]*malloc\\s*\\("
       - "malloc\\s*\\([^)]*\\)\\s*;[^}]*\\*"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-476"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: LOW
@@ -163,6 +173,7 @@ rules:
       - "calloc\\s*\\([^)]*\\*[^)]*\\)"
       - "realloc\\s*\\([^,]*,[^)]*\\*[^)]*\\)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-190"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: MEDIUM
@@ -182,6 +193,7 @@ rules:
       - "fscanf\\s*\\([^)]*%s"
       - "sscanf\\s*\\([^)]*%s"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-120"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: MEDIUM
@@ -196,6 +208,7 @@ rules:
     patterns:
       - "\\bstrtok\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-362"
       owasp: "A04:2021 - Insecure Design"
       confidence: MEDIUM
@@ -214,6 +227,7 @@ rules:
     patterns:
       - "\\bsystem\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -227,6 +241,7 @@ rules:
     patterns:
       - "\\bpopen\\s*\\("
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -245,6 +260,7 @@ rules:
       - "\\brand\\s*\\("
       - "\\bsrand\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-330"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: MEDIUM
@@ -261,6 +277,7 @@ rules:
       - "MD5_Final\\s*\\("
       - "MD5\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -277,6 +294,7 @@ rules:
       - "SHA1_Final\\s*\\("
       - "SHA1\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -293,6 +311,7 @@ rules:
       - "DES_cbc_encrypt\\s*\\("
       - "EVP_des_"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-327"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -308,6 +327,7 @@ rules:
       - "AES_ecb_encrypt\\s*\\("
       - "_ecb\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-327"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -327,6 +347,7 @@ rules:
       - "memset\\s*\\([^,]*secret"
       - "memset\\s*\\([^,]*key"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-14"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: MEDIUM
@@ -346,6 +367,7 @@ rules:
       - "fopen\\s*\\([^)]+\\)\\s*;(?![^}]*fclose)"
       - "open\\s*\\([^)]+\\)\\s*;(?![^}]*close)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-775"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: LOW
@@ -367,6 +389,7 @@ rules:
       - "secret\\s*=\\s*\"[^\"]{4,}\""
       - "api_key\\s*=\\s*\"[^\"]{20,}\""
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -384,6 +407,7 @@ rules:
     patterns:
       - "new\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\[[^\\]]+\\][^}]*delete\\s+[^\\[]"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-762"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: MEDIUM
@@ -398,6 +422,7 @@ rules:
     patterns:
       - "reinterpret_cast\\s*<"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-704"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: LOW
@@ -414,6 +439,7 @@ rules:
       - "\\bread\\s*\\([^)]+\\)\\s*;"
       - "\\bwrite\\s*\\([^)]+\\)\\s*;"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-252"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: LOW
@@ -433,6 +459,7 @@ rules:
       - "fopen\\s*\\([^)]*\\.\\."
       - "open\\s*\\([^)]*\\.\\."
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-22"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -452,6 +479,7 @@ rules:
       - "\\btmpnam\\s*\\("
       - "\\btempnam\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-377"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH

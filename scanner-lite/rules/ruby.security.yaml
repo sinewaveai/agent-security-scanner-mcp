@@ -12,6 +12,7 @@ rules:
       - "\\.where\\s*\\([^)]*\\+\\s*params"
       - "\\.find_by_sql\\s*\\(\\s*[\"'][^\"']*#\\{"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -28,6 +29,7 @@ rules:
       - "\\.order\\s*\\(\\s*[\"'][^\"']*#\\{.*params"
       - "\\.reorder\\s*\\(\\s*params"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -43,6 +45,7 @@ rules:
       - "select_all\\s*\\(\\s*[\"'][^\"']*#\\{"
       - "connection\\.execute\\s*\\(\\s*[\"'][^\"']*#\\{"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -63,6 +66,7 @@ rules:
       - "`[^`]*#\\{.*params"
       - "exec\\s*\\(\\s*[\"'][^\"']*#\\{"
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -78,6 +82,7 @@ rules:
       - "IO\\.popen\\s*\\([^)]*params"
       - "Kernel\\.spawn\\s*\\([^)]*params"
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -98,6 +103,7 @@ rules:
       - "\\.html_safe"
       - "<%==.*params"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-79"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -111,6 +117,7 @@ rules:
     patterns:
       - "content_tag\\s*\\([^)]*params\\[.*\\]\\s*,\\s*nil\\s*,.*escape:\\s*false"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-79"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -129,6 +136,7 @@ rules:
       - "params\\.permit!"
       - "\\.permit\\s*\\(.*:all"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-915"
       owasp: "A04:2021 - Insecure Design"
       confidence: HIGH
@@ -143,6 +151,7 @@ rules:
       - "Model\\.find\\s*\\(\\s*params"
       - "\\.find\\s*\\(\\s*params\\[:id\\]\\s*\\)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-639"
       owasp: "A01:2021 - Broken Access Control"
       confidence: MEDIUM
@@ -161,6 +170,7 @@ rules:
       - "YAML\\.load\\s*\\("
       - "Psych\\.load\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -175,6 +185,7 @@ rules:
       - "Marshal\\.load\\s*\\("
       - "Marshal\\.restore\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -195,6 +206,7 @@ rules:
       - "class_eval\\s*\\("
       - "module_eval\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -209,6 +221,7 @@ rules:
       - "params.*\\.constantize"
       - "\\.constantize\\s*\\.new"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-470"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -227,6 +240,7 @@ rules:
       - "redirect_to\\s+params\\["
       - "redirect_to\\s+[^,]*#\\{.*params"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-601"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -246,6 +260,7 @@ rules:
       - "skip_before_filter\\s+:verify_authenticity_token"
       - "protect_from_forgery.*except:"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-352"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -265,6 +280,7 @@ rules:
       - "ssl_verify_mode:\\s*:verify_none"
       - ":verify_ssl\\s*=>\\s*false"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-295"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -284,6 +300,7 @@ rules:
       - "FileUtils\\.(rm|mv|cp)\\s*\\([^)]*params"
       - "send_file\\s+params"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-22"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -303,6 +320,7 @@ rules:
       - "api_key\\s*=\\s*[\"'][^\"']{20,}[\"']"
       - "password\\s*=\\s*[\"'][^\"']{4,}[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -321,6 +339,7 @@ rules:
       - "secret_key_base:\\s*[\"'][a-f0-9]{30,}[\"']"
       - "config\\.secret_key_base\\s*=\\s*[\"'][a-f0-9]{30,}[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -341,6 +360,7 @@ rules:
       - "OpenSSL::Digest::MD5"
       - "OpenSSL::Digest::SHA1"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -356,6 +376,7 @@ rules:
       - "OpenSSL::Cipher\\.new\\s*\\([\"']RC4"
       - "OpenSSL::Cipher\\.new\\s*\\([\"'].*ECB"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-327"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -375,6 +396,7 @@ rules:
       - "/.*\\(.*\\*\\).*\\*/"
       - "Regexp\\.new\\s*\\([^)]*\\+\\).*\\+"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-1333"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: MEDIUM
@@ -393,6 +415,7 @@ rules:
       - "render\\s+inline:\\s*params"
       - "render\\s+inline:.*#\\{.*params"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-94"
       owasp: "A03:2021 - Injection"
       confidence: HIGH

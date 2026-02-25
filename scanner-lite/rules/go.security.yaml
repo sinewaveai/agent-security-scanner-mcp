@@ -15,6 +15,7 @@ rules:
       - "fmt\\.Sprintf.*UPDATE.*SET"
       - "fmt\\.Sprintf.*DELETE.*FROM"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -32,6 +33,7 @@ rules:
       - "exec\\.Command\\s*\\([^)]*\\+"
       - "exec\\.CommandContext\\s*\\([^)]*\\+"
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -53,6 +55,7 @@ rules:
       - "ioutil\\.WriteFile\\s*\\([^)]*\\+"
       - "filepath\\.Join\\s*\\([^)]*\\.\\./"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-22"
       owasp: "A01:2021 - Broken Access Control"
       confidence: MEDIUM
@@ -72,6 +75,7 @@ rules:
       - "http\\.NewRequest\\s*\\([^)]*\\+"
       - "client\\.Do\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-918"
       owasp: "A10:2021 - Server-Side Request Forgery"
       confidence: MEDIUM
@@ -90,6 +94,7 @@ rules:
       - "md5\\.Sum\\s*\\("
       - "crypto/md5"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -105,6 +110,7 @@ rules:
       - "sha1\\.Sum\\s*\\("
       - "crypto/sha1"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -121,6 +127,7 @@ rules:
       - "rand\\.Int\\s*\\("
       - "rand\\.Intn\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-330"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: MEDIUM
@@ -136,6 +143,7 @@ rules:
       - "des\\.NewTripleDESCipher\\s*\\("
       - "crypto/des"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-327"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -153,6 +161,7 @@ rules:
       - "InsecureSkipVerify\\s*:\\s*true"
       - "tls\\.Config\\s*\\{[^}]*InsecureSkipVerify"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-295"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -168,6 +177,7 @@ rules:
       - "MinVersion\\s*:\\s*tls\\.VersionTLS10"
       - "MinVersion\\s*:\\s*tls\\.VersionTLS11"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-326"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -186,6 +196,7 @@ rules:
       - "passwd\\s*:?=\\s*\"[^\"]{4,}\""
       - "Password\\s*:\\s*\"[^\"]{4,}\""
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -201,6 +212,7 @@ rules:
       - "secretKey\\s*:?=\\s*\"[A-Za-z0-9_-]{16,}\""
       - "ApiKey\\s*:\\s*\"[A-Za-z0-9_-]{16,}\""
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -219,6 +231,7 @@ rules:
       - "template\\.JS\\s*\\("
       - "template\\.URL\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-94"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -236,6 +249,7 @@ rules:
       - "http\\.Redirect\\s*\\([^)]*\\+"
       - "w\\.Header\\s*\\(\\s*\\)\\.Set\\s*\\(\\s*\"Location\""
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-601"
       owasp: "A01:2021 - Broken Access Control"
       confidence: MEDIUM
@@ -254,6 +268,7 @@ rules:
       - "fmt\\.Fprintf\\s*\\(\\s*w\\s*,"
       - "io\\.WriteString\\s*\\(\\s*w\\s*,"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-79"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -271,6 +286,7 @@ rules:
       - "jwt\\.SigningMethodNone"
       - "SigningMethodNone"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-327"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -285,6 +301,7 @@ rules:
       - "jwt\\.Parse.*\\[\\]byte\\s*\\(\\s*\"[^\"]{8,}\"\\s*\\)"
       - "SignedString\\s*\\(\\s*\\[\\]byte\\s*\\(\\s*\"[^\"]{8,}\"\\s*\\)\\s*\\)"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -302,6 +319,7 @@ rules:
       - "Access-Control-Allow-Origin.*\\*"
       - "AllowOrigins\\s*:\\s*\\[\\s*\"\\*\"\\s*\\]"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-942"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: HIGH
@@ -321,6 +339,7 @@ rules:
       - "log\\.(Print|Printf|Println|Fatal|Fatalf).*token"
       - "fmt\\.(Print|Printf|Println).*password"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-532"
       owasp: "A09:2021 - Security Logging and Monitoring Failures"
       confidence: MEDIUM
@@ -338,6 +357,7 @@ rules:
       - "gob\\.NewDecoder\\s*\\("
       - "\\.Decode\\s*\\(&"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: LOW
@@ -355,6 +375,7 @@ rules:
       - "go\\s+func\\s*\\([^)]*\\)\\s*\\{[^}]*\\+\\+"
       - "go\\s+func\\s*\\([^)]*\\)\\s*\\{[^}]*\\-\\-"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-362"
       owasp: "A04:2021 - Insecure Design"
       confidence: LOW
@@ -373,6 +394,7 @@ rules:
       - "\\.ShouldBind\\s*\\(&"
       - "\\.BindJSON\\s*\\(&"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-20"
       owasp: "A03:2021 - Injection"
       confidence: LOW

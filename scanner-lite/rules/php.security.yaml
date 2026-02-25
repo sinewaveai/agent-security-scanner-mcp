@@ -13,6 +13,7 @@ rules:
       - "mysqli_query\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
       - "pg_query\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -29,6 +30,7 @@ rules:
       - "sprintf\\s*\\(\\s*[\"']\\s*(SELECT|INSERT|UPDATE|DELETE|DROP)"
       - "\\$sql\\s*=\\s*[\"'][^\"']*\\$"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -51,6 +53,7 @@ rules:
       - "popen\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
       - "proc_open\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -67,6 +70,7 @@ rules:
       - "`[^`]*\\$_(GET|POST|REQUEST|COOKIE)[^`]*`"
       - "`[^`]*\\$[a-zA-Z_][^`]*`"
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -84,6 +88,7 @@ rules:
     patterns:
       - "\\beval\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -98,6 +103,7 @@ rules:
       - "assert\\s*\\(\\s*[\"']"
       - "assert\\s*\\(\\s*\\$"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -111,6 +117,7 @@ rules:
     patterns:
       - "preg_replace\\s*\\(\\s*[\"']/[^/]*/[a-z]*e"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -131,6 +138,7 @@ rules:
       - "require\\s*\\(?\\s*\\$_(GET|POST|REQUEST|COOKIE)"
       - "require_once\\s*\\(?\\s*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-98"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -153,6 +161,7 @@ rules:
       - "print_r\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE)"
       - "<\\?=\\s*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-79"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -172,6 +181,7 @@ rules:
       - "unserialize\\s*\\(\\s*file_get_contents"
       - "unserialize\\s*\\(\\s*\\$"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -192,6 +202,7 @@ rules:
       - "\\bmd5\\s*\\("
       - "hash\\s*\\(\\s*[\"']md5[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -206,6 +217,7 @@ rules:
       - "\\bsha1\\s*\\("
       - "hash\\s*\\(\\s*[\"']sha1[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -221,6 +233,7 @@ rules:
       - "mcrypt_decrypt\\s*\\("
       - "mcrypt_create_iv\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-327"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -237,6 +250,7 @@ rules:
       - "\\bsrand\\s*\\("
       - "\\bmt_srand\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-330"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: MEDIUM
@@ -255,6 +269,7 @@ rules:
       - "CURLOPT_SSL_VERIFYPEER\\s*,\\s*(false|0|FALSE)"
       - "CURLOPT_SSL_VERIFYHOST\\s*,\\s*(false|0|FALSE)"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-295"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -274,6 +289,7 @@ rules:
       - "curl_setopt\\s*\\([^,]*,\\s*CURLOPT_URL\\s*,\\s*\\$_(GET|POST|REQUEST|COOKIE)"
       - "fopen\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-918"
       owasp: "A10:2021 - Server-Side Request Forgery"
       confidence: HIGH
@@ -294,6 +310,7 @@ rules:
       - "readfile\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
       - "file_put_contents\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-22"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -312,6 +329,7 @@ rules:
       - "header\\s*\\(\\s*[\"']Location:\\s*[\"']\\s*\\.\\s*\\$_(GET|POST|REQUEST|COOKIE)"
       - "header\\s*\\(\\s*[\"']Location:\\s*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-601"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -330,6 +348,7 @@ rules:
       - "ldap_search\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
       - "ldap_bind\\s*\\([^)]*\\$_(GET|POST|REQUEST|COOKIE)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-90"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -350,6 +369,7 @@ rules:
       - "DOMDocument\\s*\\(\\)->loadXML"
       - "new\\s+SimpleXMLElement\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-611"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: MEDIUM
@@ -371,6 +391,7 @@ rules:
       - "\\$secret\\s*=\\s*[\"'][^\"']{4,}[\"']"
       - "'password'\\s*=>\\s*[\"'][^\"']{4,}[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: MEDIUM
@@ -387,6 +408,7 @@ rules:
       - "'api_key'\\s*=>\\s*[\"'][a-zA-Z0-9_-]{20,}[\"']"
       - "Authorization.*Bearer\\s+[a-zA-Z0-9_-]{20,}"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -404,6 +426,7 @@ rules:
     patterns:
       - "\\bphpinfo\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-200"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -418,6 +441,7 @@ rules:
       - "ini_set\\s*\\(\\s*[\"']display_errors[\"']\\s*,\\s*[\"']?(1|on|true)[\"']?\\s*\\)"
       - "error_reporting\\s*\\(\\s*E_ALL\\s*\\)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-209"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: HIGH
@@ -436,6 +460,7 @@ rules:
       - "header\\s*\\(\\s*[\"']Access-Control-Allow-Origin:\\s*\\*[\"']\\s*\\)"
       - "Access-Control-Allow-Origin.*\\*"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-942"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: HIGH
@@ -454,6 +479,7 @@ rules:
       - "\\$_SESSION\\s*\\[[\"']user[\"']\\]\\s*="
       - "\\$_SESSION\\s*\\[[\"']logged_in[\"']\\]\\s*=\\s*true"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-384"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: LOW

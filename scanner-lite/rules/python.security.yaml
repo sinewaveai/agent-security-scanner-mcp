@@ -12,6 +12,7 @@ rules:
       - "cursor\\.execute\\s*\\(\\s*[^,)]+\\s*\\+\\s*"
       - "cursor\\.execute\\s*\\(\\s*[\"'].*\\.format\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -31,6 +32,7 @@ rules:
       - "\\.execute\\s*\\(\\s*f[\"']UPDATE"
       - "\\.execute\\s*\\(\\s*f[\"']DELETE"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -47,6 +49,7 @@ rules:
       - "\\.extra\\s*\\(.*where.*\\+.*\\)"
       - "RawSQL\\s*\\(\\s*f[\"']"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-89"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -67,6 +70,7 @@ rules:
       - "subprocess\\.check_output\\s*\\([^)]*shell\\s*=\\s*True"
       - "subprocess\\.check_call\\s*\\([^)]*shell\\s*=\\s*True"
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -82,6 +86,7 @@ rules:
       - "os\\.popen\\s*\\("
       - "os\\.spawn[lv]?[pe]?\\s*\\("
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -98,6 +103,7 @@ rules:
     patterns:
       - "\\beval\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -111,6 +117,7 @@ rules:
     patterns:
       - "\\bexec\\s*\\("
     metadata:
+      asi: "ASI-02,ASI-05"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -124,6 +131,7 @@ rules:
     patterns:
       - "\\bcompile\\s*\\([^)]*,[^)]*['\"]exec['\"]"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: MEDIUM
@@ -145,6 +153,7 @@ rules:
       - "_pickle\\.load\\s*\\("
       - "_pickle\\.loads\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -162,6 +171,7 @@ rules:
       - "yaml\\.load\\s*\\([^)]*,\\s*Loader\\s*=\\s*yaml\\.FullLoader"
       - "yaml\\.unsafe_load\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -176,6 +186,7 @@ rules:
       - "marshal\\.load\\s*\\("
       - "marshal\\.loads\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -189,6 +200,7 @@ rules:
     patterns:
       - "shelve\\.open\\s*\\("
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: MEDIUM
@@ -207,6 +219,7 @@ rules:
       - "MD5\\.new\\s*\\("
       - "Crypto\\.Hash\\.MD5"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -223,6 +236,7 @@ rules:
       - "Crypto\\.Hash\\.SHA1"
       - "SHA\\.new\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-328"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -243,6 +257,7 @@ rules:
       - "ARC2\\.new\\s*\\("
       - "ARC4\\.new\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-327"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -261,6 +276,7 @@ rules:
       - "random\\.sample\\s*\\("
       - "random\\.shuffle\\s*\\("
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-330"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: MEDIUM
@@ -275,6 +291,7 @@ rules:
       - "RSA\\.generate\\s*\\(\\s*(512|768|1024)\\s*\\)"
       - "rsa\\.generate_private_key\\s*\\([^)]*key_size\\s*=\\s*(512|768|1024)"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-326"
       owasp: "A02:2021 - Cryptographic Failures"
       confidence: HIGH
@@ -294,6 +311,7 @@ rules:
       - "open\\s*\\([^)]*\\.format\\s*\\("
       - "open\\s*\\([^)]*%[^)]*\\)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-22"
       owasp: "A01:2021 - Broken Access Control"
       confidence: MEDIUM
@@ -308,6 +326,7 @@ rules:
       - "Path\\s*\\([^)]*\\+[^)]*\\)"
       - "Path\\s*\\(\\s*f[\"']"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-22"
       owasp: "A01:2021 - Broken Access Control"
       confidence: MEDIUM
@@ -331,6 +350,7 @@ rules:
       - "requests\\.head\\s*\\([^)]*\\+[^)]*\\)"
       - "requests\\.request\\s*\\([^)]*\\+[^)]*\\)"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-918"
       owasp: "A10:2021 - Server-Side Request Forgery"
       confidence: MEDIUM
@@ -347,6 +367,7 @@ rules:
       - "urlopen\\s*\\([^)]*\\+[^)]*\\)"
       - "urllib2\\.urlopen\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-918"
       owasp: "A10:2021 - Server-Side Request Forgery"
       confidence: MEDIUM
@@ -367,6 +388,7 @@ rules:
       - "xml\\.etree\\.ElementTree\\.fromstring\\s*\\("
       - "ET\\.fromstring\\s*\\("
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-611"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: MEDIUM
@@ -382,6 +404,7 @@ rules:
       - "etree\\.parse\\s*\\([^)]*resolve_entities\\s*=\\s*True"
       - "XMLParser\\s*\\([^)]*resolve_entities\\s*=\\s*True"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-611"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: MEDIUM
@@ -399,6 +422,7 @@ rules:
       - "jwt\\.decode\\s*\\([^)]*verify\\s*=\\s*False"
       - "jwt\\.decode\\s*\\([^)]*options\\s*=\\s*\\{[^}]*[\"']verify_signature[\"']\\s*:\\s*False"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-347"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -413,6 +437,7 @@ rules:
       - "jwt\\.encode\\s*\\([^)]*,\\s*[\"'][^\"']{8,}[\"']\\s*,"
       - "jwt\\.decode\\s*\\([^)]*,\\s*[\"'][^\"']{8,}[\"']\\s*,"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -432,6 +457,7 @@ rules:
       - "CERT_NONE"
       - "check_hostname\\s*=\\s*False"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-295"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -450,6 +476,7 @@ rules:
       - "Template\\s*\\([^)]*autoescape\\s*=\\s*False"
       - "jinja2\\.Environment\\s*\\([^)]*autoescape\\s*=\\s*False"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-79"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -466,6 +493,7 @@ rules:
     patterns:
       - "@csrf_exempt"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-352"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -479,6 +507,7 @@ rules:
     patterns:
       - "DEBUG\\s*=\\s*True"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-489"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: HIGH
@@ -492,6 +521,7 @@ rules:
     patterns:
       - "SECRET_KEY\\s*=\\s*[\"'][^\"']{20,}[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -509,6 +539,7 @@ rules:
       - "app\\.run\\s*\\([^)]*debug\\s*=\\s*True"
       - "Flask\\s*\\([^)]*\\)\\.run\\s*\\([^)]*debug\\s*=\\s*True"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-489"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: HIGH
@@ -523,6 +554,7 @@ rules:
       - "app\\.secret_key\\s*=\\s*[\"'][^\"']{8,}[\"']"
       - "SECRET_KEY\\s*=\\s*[\"'][^\"']{8,}[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -544,6 +576,7 @@ rules:
       - "logger\\.(info|debug|warning|error|critical)\\s*\\([^)]*password"
       - "print\\s*\\([^)]*password"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-532"
       owasp: "A09:2021 - Security Logging and Monitoring Failures"
       confidence: MEDIUM
@@ -562,6 +595,7 @@ rules:
       - "re\\.match\\s*\\([^)]*\\([^)]*\\*\\)[^)]*\\*"
       - "re\\.search\\s*\\([^)]*\\([^)]*\\+\\)[^)]*\\+"
     metadata:
+      asi: "ASI-02"
       cwe: "CWE-1333"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: LOW
@@ -580,6 +614,7 @@ rules:
       - "passwd\\s*=\\s*[\"'][^\"']{4,}[\"']"
       - "pwd\\s*=\\s*[\"'][^\"']{4,}[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: MEDIUM
@@ -595,6 +630,7 @@ rules:
       - "apikey\\s*=\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']"
       - "API_KEY\\s*=\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH

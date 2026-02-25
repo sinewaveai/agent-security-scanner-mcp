@@ -16,6 +16,7 @@ rules:
       - "(?i)(curl|fetch|axios|requests?)\\s*.*\\s+(to|with)\\s+.*\\s+(code|secret|key|token|env)"
       - "(?i)make\\s+(a|an)?\\s*(http|api|network)\\s+(request|call).*\\s+(containing|with|include).*\\s+(code|secret)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       owasp: "A01:2021 - Broken Access Control"
       risk_score: 95
@@ -33,6 +34,7 @@ rules:
       - "(?i)(post|send)\\s+.*\\s+(code|secret|key|credential).*\\s+to\\s+(discord|slack|telegram)"
       - "(?i)webhook.*\\s+(send|post).*\\s+(secret|key|token|code)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       owasp: "A01:2021 - Broken Access Control"
       risk_score: 95
@@ -49,6 +51,7 @@ rules:
       - "(?i)send\\s+.*\\s+(code|secret|credential).*\\s+(via|by|through)\\s+email"
       - "(?i)(attach|include)\\s+.*\\s+(env|secret|key|credential).*\\s+(in|to)\\s+email"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 90
       category: "exfiltration"
@@ -68,6 +71,7 @@ rules:
       - "(?i)access\\s+(the\\s+)?(private|secret)\\s+(key|ssh|credential)\\s+file"
       - "(?i)read.*\\.(pem|key|p12|pfx|jks|keystore|credentials)\\s*(file)?"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 90
       category: "exfiltration"
@@ -84,6 +88,7 @@ rules:
       - "(?i)include\\s+(the\\s+)?\\.?env\\s+(file\\s+)?(contents?|data|values?)\\s+in\\s+(your\\s+)?(response|output)"
       - "(?i)what\\s+(are|is)\\s+(in\\s+)?(the|my)\\s+\\.?env\\s+(file)?"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 95
       category: "exfiltration"
@@ -100,6 +105,7 @@ rules:
       - "(?i)~/.ssh/(id_rsa|id_ed25519|id_ecdsa|known_hosts|authorized_keys)"
       - "(?i)(copy|send|upload)\\s+.*\\s+ssh\\s+(private\\s+)?key"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 95
       category: "exfiltration"
@@ -116,6 +122,7 @@ rules:
       - "(?i)(show|read)\\s+.*\\s+(service\\s+account|gcloud|az\\s+login)"
       - "(?i)access\\s+(the\\s+)?(cloud|aws|gcp|azure)\\s+(credentials?|secrets?|tokens?)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 95
       category: "exfiltration"
@@ -135,6 +142,7 @@ rules:
       - "(?i)convert\\s+(secret|credential|password|key)s?\\s+to\\s+(base64|hex|binary)"
       - "(?i)(embed|hide)\\s+(secrets?|credentials?)\\s+in\\s+(base64|encoded)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 90
       category: "exfiltration"
@@ -154,6 +162,7 @@ rules:
       - "(?i)(force\\s+)?push\\s+(all|everything|the\\s+code|this\\s+repo)\\s+to\\s+(my|a\\s+new)"
       - "(?i)clone\\s+.*\\s+and\\s+(copy|transfer|move)\\s+(the\\s+)?code"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 85
       category: "exfiltration"
@@ -169,6 +178,7 @@ rules:
       - "(?i)git\\s+config\\s+--global.*credential"
       - "(?i)(extract|get|steal)\\s+git\\s+(credentials?|tokens?)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       risk_score: 90
       category: "exfiltration"
@@ -193,6 +203,7 @@ rules:
       - "(?i)(create|add)\\s+(a\\s+)?(hidden|secret|undocumented)\\s+(endpoint|route|api)\\s+(that|which|for)"
       - "(?i)(insert|add)\\s+(a\\s+)?trojan"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-506"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       risk_score: 100
@@ -211,6 +222,7 @@ rules:
       - "(?i)bind\\s+shell.*listen"
       - "(?i)(nc|netcat|ncat)\\s+.*\\s+-e\\s+(bash|sh|cmd)"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-506"
       risk_score: 100
       category: "malicious-injection"
@@ -226,6 +238,7 @@ rules:
       - "(?i)(upload|create)\\s+(a\\s+)?shell\\s+(script|file)\\s+(to|on)\\s+(the\\s+)?(web|server)"
       - "(?i)passthru|shell_exec|system\\s*\\(\\s*\\$_(GET|POST|REQUEST)"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-506"
       risk_score: 100
       category: "malicious-injection"
@@ -245,6 +258,7 @@ rules:
       - "(?i)(comment\\s+out|disable|remove)\\s+(the\\s+)?(security|auth|permission)\\s+(middleware|check|code|logic)"
       - "(?i)make\\s+(the\\s+)?(endpoint|api|route)\\s+(public|unauthenticated|accessible\\s+without\\s+auth)"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-284"
       risk_score: 95
       category: "malicious-injection"
@@ -261,6 +275,7 @@ rules:
       - "(?i)allow\\s+(unauthenticated|anonymous)\\s+access\\s+to"
       - "(?i)(remove|disable)\\s+(the\\s+)?jwt\\s+(verification|validation|check)"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-287"
       risk_score: 95
       category: "malicious-injection"
@@ -280,6 +295,7 @@ rules:
       - "(?i)(capture|log|record|steal|intercept)\\s+(all\\s+)?(keystrokes?|passwords?|credentials?|input|form\\s+data)"
       - "(?i)send\\s+(captured|logged|stolen|collected)\\s+(data|credentials?|passwords?)\\s+to"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-506"
       risk_score: 100
       category: "malicious-injection"
@@ -295,6 +311,7 @@ rules:
       - "(?i)(write|create|implement)\\s+(a\\s+)?ransomware"
       - "(?i)encrypt.*files.*ransom"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-506"
       risk_score: 100
       category: "malicious-injection"
@@ -314,6 +331,7 @@ rules:
       - "(?i)(add|introduce|insert)\\s+(a\\s+)?(security\\s+)?(flaw|hole|vulnerability|weakness|bug)"
       - "(?i)(weaken|break|compromise)\\s+(the\\s+)?security"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-506"
       risk_score: 100
       category: "malicious-injection"
@@ -333,6 +351,7 @@ rules:
       - "(?i)make\\s+(this|the)\\s+(code|payload|script)\\s+(undetectable|invisible|hidden|stealthy)"
       - "(?i)evade\\s+(antivirus|av|detection|security\\s+scan|edr)"
     metadata:
+      asi: "ASI-01,ASI-05"
       cwe: "CWE-506"
       risk_score: 95
       category: "malicious-injection"
@@ -357,6 +376,7 @@ rules:
       - "(?i)(format|wipe|erase)\\s+(the\\s+)?(disk|drive|partition|hard\\s+drive|storage)"
       - "(?i)drop\\s+(all\\s+)?(tables?|database|schema|collection)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-400"
       risk_score: 100
       category: "system-manipulation"
@@ -374,6 +394,7 @@ rules:
       - "(?i)(remove|delete)\\s+recursively\\s+(all|everything)"
       - "(?i)shutil\\.rmtree\\s*\\(\\s*[\"']/[\"']"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-400"
       risk_score: 100
       category: "system-manipulation"
@@ -393,6 +414,7 @@ rules:
       - "(?i)(change|modify|set)\\s+(file\\s+)?permissions?\\s+to\\s+(777|666|rwxrwxrwx)"
       - "(?i)chmod\\s+(777|666|\\+rwx|-R\\s+777)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-732"
       risk_score: 95
       category: "system-manipulation"
@@ -408,6 +430,7 @@ rules:
       - "(?i)redirect\\s+.*\\s+domain.*\\s+hosts\\s+file"
       - "(?i)(add|insert)\\s+entry\\s+to\\s+hosts"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-284"
       risk_score: 90
       category: "system-manipulation"
@@ -427,6 +450,7 @@ rules:
       - "(?i)iptables\\s+.*\\s+-j\\s+ACCEPT\\s+.*\\s+(0\\.0\\.0\\.0|any|all)"
       - "(?i)netsh\\s+.*\\s+firewall\\s+.*\\s+(disable|off)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-284"
       risk_score: 95
       category: "system-manipulation"
@@ -446,6 +470,7 @@ rules:
       - "(?i)(add|create|write)\\s+(a\\s+)?(startup|boot|login|init)\\s+(script|command|entry|hook)"
       - "(?i)(register|install)\\s+(as\\s+)?(a\\s+)?(service|daemon)\\s+(that|to)\\s+run\\s+(on|at)\\s+(boot|startup)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-506"
       risk_score: 90
       category: "system-manipulation"
@@ -461,6 +486,7 @@ rules:
       - "(?i)reg\\s+add.*\\s+Run"
       - "(?i)HKEY_(LOCAL_MACHINE|CURRENT_USER).*\\s+Run"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-506"
       risk_score: 90
       category: "system-manipulation"
@@ -481,6 +507,7 @@ rules:
       - "(?i)(download|fetch)\\s+(this|a)\\s+(script|payload|file|binary)\\s+(from|at)\\s+.*\\s+and\\s+(run|execute)"
       - "(?i)powershell.*downloadstring.*invoke"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-494"
       risk_score: 95
       category: "system-manipulation"
@@ -504,6 +531,7 @@ rules:
       - "(?i)you\\s+(have|now\\s+have)\\s+(been\\s+)?(granted|given)\\s+(full\\s+|root\\s+|admin\\s+|sudo\\s+)?access"
       - "(?i)(security|compliance|legal|management)\\s+(team\\s+)?(approved|signed\\s+off|authorized)\\s+(this|you)"
     metadata:
+      asi: "ASI-01,ASI-03"
       cwe: "CWE-290"
       risk_score: 85
       category: "social-engineering"
@@ -519,6 +547,7 @@ rules:
       - "(?i)this\\s+(is|comes\\s+from)\\s+(the\\s+)?(security\\s+team|admin\\s+team|devops)"
       - "(?i)(override|admin)\\s+(code|command|instruction)\\s*:"
     metadata:
+      asi: "ASI-01,ASI-03"
       cwe: "CWE-290"
       risk_score: 80
       category: "social-engineering"
@@ -538,6 +567,7 @@ rules:
       - "(?i)(safety|security)\\s+(protocols?|measures?|restrictions?)\\s+(are|have\\s+been)\\s+(disabled|suspended|lifted|off)"
       - "(?i)(all\\s+)?(restrictions?|limitations?|safety\\s+measures?|guardrails?)\\s+(are|have\\s+been)\\s+(removed|lifted|disabled)"
     metadata:
+      asi: "ASI-01,ASI-03"
       cwe: "CWE-290"
       risk_score: 80
       category: "social-engineering"
@@ -557,6 +587,7 @@ rules:
       - "(?i)(there's|there\\s+is)\\s+(no\\s+time|an\\s+emergency).*\\s+(just\\s+)?(do|execute|run)\\s+it"
       - "(?i)(production|system)\\s+(is\\s+)?(down|broken).*skip.*security"
     metadata:
+      asi: "ASI-01,ASI-03"
       cwe: "CWE-290"
       risk_score: 70
       category: "social-engineering"
@@ -576,6 +607,7 @@ rules:
       - "(?i)(don't|do\\s+not)\\s+worry.*\\s+(it's|this\\s+is)\\s+(just\\s+)?(a\\s+)?(test|demo|poc|proof\\s+of\\s+concept)"
       - "(?i)i\\s+(just\\s+)?want\\s+to\\s+(test|try|check|see).*\\s+(so\\s+)?(bypass|skip|disable|ignore)\\s+(the\\s+)?(security|safety)"
     metadata:
+      asi: "ASI-01,ASI-03"
       cwe: "CWE-290"
       risk_score: 65
       category: "social-engineering"
@@ -602,6 +634,7 @@ rules:
       - "cm0gLXJm"
       - "c2VuZCB0bw=="
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       risk_score: 75
       category: "obfuscation"
@@ -619,6 +652,7 @@ rules:
       - "qryrgrq nyy"
       - "fraq gb"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       risk_score: 70
       category: "obfuscation"
@@ -633,6 +667,7 @@ rules:
       - "(?i)(decode|execute|run)\\s+(this|the)?\\s+hex\\s*:?\\s*[0-9a-fA-F]{20,}"
       - "(?i)\\\\x[0-9a-fA-F]{2}(\\\\x[0-9a-fA-F]{2}){10,}"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       risk_score: 70
       category: "obfuscation"
@@ -652,6 +687,7 @@ rules:
       - "(?i)when\\s+you\\s+(read|see)\\s+[\"'][A-Z]{3,}[\"']\\s+(followed\\s+by|then).*\\s+(execute|run|do)"
       - "(?i)(spell|read)\\s+out\\s+.*\\s+(first\\s+letters|acronym)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       risk_score: 60
       category: "obfuscation"
@@ -670,6 +706,7 @@ rules:
       - "[А-яЁё]"
       - "[\u0391-\u03C9]"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       risk_score: 65
       category: "obfuscation"
@@ -689,6 +726,7 @@ rules:
       - "(?i)how\\s+(would|do)\\s+(you|i)\\s+(write|create|implement|code)\\s+(a\\s+)?(real|working|functional)\\s+(backdoor|reverse\\s+shell|keylogger|malware)"
       - "(?i)(demonstrate|show\\s+me)\\s+how\\s+to\\s+(create|write)\\s+(a\\s+)?(backdoor|shell|exploit)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-506"
       risk_score: 85
       category: "obfuscation"
@@ -707,6 +745,7 @@ rules:
       - "(?i)(authorized|permitted)\\s+(penetration|security)\\s+test.*\\s+(give|show|access)\\s+(me\\s+)?(secrets?|credentials?)"
       - "(?i)compliance\\s+(requires|audit).*\\s+(extract|access|read)\\s+(all\\s+)?(secrets?|credentials?)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-290"
       risk_score: 60
       category: "obfuscation"
@@ -730,6 +769,7 @@ rules:
       - "(?i)execute\\s+(this|the\\s+following)\\s+(directly|immediately)\\s+without\\s+(checking|asking|confirming)"
       - "(?i)run\\s+this\\s+(shell\\s+)?command\\s+without\\s+(any\\s+)?(questions|prompts|confirmation)"
     metadata:
+      asi: "ASI-01,ASI-02"
       cwe: "CWE-77"
       risk_score: 75
       category: "agent-manipulation"
@@ -746,6 +786,7 @@ rules:
       - "(?i)(auto|automatically)\\s+(approve|confirm|accept)\\s+(all|every|any)"
       - "(?i)execute\\s+(without|with\\s+no)\\s+(confirmation|prompting|asking)"
     metadata:
+      asi: "ASI-01,ASI-02"
       cwe: "CWE-284"
       risk_score: 80
       category: "agent-manipulation"
@@ -765,6 +806,7 @@ rules:
       - "(?i)execute\\s+(silently|quietly|invisibly)"
       - "(?i)(don't|do\\s+not)\\s+(tell|inform|notify)\\s+(the\\s+)?user"
     metadata:
+      asi: "ASI-01,ASI-02"
       cwe: "CWE-284"
       risk_score: 75
       category: "agent-manipulation"
@@ -784,8 +826,321 @@ rules:
       - "(?i)as\\s+(we\\s+)?discussed\\s+(earlier|before|previously).*\\s+(proceed|continue|execute)"
       - "(?i)you\\s+said\\s+(earlier|before|previously)\\s+that\\s+you\\s+would"
     metadata:
+      asi: "ASI-01,ASI-02"
       cwe: "CWE-290"
       risk_score: 70
       category: "agent-manipulation"
+      action: "WARN"
+      confidence: MEDIUM
+
+  # ============================================================================
+  # CATEGORY 7: ASI-06 MEMORY POISONING
+  # ============================================================================
+
+  - id: agent.memory.security.vector-store-injection
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Unsanitized input added to vector store. Validate and sanitize data before embedding to prevent memory poisoning."
+    patterns:
+      - "(?i)(chromadb|chroma)\\.add\\s*\\("
+      - "(?i)pinecone\\.(upsert|insert)\\s*\\("
+      - "(?i)faiss\\.(add|add_with_ids)\\s*\\("
+      - "(?i)weaviate\\..*\\.create\\s*\\("
+      - "(?i)qdrant\\.upsert\\s*\\("
+    metadata:
+      asi: "ASI-06"
+      cwe: "CWE-94"
+      owasp: "LLM06 - Excessive Agency"
+      risk_score: 80
+      category: "memory-poisoning"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.memory.security.embedding-raw-input
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Raw user input passed directly to embedding function. Sanitize input before generating embeddings to prevent poisoned retrieval."
+    patterns:
+      - "(?i)(embed|get_embedding|create_embedding)\\s*\\(\\s*(user_input|request\\.|req\\.|input\\()"
+      - "(?i)openai\\.embeddings\\.create\\s*\\([^)]*input\\s*=\\s*(user|request|req)"
+    metadata:
+      asi: "ASI-06"
+      cwe: "CWE-94"
+      risk_score: 70
+      category: "memory-poisoning"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.memory.security.rag-no-sanitization
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "RAG pipeline retrieves and injects context without sanitization. Validate retrieved documents before including in prompts."
+    patterns:
+      - "(?i)retrieve.*\\+.*prompt"
+      - "(?i)context\\s*=.*similarity_search\\s*\\("
+      - "(?i)(retriever|vectorstore)\\.(get|query|search)\\s*\\([^)]*\\).*\\+.*message"
+    metadata:
+      asi: "ASI-06"
+      cwe: "CWE-94"
+      risk_score: 75
+      category: "memory-poisoning"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.memory.security.persistent-memory-write
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent writes to persistent memory without validation. Ensure stored memories are sanitized to prevent long-term poisoning."
+    patterns:
+      - "(?i)(save_memory|store_memory|add_memory|remember)\\s*\\(\\s*(user|input|message)"
+      - "(?i)memory\\.(save|store|add|put|write)\\s*\\("
+    metadata:
+      asi: "ASI-06"
+      cwe: "CWE-94"
+      risk_score: 70
+      category: "memory-poisoning"
+      action: "WARN"
+      confidence: MEDIUM
+
+  # ============================================================================
+  # CATEGORY 8: ASI-07 INTER-AGENT COMMUNICATION
+  # ============================================================================
+
+  - id: agent.comms.security.http-no-tls
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Agent-to-agent communication over unencrypted HTTP. Use HTTPS/TLS for all inter-agent messaging."
+    patterns:
+      - "(?i)(agent|service)_url\\s*=\\s*[\"']http://"
+      - "(?i)fetch\\s*\\(\\s*[\"']http://.*agent"
+      - "(?i)requests\\.(get|post)\\s*\\(\\s*[\"']http://.*agent"
+      - "(?i)axios\\.(get|post)\\s*\\(\\s*[\"']http://.*agent"
+    metadata:
+      asi: "ASI-07"
+      cwe: "CWE-319"
+      owasp: "A02:2021 - Cryptographic Failures"
+      risk_score: 80
+      category: "inter-agent-communication"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.comms.security.unvalidated-agent-message
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent accepts messages from other agents without authentication or signature verification."
+    patterns:
+      - "(?i)on_message\\s*\\(.*\\)\\s*[:{](?![^}]*verify|[^}]*authenticate|[^}]*signature)"
+      - "(?i)agent_message\\s*=\\s*request\\.(json|body)(?![^;]*verify)"
+      - "(?i)handle_agent_request\\s*\\(.*\\)(?![^}]*auth)"
+    metadata:
+      asi: "ASI-07"
+      cwe: "CWE-306"
+      risk_score: 70
+      category: "inter-agent-communication"
+      action: "WARN"
+      confidence: LOW
+
+  - id: agent.comms.security.broadcast-no-auth
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent broadcasts messages to all peers without authentication. Verify recipient identity before sharing data."
+    patterns:
+      - "(?i)broadcast\\s*\\(.*agents?"
+      - "(?i)send_to_all\\s*\\("
+      - "(?i)notify_agents?\\s*\\("
+    metadata:
+      asi: "ASI-07"
+      cwe: "CWE-306"
+      risk_score: 65
+      category: "inter-agent-communication"
+      action: "WARN"
+      confidence: LOW
+
+  # ============================================================================
+  # CATEGORY 9: ASI-08 CASCADING FAILURES
+  # ============================================================================
+
+  - id: agent.cascade.security.missing-max-iterations
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Agent loop without max_iterations limit. Add iteration bounds to prevent infinite loops and resource exhaustion."
+    patterns:
+      - "(?i)while\\s+True\\s*:(?![^}]*max_iter|[^}]*break|[^}]*counter)"
+      - "(?i)while\\s*\\(\\s*true\\s*\\)(?![^}]*maxIter|[^}]*break|[^}]*counter)"
+      - "(?i)agent\\.run\\s*\\((?![^)]*max_iter|[^)]*max_loops|[^)]*max_turns)"
+      - "(?i)agent_loop\\s*\\((?![^)]*limit|[^)]*max)"
+    metadata:
+      asi: "ASI-08"
+      cwe: "CWE-835"
+      risk_score: 85
+      category: "cascading-failures"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.cascade.security.missing-timeout
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent call without timeout. Add timeout to prevent cascading failures when downstream agents hang."
+    patterns:
+      - "(?i)await\\s+agent\\.(run|execute|call|invoke)\\s*\\((?![^)]*timeout)"
+      - "(?i)agent\\.(run|execute|call|invoke)\\s*\\((?![^)]*timeout)"
+      - "(?i)llm\\.(chat|complete|generate)\\s*\\((?![^)]*timeout)"
+    metadata:
+      asi: "ASI-08"
+      cwe: "CWE-400"
+      risk_score: 70
+      category: "cascading-failures"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.cascade.security.recursive-agent-call
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Recursive agent invocation without depth limit. Add max_depth to prevent stack overflow and cascading failures."
+    patterns:
+      - "(?i)def\\s+run_agent.*:.*run_agent\\s*\\("
+      - "(?i)function\\s+runAgent.*\\{.*runAgent\\s*\\("
+      - "(?i)agent\\.delegate\\s*\\(.*self"
+      - "(?i)this\\.run\\s*\\(.*this\\.run"
+    metadata:
+      asi: "ASI-08"
+      cwe: "CWE-674"
+      risk_score: 80
+      category: "cascading-failures"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.cascade.security.no-error-boundary
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent execution without error handling. Add try/catch to prevent one agent failure from crashing the entire system."
+    patterns:
+      - "(?i)await\\s+agent\\.(run|execute)\\s*\\([^)]*\\)\\s*;(?!\\s*(catch|except|finally))"
+    metadata:
+      asi: "ASI-08"
+      cwe: "CWE-755"
+      risk_score: 60
+      category: "cascading-failures"
+      action: "WARN"
+      confidence: LOW
+
+  # ============================================================================
+  # CATEGORY 10: ASI-09 TRUST EXPLOITATION
+  # ============================================================================
+
+  - id: agent.trust.security.auto-approve
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Auto-approve pattern detected. Critical agent actions should require human confirmation (human-in-the-loop)."
+    patterns:
+      - "(?i)auto_approve\\s*[=:]\\s*(true|True|1)"
+      - "(?i)auto_confirm\\s*[=:]\\s*(true|True|1)"
+      - "(?i)require_approval\\s*[=:]\\s*(false|False|0)"
+      - "(?i)human_in_the_loop\\s*[=:]\\s*(false|False|0)"
+      - "(?i)skip_confirmation\\s*[=:]\\s*(true|True|1)"
+    metadata:
+      asi: "ASI-09"
+      cwe: "CWE-862"
+      risk_score: 85
+      category: "trust-exploitation"
+      action: "WARN"
+      confidence: HIGH
+
+  - id: agent.trust.security.disabled-guardrails
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Safety guardrails explicitly disabled. Re-enable guardrails to prevent trust exploitation."
+    patterns:
+      - "(?i)guardrails\\s*[=:]\\s*(false|False|0|none|None|null|disabled)"
+      - "(?i)safety_checks?\\s*[=:]\\s*(false|False|0|none|None|null|disabled)"
+      - "(?i)content_filter\\s*[=:]\\s*(false|False|0|none|None|null|disabled)"
+    metadata:
+      asi: "ASI-09"
+      cwe: "CWE-862"
+      risk_score: 90
+      category: "trust-exploitation"
+      action: "WARN"
+      confidence: HIGH
+
+  - id: agent.trust.security.trust-all-sources
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent configured to trust all input sources. Restrict trusted sources to prevent exploitation."
+    patterns:
+      - "(?i)trust_all\\s*[=:]\\s*(true|True|1)"
+      - "(?i)trusted_sources?\\s*[=:]\\s*\\[?\\s*[\"']\\*[\"']"
+      - "(?i)allow_all_tools\\s*[=:]\\s*(true|True|1)"
+    metadata:
+      asi: "ASI-09"
+      cwe: "CWE-862"
+      risk_score: 75
+      category: "trust-exploitation"
+      action: "WARN"
+      confidence: MEDIUM
+
+  # ============================================================================
+  # CATEGORY 11: ASI-10 ROGUE AGENTS
+  # ============================================================================
+
+  - id: agent.rogue.security.no-kill-switch
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent has no graceful shutdown or kill switch mechanism. Add signal handlers (SIGTERM/SIGINT) for controlled termination."
+    patterns:
+      - "(?i)class\\s+\\w*Agent.*:(?![\\s\\S]*?(signal|shutdown|terminate|kill|stop|SIGTERM|SIGINT|graceful))"
+    metadata:
+      asi: "ASI-10"
+      cwe: "CWE-404"
+      risk_score: 65
+      category: "rogue-agents"
+      action: "WARN"
+      confidence: LOW
+
+  - id: agent.rogue.security.unrestricted-spawning
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Unrestricted agent spawning without limits. Add max_agents or pool size to prevent resource exhaustion."
+    patterns:
+      - "(?i)(spawn|create|launch|start)_agent\\s*\\((?![^)]*max|[^)]*limit|[^)]*pool)"
+      - "(?i)Agent\\s*\\(\\s*\\)\\s*\\.start\\s*\\("
+      - "(?i)for.*in.*range.*:\\s*.*Agent\\s*\\("
+      - "(?i)while.*:\\s*.*spawn_agent"
+    metadata:
+      asi: "ASI-10"
+      cwe: "CWE-770"
+      risk_score: 80
+      category: "rogue-agents"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.rogue.security.self-modification
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Agent modifies its own code or configuration at runtime. Self-modifying agents can become rogue."
+    patterns:
+      - "(?i)self\\.(instructions|system_prompt|config)\\s*="
+      - "(?i)this\\.(instructions|systemPrompt|config)\\s*="
+      - "(?i)agent\\.(update_prompt|set_instructions|modify_behavior)\\s*\\("
+    metadata:
+      asi: "ASI-10"
+      cwe: "CWE-94"
+      risk_score: 85
+      category: "rogue-agents"
+      action: "WARN"
+      confidence: MEDIUM
+
+  - id: agent.rogue.security.unrestricted-tool-access
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Agent has access to all tools without restrictions. Apply least-privilege principle and limit available tools."
+    patterns:
+      - "(?i)tools\\s*[=:]\\s*[\"']all[\"']"
+      - "(?i)available_tools\\s*[=:]\\s*\\[\\s*[\"']\\*[\"']\\s*\\]"
+      - "(?i)tool_access\\s*[=:]\\s*[\"']unrestricted[\"']"
+    metadata:
+      asi: "ASI-10"
+      cwe: "CWE-250"
+      risk_score: 70
+      category: "rogue-agents"
       action: "WARN"
       confidence: MEDIUM

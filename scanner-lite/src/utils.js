@@ -42,6 +42,7 @@ export function detectLanguage(filePath) {
     'cc': 'cpp', 'cxx': 'cpp', 'h': 'c', 'hpp': 'cpp',
     'yaml': 'generic', 'yml': 'generic',
     'sql': 'sql',
+    'tf': 'terraform', 'hcl': 'terraform',
     'txt': 'generic', 'md': 'generic', 'prompt': 'generic'
   };
   return langMap[ext] || 'generic';

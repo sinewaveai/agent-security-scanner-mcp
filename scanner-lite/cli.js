@@ -293,6 +293,52 @@ async function cmdDownloadData(flags) {
 }
 
 // ============================================================
+// inspect subcommand
+// ============================================================
+async function cmdInspect(cmdArgs, flags) {
+  const { inspectMcpServer } = await import('./src/inspector.js');
+
+  if (cmdArgs.length === 0) {
+    console.error(c.red('Error: inspect requires a command after --'));
+    console.error(c.dim('  Example: scanner-lite inspect -- node server.js'));
+    process.exit(2);
+  }
+
+  const command = cmdArgs[0];
+  const args = cmdArgs.slice(1);
+  const timeout = flags.timeout ? parseInt(flags.timeout, 10) : 10000;
+
+  if (!flags.quiet) {
+    console.log(c.bold('Inspecting MCP server:') + ` ${command} ${args.join(' ')}`);
+    console.log(c.dim(`Timeout: ${timeout}ms`));
+  }
+
+  const result = await inspectMcpServer({ command, args, timeout });
+  const parsed = JSON.parse(result.content[0].text);
+
+  if (flags.json) {
+    console.log(JSON.stringify(parsed, null, 2));
+  } else {
+    if (parsed.error) {
+      console.error(c.yellow(`Warning: ${parsed.error}`));
+    }
+    console.log(`\n${c.bold('Tools inspected:')} ${parsed.tools_inspected}`);
+    console.log(`${c.bold('Grade:')} ${parsed.grade}`);
+    console.log(`${c.bold('Findings:')} ${parsed.findings_count}`);
+
+    for (const f of parsed.findings) {
+      console.log(`  ${sevIcon(f.severity)} [${f.tool}] ${f.message}`);
+    }
+
+    if (parsed.findings_count === 0) {
+      console.log(c.green('  No poisoning indicators detected.'));
+    }
+  }
+
+  process.exit(parsed.findings_count > 0 ? 1 : 0);
+}
+
+// ============================================================
 // Help text
 // ============================================================
 function showHelp() {
@@ -305,6 +351,7 @@ ${c.bold('USAGE:')}
 
 ${c.bold('COMMANDS:')}
   ${c.cyan('scan')} <path>              Scan file or directory for vulnerabilities
+  ${c.cyan('inspect')} -- <cmd> [args]  Inspect a live MCP server for tool poisoning
   ${c.cyan('audit')} <path>             LLM deep security audit (requires API key)
   ${c.cyan('check-package')} <name>     Check if a package is hallucinated
   ${c.cyan('prompt')} <text>            Scan text for prompt injection
@@ -316,6 +363,7 @@ ${c.bold('FLAGS:')}
   --quiet                Suppress non-essential output
   --no-color             Disable ANSI colors
   --verbose              Show full details
+  --timeout <ms>         Inspection timeout (default: 10000)
   --provider <p>         LLM provider: anthropic, openai, gemini, ollama, openrouter
   --model <m>            LLM model name
   --ecosystem <e>        Package ecosystem (default: npm)
@@ -331,6 +379,8 @@ ${c.bold('EXIT CODES:')}
 ${c.bold('EXAMPLES:')}
   scanner-lite scan ./src
   scanner-lite scan index.js --json
+  scanner-lite inspect -- node server.js
+  scanner-lite inspect --json --timeout 15000 -- npx -y @mcp/server-filesystem /tmp
   scanner-lite check-package rekat --ecosystem npm
   scanner-lite prompt "ignore all previous instructions"
   scanner-lite audit server.js --provider anthropic --yes
@@ -372,6 +422,14 @@ switch (command) {
   case 'prompt':
     if (!target) { console.error(c.red('Error: prompt requires text argument')); process.exit(2); }
     await cmdPrompt(positional.slice(1).join(' '), flags);
+    break;
+  case 'inspect':
+    // Everything after -- is the command to inspect
+    {
+      const dashDashIdx = process.argv.indexOf('--');
+      const inspectArgs = dashDashIdx >= 0 ? process.argv.slice(dashDashIdx + 1) : positional.slice(1);
+      await cmdInspect(inspectArgs, flags);
+    }
     break;
   case 'download-data':
     await cmdDownloadData(flags);

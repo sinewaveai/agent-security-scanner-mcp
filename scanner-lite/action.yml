@@ -1,0 +1,27 @@
+name: 'ProofLayer Scanner Lite'
+description: 'Lightweight MCP security scanner — 420+ rules, 13 languages, OWASP Agentic Top 10'
+branding:
+  icon: 'shield'
+  color: 'blue'
+inputs:
+  path:
+    description: 'Path to scan'
+    required: false
+    default: '.'
+  format:
+    description: 'Output format: text, json, sarif'
+    required: false
+    default: 'text'
+  fail-on:
+    description: 'Fail if findings exist (exit 1)'
+    required: false
+    default: 'true'
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    - run: npx -y @prooflayer/scanner-lite scan ${{ inputs.path }} ${{ inputs.format == 'sarif' && '--sarif' || inputs.format == 'json' && '--json' || '' }}
+      shell: bash
+      continue-on-error: ${{ inputs.fail-on != 'true' }}

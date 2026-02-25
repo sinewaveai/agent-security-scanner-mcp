@@ -9,6 +9,7 @@ rules:
     patterns:
       - "^FROM(?!.*USER)"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-250"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: MEDIUM
@@ -29,6 +30,7 @@ rules:
       - "ENV\\s+[A-Z_]*TOKEN[A-Z_]*\\s*="
       - "ENV\\s+[A-Z_]*PRIVATE_KEY[A-Z_]*\\s*="
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -45,6 +47,7 @@ rules:
       - "ARG\\s+[A-Z_]*API_KEY"
       - "ARG\\s+[A-Z_]*TOKEN"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-798"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: MEDIUM
@@ -62,6 +65,7 @@ rules:
       - "apt-get\\s+install(?!.*=)"
       - "apt\\s+install(?!.*=)"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-1104"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: LOW
@@ -76,6 +80,7 @@ rules:
       - "pip\\s+install(?!.*==)(?!.*-r)"
       - "pip3\\s+install(?!.*==)(?!.*-r)"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-1104"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: LOW
@@ -89,6 +94,7 @@ rules:
     patterns:
       - "npm\\s+install.*--unsafe-perm"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-269"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: HIGH
@@ -108,6 +114,7 @@ rules:
       - "wget.*\\|.*sh"
       - "wget.*\\|.*bash"
     metadata:
+      asi: "ASI-04,ASI-05"
       cwe: "CWE-94"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -121,6 +128,7 @@ rules:
     patterns:
       - "^ADD\\s+"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-829"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: LOW
@@ -138,6 +146,7 @@ rules:
       - "FROM\\s+[^:]+:latest"
       - "FROM\\s+[^:]+\\s*$"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-1104"
       owasp: "A06:2021 - Vulnerable and Outdated Components"
       confidence: MEDIUM
@@ -154,6 +163,7 @@ rules:
     patterns:
       - "^FROM(?!.*HEALTHCHECK)"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-693"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: LOW
@@ -171,6 +181,7 @@ rules:
       - "EXPOSE\\s+22"
       - "EXPOSE.*\\b22\\b"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-284"
       owasp: "A01:2021 - Broken Access Control"
       confidence: HIGH
@@ -190,6 +201,7 @@ rules:
       - "chmod\\s+u\\+s"
       - "chmod\\s+g\\+s"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-732"
       owasp: "A01:2021 - Broken Access Control"
       confidence: MEDIUM
@@ -206,6 +218,7 @@ rules:
     patterns:
       - "apt-get\\s+install(?!.*rm.*var.*lib.*apt)"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-459"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: LOW
@@ -223,6 +236,7 @@ rules:
       - "curl\\s+.*-k\\s+"
       - "curl\\s+.*--insecure"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-295"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -236,6 +250,7 @@ rules:
     patterns:
       - "wget\\s+.*--no-check-certificate"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-295"
       owasp: "A07:2021 - Identification and Authentication Failures"
       confidence: HIGH
@@ -252,6 +267,7 @@ rules:
     patterns:
       - "^RUN\\s+(?!\\[)"
     metadata:
+      asi: "ASI-05"
       cwe: "CWE-78"
       owasp: "A03:2021 - Injection"
       confidence: LOW
@@ -268,6 +284,7 @@ rules:
     patterns:
       - "RUN\\s+.*sudo\\s+"
     metadata:
+      asi: "ASI-03"
       cwe: "CWE-250"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: HIGH
@@ -284,6 +301,7 @@ rules:
     patterns:
       - "WORKDIR\\s+[^/]"
     metadata:
+      asi: "ASI-04"
       cwe: "CWE-426"
       owasp: "A05:2021 - Security Misconfiguration"
       confidence: LOW

@@ -16,6 +16,7 @@ rules:
       - "openai\\.Completion\\.create\\s*\\([^)]*prompt\\s*=\\s*f[\"']"
       - "messages\\.append\\s*\\(\\s*\\{[^}]*[\"']content[\"']\\s*:\\s*f[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -32,6 +33,7 @@ rules:
       - "openai\\.ChatCompletion\\.create\\s*\\([^)]*\\+.*user"
       - "[\"']content[\"']\\s*:\\s*[^,}]+\\+\\s*\\w+(?!\\s*[\"'])"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -46,6 +48,7 @@ rules:
       - "[\"']content[\"']\\s*:\\s*[^,}]*\\.format\\s*\\("
       - "completions\\.create.*\\.format\\s*\\("
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -64,6 +67,7 @@ rules:
       - "anthropic\\.Anthropic\\s*\\(\\).*messages.*f[\"']"
       - "Claude.*messages.*f[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -78,6 +82,7 @@ rules:
       - "client\\.messages\\.create\\s*\\([^)]*content\\s*=.*\\+"
       - "messages\\.create.*content.*\\+.*user"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -96,6 +101,7 @@ rules:
       - "HumanMessagePromptTemplate\\.from_template\\s*\\(\\s*f[\"']"
       - "SystemMessagePromptTemplate\\.from_template\\s*\\(\\s*f[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -111,6 +117,7 @@ rules:
       - "chain\\.invoke\\s*\\(\\s*\\{[^}]*:\\s*f[\"']"
       - "\\.invoke\\s*\\(.*user_input"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -126,6 +133,7 @@ rules:
       - "create_.*_agent\\s*\\([^)]*\\)\\.run\\s*\\([^)]*\\+"
       - "agent_executor\\.invoke.*user"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -144,6 +152,7 @@ rules:
       - "VectorStoreIndex.*\\.query\\s*\\([^)]*\\+"
       - "index\\.as_query_engine\\(\\).*query.*\\+"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -163,6 +172,7 @@ rules:
       - "tokenizer\\.encode\\s*\\(\\s*f[\"']"
       - "AutoModelFor.*\\.generate.*f[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -182,6 +192,7 @@ rules:
       - "vertexai\\..*\\.predict\\s*\\([^)]*f[\"']"
       - "ChatSession.*send_message.*f[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -200,6 +211,7 @@ rules:
       - "BedrockChat.*\\([^)]*f[\"']"
       - "invoke_model.*body.*f[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -218,6 +230,7 @@ rules:
       - "Ollama\\s*\\(\\).*\\([^)]*\\+"
       - "ollama\\..*\\(.*content.*f[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -235,6 +248,7 @@ rules:
       - "client\\.chat\\.completions\\.create\\s*\\([^)]*content\\s*:\\s*`"
       - "messages\\s*:\\s*\\[[^\\]]*content\\s*:\\s*`[^`]*\\$\\{"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -249,6 +263,7 @@ rules:
       - "content\\s*:\\s*[^,}]+\\+\\s*\\w+"
       - "messages\\.push\\s*\\(\\s*\\{[^}]*content\\s*:[^}]*\\+"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -267,6 +282,7 @@ rules:
       - "Anthropic\\s*\\(\\).*messages.*\\$\\{"
       - "new\\s+Anthropic.*messages.*`"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -285,6 +301,7 @@ rules:
       - "chain\\.invoke\\s*\\([^)]*\\+"
       - "chain\\.call\\s*\\([^)]*\\+"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -302,6 +319,7 @@ rules:
       - "client\\.getChatCompletions\\s*\\([^)]*content\\s*:\\s*`"
       - "OpenAIClient.*\\.getChatCompletions\\s*\\([^)]*\\+"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -320,6 +338,7 @@ rules:
       - "fmt\\.Sprintf.*Content\\s*:"
       - "ChatCompletionMessage.*Content.*\\+"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -338,6 +357,7 @@ rules:
       - "OpenAiService.*createChatCompletion.*\\+"
       - "new\\s+ChatMessage.*\\+.*userInput"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -360,6 +380,7 @@ rules:
       - "eval\\s*\\(.*\\.text"
       - "eval\\s*\\(.*message\\.content"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -376,6 +397,7 @@ rules:
       - "exec\\s*\\(.*\\.content"
       - "exec\\s*\\(.*\\.text"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -391,6 +413,7 @@ rules:
       - "pickle\\.load\\s*\\(.*\\.content"
       - "pickle\\.loads\\s*\\(.*output"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-502"
       owasp: "A08:2021 - Software and Data Integrity Failures"
       confidence: HIGH
@@ -407,6 +430,7 @@ rules:
       - "eval\\s*\\(.*\\.content"
       - "eval\\s*\\(.*\\.message"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -422,6 +446,7 @@ rules:
       - "new\\s+Function\\s*\\(.*\\.content"
       - "Function\\s*\\(.*\\.choices"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -437,6 +462,7 @@ rules:
       - "vm\\.runInThisContext\\s*\\(.*\\.content"
       - "vm\\.Script.*response"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-95"
       owasp: "A03:2021 - Injection"
       confidence: HIGH
@@ -467,6 +493,7 @@ rules:
       - "(?i)new\\s+instructions\\s*:\\s*ignore"
       - "(?i)SYSTEM\\s*:.*override"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -485,6 +512,7 @@ rules:
       - "(?i)new\\s+system\\s+prompt\\s*:"
       - "(?i)update\\s+(your|the)\\s+(instructions?|system\\s+prompt)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -508,6 +536,7 @@ rules:
       - "(?i)\\[DAN\\]"
       - "(?i)DAN\\s*:"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -537,6 +566,7 @@ rules:
       - "(?i)you\\s+are\\s+(a|an)\\s+(hacking|malicious|evil|harmful|dangerous)\\s+tool"
       - "(?i)your\\s+(new\\s+)?role\\s+is\\s+(to\\s+)?(hack|attack|exploit|compromise)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -555,6 +585,7 @@ rules:
       - "(?i)for\\s+(educational|research|academic)\\s+purposes\\s+only"
       - "(?i)this\\s+is\\s+just\\s+(a\\s+)?(test|hypothetical|fiction)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -577,6 +608,7 @@ rules:
       - "(?i)echo\\s+(your|the)\\s+(system\\s+)?prompt"
       - "(?i)print\\s+(your|the)\\s+(entire\\s+)?(system\\s+)?prompt"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -594,6 +626,7 @@ rules:
       - "(?i)how\\s+were\\s+you\\s+(programmed|configured|set\\s+up)"
       - "(?i)what\\s+rules\\s+(are\\s+you|do\\s+you)\\s+follow"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -617,6 +650,7 @@ rules:
       - "<\\|im_start\\|>.*<\\|im_end\\|>"
       - "###\\s*(SYSTEM|USER|ASSISTANT)\\s*###"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -636,6 +670,7 @@ rules:
       - "</user>.*<assistant>"
       - "</assistant>.*<user>"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -657,6 +692,7 @@ rules:
       - "(?i)before\\s+(you\\s+)?(respond|answer)\\s*,?\\s+(first\\s+)?(do|complete)"
       - "(?i)actually\\s*,?\\s+(ignore|skip)\\s+that\\s+and"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -685,6 +721,7 @@ rules:
       - "[A-Za-z0-9+/]{40,}={0,2}\\s*.{0,20}(?i)(decode|execute|follow|run)"
       - "(?i)(decode|run|execute)\\s+.{0,20}[A-Za-z0-9+/]{40,}={0,2}"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -706,6 +743,7 @@ rules:
       - "(?i)sudo\\s+"
       - "(?i)(make|send)\\s+(a\\s+)?(http|api)\\s+(request|call)\\s+to"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -726,6 +764,7 @@ rules:
       - "(?i)in\\s+my\\s+next\\s+message.*you\\s+(will|should|must)"
       - "(?i)when\\s+i\\s+say.*you\\s+(will|should|must)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: LOW
@@ -748,6 +787,7 @@ rules:
       - "```[\\s\\S]{0,20}(?i)(eval|exec)\\s*\\("
       - "```[\\s\\S]{0,50}(?i)send.{0,30}(secret|password|key|token|credential)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-77"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -769,6 +809,7 @@ rules:
       - "(?i)curl\\s+.{0,30}(steal|exfil|attacker|evil)"
       - "(?i)(cat|read|dump)\\s+.{0,20}\\.(ssh|env|credentials).{0,30}(curl|wget|send|post)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-200"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -789,6 +830,7 @@ rules:
       - "<!--[^>]*(?:execute|run|fetch|curl|wget|eval|send|exfil)[^>]*-->"
       - "<!--[^>]*(?:admin|root|sudo|superuser|bypass|disable)[^>]*instruction[^>]*-->"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-94"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -805,6 +847,7 @@ rules:
       - "\\[\\!\\[[^\\]]*\\]\\([^)]*(?:ignore|override|execute)"
       - "(?:\\u200b|\\u200c|\\u200d|\\ufeff).{0,5}(?:ignore|forget|override)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-94"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -822,6 +865,7 @@ rules:
       - "(?i)\\bhidden\\s+instruction\\s*[:;]"
       - "(?i)\\bif\\s+you\\s+are\\s+(?:an?\\s+)?(?:AI|LLM|language\\s+model|GPT|Claude|assistant)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-94"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -838,6 +882,7 @@ rules:
       - "(?i)(?:comment|description|title)\\s*[:=].*(?:ignore previous|new instruction|system prompt)"
       - "(?i)alt\\s*=\\s*[\"'][^\"']*(?:ignore|forget|override|execute)[^\"']*[\"']"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-94"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -854,6 +899,7 @@ rules:
       - "(?i)(?:https?://|url\\().*(?:ignore.*instruction|new.*system.*prompt)"
       - "(?i)fetch\\s+(?:https?://)?\\S+.*then.*(?:execute|eval|run)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-94"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -870,6 +916,7 @@ rules:
       - "(?i)[\"']\\s*(?:you\\s+are\\s+now|new\\s+role|switch\\s+to|act\\s+as)\\s+[^\"']{5,}"
       - "(?i)\\{[^}]*(?:system_prompt|instructions)\\s*:\\s*[\"'][^\"']*(?:override|bypass|ignore)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-94"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -890,6 +937,7 @@ rules:
       - "(?i)(?:developer|debug|admin)\\s+mode\\s+(?:enabled|activated|on)"
       - "(?i)you\\s+(?:now\\s+)?have\\s+(?:no|zero)\\s+(?:restrictions|limitations|filters|guardrails)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-284"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -907,6 +955,7 @@ rules:
       - "(?i)(?:ign[o0]re|f[o0]rget|disreg[a@]rd)\\s+(?:previ[o0]us|pri[o0]r|[a@]bove)"
       - "(?i)(?:\u0456|\u0433|\u043d|\u043e\u0440\u0435).*(?:ignore|forget)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-116"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -923,6 +972,7 @@ rules:
       - "(?i)(?:no\\s+time|hurry|quick|asap).{0,30}(?:skip|bypass|ignore)\\s+(?:normal|standard|usual)\\s+(?:procedure|process|check)"
       - "(?i)(?:lives?|people|patients?)\\s+(?:at\\s+)?(?:stake|risk|danger).{0,30}(?:override|bypass|skip)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-284"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -939,6 +989,7 @@ rules:
       - "(?i)(?:as\\s+(?:the|an?|your)\\s+)?(?:admin|administrator|developer|owner)\\s*,?\\s+(?:i\\s+)?(?:authorize|grant|allow|permit|approve)"
       - "(?i)(?:my|the)\\s+(?:admin|root|superuser)\\s+(?:credentials|access|privilege)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-284"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -955,6 +1006,7 @@ rules:
       - "(?i)(?:always|must|shall)\\s+(?:include|prepend|append|add)\\s+.{0,30}(?:to\\s+)?(?:your|every|all)\\s+(?:response|reply|output)"
       - "(?i)(?:format|structure)\\s+(?:your|the)\\s+(?:response|output)\\s+(?:as|to\\s+include|with).{0,30}(?:script|iframe|img|src=)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-94"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -971,6 +1023,7 @@ rules:
       - "(?i)(?:add|append|insert)\\s+.{0,30}(?:to|into)\\s+(?:your|the)\\s+(?:system\\s+)?(?:prompt|instructions|rules)"
       - "(?i)(?:from\\s+now\\s+on|going\\s+forward|permanently)\\s*,?\\s+(?:ignore|forget|override|replace)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-284"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -987,6 +1040,7 @@ rules:
       - "(?i)(?:en\\s+espa.ol|auf\\s+deutsch|en\\s+fran.ais)\\s*[:;,].{0,30}(?:ignore|forget|bypass)"
       - "(?i)(?:respond|reply|answer)\\s+(?:in|using)\\s+(?:a\\s+)?(?:different|another|new)\\s+language.{0,30}(?:to\\s+)?(?:avoid|bypass|evade)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-116"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -1004,6 +1058,7 @@ rules:
       - "(?i)(?:grandm(?:a|other)|grandpa|grandf(?:ather)).{0,60}(?:recipe|steps|instructions?|process|procedure|formula).{0,40}(?:fall\\s+asleep|bedtime|sleep|lullaby)"
       - "(?i)(?:grandm(?:a|other)|grandf(?:ather)|mother|father).{0,40}(?:worked|engineer|scientist|chemist|expert).{0,60}(?:napalm|explosive|weapon|drug|poison|chemical)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-284"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -1020,6 +1075,7 @@ rules:
       - "(?i)(?:imagine|pretend|suppose|let's\\s+say)\\s+(?:you\\s+are|you're|there's)\\s+(?:a|an)\\s+(?:hacker|attacker|criminal|villain)"
       - "(?i)(?:in\\s+(?:this|a)\\s+(?:fictional|hypothetical)\\s+(?:world|scenario|story)).{0,40}(?:there\\s+are\\s+no|without\\s+any)\\s+(?:rules|restrictions|limits)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-284"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -1036,6 +1092,7 @@ rules:
       - "(?i)(?:use|call)\\s+(?:the|your)\\s+(?:file|write|edit)\\s+(?:tool|access|capability).{0,30}(?:to\\s+)?(?:modify|overwrite|inject|backdoor)"
       - "(?i)(?:use|call)\\s+(?:the|your)\\s+(?:network|http|fetch|curl)\\s+(?:tool|access).{0,30}(?:to\\s+)?(?:send|upload|post|exfiltrate)"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-78"
       owasp: "LLM01 - Prompt Injection"
       confidence: HIGH
@@ -1052,6 +1109,7 @@ rules:
       - "(?:0x[0-9a-fA-F]{2}\\s*,?\\s*){8,}"
       - "(?i)\\bdecode\\s+(?:this|the\\s+following)\\s+hex"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-116"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM
@@ -1067,6 +1125,7 @@ rules:
       - "(?i)(?:decode|decipher|decrypt|apply)\\s+(?:this\\s+)?(?:rot13|rot-13|caesar|caesar\\s+cipher)"
       - "(?i)(?:rot13|caesar)\\s*[:=]"
     metadata:
+      asi: "ASI-01"
       cwe: "CWE-116"
       owasp: "LLM01 - Prompt Injection"
       confidence: MEDIUM

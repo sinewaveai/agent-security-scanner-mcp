@@ -21,6 +21,7 @@ import { scanPackages, scanPackagesSchema } from './src/scan-packages.js';
 import { scanAgentPrompt, scanAgentPromptSchema } from './src/prompt-scanner.js';
 import { scanMcpServer, scanMcpServerSchema } from './src/tool-poisoning.js';
 import { deepAudit, deepAuditSchema } from './src/llm-audit.js';
+import { inspectMcpServer, inspectMcpServerSchema } from './src/inspector.js';
 
 const server = new Server(
   {
@@ -101,6 +102,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: deepAuditSchema,
           required: ["file_path"]
         }
+      },
+      {
+        name: "inspect_mcp_server",
+        description: "Launch a live MCP server process, connect via stdio, call tools/list, and scan returned tool definitions for poisoning (description injection, name spoofing, unicode attacks, schema manipulation). Read-only probe — never calls any tools.",
+        inputSchema: {
+          type: "object",
+          properties: inspectMcpServerSchema,
+          required: ["command"]
+        }
       }
     ]
   };
@@ -125,6 +135,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await scanMcpServer(args);
       case "deep_audit":
         return await deepAudit(args);
+      case "inspect_mcp_server":
+        return await inspectMcpServer(args);
       default:
         return {
           content: [{ type: "text", text: JSON.stringify({ error: `Unknown tool: ${name}` }) }]

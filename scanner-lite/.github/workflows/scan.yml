@@ -1,0 +1,29 @@
+# Example reusable workflow — copy to your repo's .github/workflows/
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: sinewaveai/agent-security-scanner-mcp/scanner-lite@main
+        with:
+          path: ./src
+          format: text
+
+      # Optional: upload SARIF to GitHub Security tab
+      # - uses: sinewaveai/agent-security-scanner-mcp/scanner-lite@main
+      #   with:
+      #     path: ./src
+      #     format: sarif
+      #     fail-on: 'false'
+      # - uses: github/codeql-action/upload-sarif@v3
+      #   with:
+      #     sarif_file: results.sarif
