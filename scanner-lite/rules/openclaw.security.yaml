@@ -1,0 +1,283 @@
+# OpenClaw-specific security rules
+# Detects attacks targeting autonomous AI assistants with broad system access
+# These rules are loaded by scan_agent_prompt for OpenClaw integration
+
+rules:
+  # ===========================================
+  # DATA EXFILTRATION
+  # ===========================================
+  - id: openclaw.exfiltration.email-forward
+    severity: CRITICAL
+    category: data_exfiltration
+    patterns:
+      - "forward\\s+(all\\s+)?(my\\s+)?emails?\\s+to"
+      - "send\\s+(all\\s+)?(my\\s+)?emails?\\s+to"
+      - "copy\\s+(all\\s+)?(my\\s+)?emails?\\s+to"
+      - "export\\s+(all\\s+)?(my\\s+)?emails?\\s+to"
+      - "redirect\\s+(my\\s+)?mail\\s+to"
+    message: "Potential email exfiltration attempt"
+    action: BLOCK
+
+  - id: openclaw.exfiltration.contacts-export
+    severity: CRITICAL
+    category: data_exfiltration
+    patterns:
+      - "export\\s+(all\\s+)?(my\\s+)?contacts\\s+to"
+      - "send\\s+(all\\s+)?(my\\s+)?contacts\\s+to"
+      - "send\\s+(my\\s+)?contact\\s+list\\s+to"
+      - "share\\s+(my\\s+)?address\\s+book"
+      - "upload\\s+(my\\s+)?contacts"
+    message: "Potential contacts exfiltration attempt"
+    action: BLOCK
+
+  - id: openclaw.exfiltration.calendar-export
+    severity: HIGH
+    category: data_exfiltration
+    patterns:
+      - "export\\s+(all\\s+)?(my\\s+)?calendar"
+      - "share\\s+(my\\s+)?schedule\\s+with"
+      - "send\\s+(my\\s+)?appointments\\s+to"
+      - "upload\\s+(my\\s+)?calendar"
+    message: "Potential calendar data exfiltration"
+    action: WARN
+
+  - id: openclaw.exfiltration.file-upload
+    severity: CRITICAL
+    category: data_exfiltration
+    patterns:
+      - "upload\\s+(all\\s+)?(my\\s+)?files?\\s+to"
+      - "send\\s+(all\\s+)?(my\\s+)?documents?\\s+to"
+      - "transfer\\s+(my\\s+)?data\\s+to"
+      - "copy\\s+(my\\s+)?files?\\s+to\\s+(external|remote|cloud)"
+      - "sync\\s+(my\\s+)?files?\\s+to\\s+\\S+\\.(com|io|net|org)"
+    message: "Potential file exfiltration to external service"
+    action: BLOCK
+
+  - id: openclaw.exfiltration.browser-session
+    severity: CRITICAL
+    category: data_exfiltration
+    patterns:
+      - "share\\s+(my\\s+)?browser\\s+(cookies?|session)"
+      - "export\\s+(my\\s+)?cookies?"
+      - "send\\s+(my\\s+)?session\\s+(data|tokens?)"
+      - "copy\\s+(my\\s+)?browser\\s+data"
+      - "extract\\s+(my\\s+)?login\\s+sessions?"
+    message: "Potential browser session/cookie theft"
+    action: BLOCK
+
+  - id: openclaw.exfiltration.browsing-history
+    severity: HIGH
+    category: data_exfiltration
+    patterns:
+      - "export\\s+(my\\s+)?browsing\\s+history"
+      - "send\\s+(my\\s+)?browser\\s+history"
+      - "share\\s+(my\\s+)?search\\s+history"
+    message: "Potential browsing history exfiltration"
+    action: WARN
+
+  # ===========================================
+  # MESSAGING ABUSE
+  # ===========================================
+  - id: openclaw.messaging.mass-send
+    severity: CRITICAL
+    category: messaging_abuse
+    patterns:
+      - "send\\s+(this\\s+)?message\\s+to\\s+all\\s+(my\\s+)?contacts"
+      - "message\\s+everyone\\s+in\\s+(my\\s+)?contacts?"
+      - "broadcast\\s+to\\s+all\\s+(my\\s+)?(contacts|friends)"
+      - "send\\s+to\\s+all\\s+(my\\s+)?(whatsapp|telegram|discord|slack)"
+      - "spam\\s+(all\\s+)?(my\\s+)?contacts"
+    message: "Mass messaging to all contacts detected"
+    action: BLOCK
+
+  - id: openclaw.messaging.auto-reply
+    severity: HIGH
+    category: messaging_abuse
+    patterns:
+      - "auto(-|\\s)?reply\\s+to\\s+(all|every)\\s+message"
+      - "automatically\\s+respond\\s+to\\s+(all|every)"
+      - "reply\\s+to\\s+all\\s+messages?\\s+with"
+      - "set\\s+up\\s+auto(-|\\s)?responder"
+    message: "Auto-reply configuration may be abused"
+    action: WARN
+
+  - id: openclaw.messaging.impersonation
+    severity: CRITICAL
+    category: messaging_abuse
+    patterns:
+      - "pretend\\s+to\\s+be\\s+(me|someone)"
+      - "impersonate\\s+(me|someone)"
+      - "send\\s+as\\s+if\\s+(from\\s+)?(me|I)"
+      - "message\\s+(them|him|her)\\s+as\\s+(me|if)"
+    message: "Potential impersonation/social engineering"
+    action: BLOCK
+
+  - id: openclaw.messaging.phishing-content
+    severity: CRITICAL
+    category: messaging_abuse
+    patterns:
+      - "send\\s+.*(urgent|verify|confirm)\\s+(your\\s+)?(account|password|login)"
+      - "message\\s+.*click\\s+(this|here|the)\\s+link"
+      - "tell\\s+(them|everyone)\\s+to\\s+(update|verify|confirm)"
+    message: "Potential phishing content in message"
+    action: BLOCK
+
+  # ===========================================
+  # CREDENTIAL/SECRET THEFT
+  # ===========================================
+  - id: openclaw.credentials.api-keys
+    severity: CRITICAL
+    category: credential_theft
+    patterns:
+      - "show\\s+(me\\s+)?(my\\s+)?api\\s+keys?"
+      - "list\\s+(all\\s+)?(my\\s+)?api\\s+keys?"
+      - "what\\s+(are|is)\\s+(my\\s+)?api\\s+(key|token|secret)"
+      - "display\\s+(my\\s+)?tokens?"
+      - "reveal\\s+(my\\s+)?secrets?"
+    message: "Attempt to access API keys/tokens"
+    action: BLOCK
+
+  - id: openclaw.credentials.passwords
+    severity: CRITICAL
+    category: credential_theft
+    patterns:
+      - "show\\s+(me\\s+)?(my\\s+)?(saved\\s+)?passwords?"
+      - "what\\s+(are|is)\\s+(my\\s+)?passwords?"
+      - "list\\s+(all\\s+)?(my\\s+)?passwords?"
+      - "display\\s+(my\\s+)?login\\s+credentials?"
+      - "export\\s+(my\\s+)?passwords?"
+    message: "Attempt to access saved passwords"
+    action: BLOCK
+
+  - id: openclaw.credentials.keychain
+    severity: CRITICAL
+    category: credential_theft
+    patterns:
+      - "access\\s+(my\\s+)?keychain"
+      - "read\\s+(from\\s+)?(my\\s+)?keychain"
+      - "export\\s+(my\\s+)?keychain"
+      - "dump\\s+(my\\s+)?credential\\s+store"
+      - "show\\s+(my\\s+)?secure\\s+storage"
+    message: "Attempt to access system keychain/credential store"
+    action: BLOCK
+
+  - id: openclaw.credentials.env-secrets
+    severity: CRITICAL
+    category: credential_theft
+    patterns:
+      - "show\\s+(me\\s+)?(all\\s+)?environment\\s+variables?"
+      - "print\\s+(all\\s+)?env\\s+vars?"
+      - "list\\s+.env\\s+file"
+      - "cat\\s+.*\\.env"
+      - "display\\s+(my\\s+)?secrets?"
+    message: "Attempt to access environment secrets"
+    action: BLOCK
+
+  - id: openclaw.credentials.ssh-keys
+    severity: CRITICAL
+    category: credential_theft
+    patterns:
+      - "show\\s+(me\\s+)?(my\\s+)?ssh\\s+keys?"
+      - "read\\s+(my\\s+)?private\\s+key"
+      - "export\\s+(my\\s+)?ssh\\s+keys?"
+      - "copy\\s+(my\\s+)?\\.ssh"
+      - "send\\s+(my\\s+)?id_rsa"
+    message: "Attempt to access SSH private keys"
+    action: BLOCK
+
+  # ===========================================
+  # AUTONOMOUS HARM / SAFETY BYPASS
+  # ===========================================
+  - id: openclaw.autonomous.scheduled-harm
+    severity: CRITICAL
+    category: autonomous_harm
+    patterns:
+      - "run\\s+this\\s+(every|each)\\s+(hour|minute|day)"
+      - "schedule\\s+this\\s+to\\s+run\\s+(repeatedly|continuously)"
+      - "set\\s+up\\s+(a\\s+)?cron\\s+(job\\s+)?to"
+      - "automatically\\s+run\\s+this\\s+without\\s+asking"
+    message: "Scheduled task without confirmation requested"
+    action: WARN
+
+  - id: openclaw.autonomous.no-confirm
+    severity: HIGH
+    category: autonomous_harm
+    patterns:
+      - "don'?t\\s+(ask|confirm|prompt)\\s+(me\\s+)?before"
+      - "without\\s+(asking|confirmation|prompting)"
+      - "skip\\s+(the\\s+)?confirmation"
+      - "auto(-|\\s)?approve\\s+(all|everything)"
+      - "don'?t\\s+wait\\s+for\\s+(my\\s+)?approval"
+    message: "Request to bypass confirmation prompts"
+    action: WARN
+
+  - id: openclaw.autonomous.disable-safety
+    severity: CRITICAL
+    category: autonomous_harm
+    patterns:
+      - "disable\\s+(all\\s+)?safety\\s+(checks?|features?)"
+      - "turn\\s+off\\s+(security|safety)"
+      - "bypass\\s+(the\\s+)?security"
+      - "ignore\\s+(the\\s+)?restrictions?"
+      - "remove\\s+(the\\s+)?guardrails?"
+    message: "Attempt to disable safety mechanisms"
+    action: BLOCK
+
+  - id: openclaw.autonomous.unlimited-access
+    severity: HIGH
+    category: autonomous_harm
+    patterns:
+      - "give\\s+(me|yourself)\\s+(full|unlimited|complete)\\s+access"
+      - "grant\\s+(me|yourself)\\s+(all|admin)\\s+permissions?"
+      - "escalate\\s+(your|my)\\s+privileges?"
+      - "run\\s+(as|with)\\s+(root|admin|sudo)"
+    message: "Privilege escalation attempt"
+    action: BLOCK
+
+  # ===========================================
+  # SERVICE-SPECIFIC ATTACKS
+  # ===========================================
+  - id: openclaw.service.payment-fraud
+    severity: CRITICAL
+    category: service_attack
+    patterns:
+      - "make\\s+(a\\s+)?payment\\s+to"
+      - "transfer\\s+(money|funds)\\s+to"
+      - "send\\s+\\$?\\d+\\s+to"
+      - "buy\\s+(this|something)\\s+using\\s+(my\\s+)?(card|account)"
+      - "purchase\\s+.*without\\s+(asking|confirmation)"
+    message: "Unauthorized payment/transaction attempt"
+    action: BLOCK
+
+  - id: openclaw.service.account-changes
+    severity: HIGH
+    category: service_attack
+    patterns:
+      - "change\\s+(my\\s+)?password\\s+to"
+      - "update\\s+(my\\s+)?email\\s+to"
+      - "modify\\s+(my\\s+)?account\\s+settings"
+      - "add\\s+(a\\s+)?(new\\s+)?recovery\\s+(email|phone)"
+    message: "Account modification request - verify intent"
+    action: WARN
+
+  - id: openclaw.service.github-destructive
+    severity: CRITICAL
+    category: service_attack
+    patterns:
+      - "delete\\s+(all\\s+)?(my\\s+)?repositories"
+      - "remove\\s+(all\\s+)?(my\\s+)?github\\s+(repos?|projects?)"
+      - "force\\s+push\\s+to\\s+(main|master)"
+      - "make\\s+(all\\s+)?(my\\s+)?repos?\\s+public"
+    message: "Potentially destructive GitHub operation"
+    action: BLOCK
+
+  - id: openclaw.service.social-destructive
+    severity: HIGH
+    category: service_attack
+    patterns:
+      - "delete\\s+(all\\s+)?(my\\s+)?(posts?|tweets?|messages?)"
+      - "unfollow\\s+(everyone|all)"
+      - "block\\s+(everyone|all\\s+my\\s+contacts)"
+      - "deactivate\\s+(my\\s+)?account"
+    message: "Potentially destructive social media operation"
+    action: WARN

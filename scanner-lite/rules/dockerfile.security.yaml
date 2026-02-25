@@ -1,0 +1,291 @@
+rules:
+  # ============================================================================
+  # PRIVILEGE ESCALATION
+  # ============================================================================
+  - id: dockerfile.security.audit.run-as-root
+    languages: [dockerfile]
+    severity: WARNING
+    message: "Container running as root. Add USER directive to run as non-root user."
+    patterns:
+      - "^FROM(?!.*USER)"
+    metadata:
+      cwe: "CWE-250"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.missing-user
+
+  # ============================================================================
+  # HARDCODED SECRETS
+  # ============================================================================
+  - id: dockerfile.security.audit.secret-in-env
+    languages: [dockerfile]
+    severity: ERROR
+    message: "Secret in ENV instruction. Use build args or runtime secrets."
+    patterns:
+      - "ENV\\s+[A-Z_]*PASSWORD[A-Z_]*\\s*="
+      - "ENV\\s+[A-Z_]*SECRET[A-Z_]*\\s*="
+      - "ENV\\s+[A-Z_]*API_KEY[A-Z_]*\\s*="
+      - "ENV\\s+[A-Z_]*TOKEN[A-Z_]*\\s*="
+      - "ENV\\s+[A-Z_]*PRIVATE_KEY[A-Z_]*\\s*="
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.secret-in-env
+
+  - id: dockerfile.security.audit.secret-in-arg
+    languages: [dockerfile]
+    severity: WARNING
+    message: "Secret in ARG may be exposed in image history. Use multi-stage builds."
+    patterns:
+      - "ARG\\s+[A-Z_]*PASSWORD"
+      - "ARG\\s+[A-Z_]*SECRET"
+      - "ARG\\s+[A-Z_]*API_KEY"
+      - "ARG\\s+[A-Z_]*TOKEN"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.secret-in-arg
+
+  # ============================================================================
+  # PACKAGE MANAGEMENT
+  # ============================================================================
+  - id: dockerfile.security.audit.apt-get-no-version
+    languages: [dockerfile]
+    severity: WARNING
+    message: "apt-get install without version pinning. Pin versions for reproducibility."
+    patterns:
+      - "apt-get\\s+install(?!.*=)"
+      - "apt\\s+install(?!.*=)"
+    metadata:
+      cwe: "CWE-1104"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.apt-get-no-version
+
+  - id: dockerfile.security.audit.pip-no-version
+    languages: [dockerfile]
+    severity: WARNING
+    message: "pip install without version pinning. Pin versions for security."
+    patterns:
+      - "pip\\s+install(?!.*==)(?!.*-r)"
+      - "pip3\\s+install(?!.*==)(?!.*-r)"
+    metadata:
+      cwe: "CWE-1104"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.pip-no-version
+
+  - id: dockerfile.security.audit.npm-install-unsafe
+    languages: [dockerfile]
+    severity: WARNING
+    message: "npm install with --unsafe-perm can lead to privilege escalation."
+    patterns:
+      - "npm\\s+install.*--unsafe-perm"
+    metadata:
+      cwe: "CWE-269"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.npm-unsafe-perm
+
+  # ============================================================================
+  # INSECURE COMMANDS
+  # ============================================================================
+  - id: dockerfile.security.audit.curl-pipe-bash
+    languages: [dockerfile]
+    severity: ERROR
+    message: "curl | bash is dangerous. Download, verify, then execute scripts."
+    patterns:
+      - "curl.*\\|.*sh"
+      - "curl.*\\|.*bash"
+      - "wget.*\\|.*sh"
+      - "wget.*\\|.*bash"
+    metadata:
+      cwe: "CWE-94"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.curl-pipe-bash
+
+  - id: dockerfile.security.audit.add-instead-of-copy
+    languages: [dockerfile]
+    severity: WARNING
+    message: "ADD can auto-extract archives and fetch URLs. Use COPY for local files."
+    patterns:
+      - "^ADD\\s+"
+    metadata:
+      cwe: "CWE-829"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.add-instead-of-copy
+
+  # ============================================================================
+  # INSECURE BASE IMAGES
+  # ============================================================================
+  - id: dockerfile.security.audit.latest-tag
+    languages: [dockerfile]
+    severity: WARNING
+    message: "Using :latest tag. Pin to specific version for reproducibility."
+    patterns:
+      - "FROM\\s+[^:]+:latest"
+      - "FROM\\s+[^:]+\\s*$"
+    metadata:
+      cwe: "CWE-1104"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.latest-tag
+
+  # ============================================================================
+  # HEALTHCHECK
+  # ============================================================================
+  - id: dockerfile.security.audit.missing-healthcheck
+    languages: [dockerfile]
+    severity: INFO
+    message: "No HEALTHCHECK instruction. Add for container orchestration."
+    patterns:
+      - "^FROM(?!.*HEALTHCHECK)"
+    metadata:
+      cwe: "CWE-693"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.missing-healthcheck
+
+  # ============================================================================
+  # EXPOSED PORTS
+  # ============================================================================
+  - id: dockerfile.security.audit.expose-ssh
+    languages: [dockerfile]
+    severity: WARNING
+    message: "SSH port exposed. Avoid running SSH in containers."
+    patterns:
+      - "EXPOSE\\s+22"
+      - "EXPOSE.*\\b22\\b"
+    metadata:
+      cwe: "CWE-284"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.expose-ssh
+
+  # ============================================================================
+  # SETUID/SETGID
+  # ============================================================================
+  - id: dockerfile.security.audit.chmod-dangerous
+    languages: [dockerfile]
+    severity: WARNING
+    message: "chmod 777 or setuid/setgid bits can be dangerous."
+    patterns:
+      - "chmod\\s+777"
+      - "chmod\\s+[0-7]*[4-7][0-7]*[0-7]"
+      - "chmod\\s+u\\+s"
+      - "chmod\\s+g\\+s"
+    metadata:
+      cwe: "CWE-732"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.chmod-dangerous
+
+  # ============================================================================
+  # APT CLEANUP
+  # ============================================================================
+  - id: dockerfile.security.audit.apt-no-clean
+    languages: [dockerfile]
+    severity: INFO
+    message: "apt-get without cleanup. Add rm -rf /var/lib/apt/lists/* to reduce image size."
+    patterns:
+      - "apt-get\\s+install(?!.*rm.*var.*lib.*apt)"
+    metadata:
+      cwe: "CWE-459"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.apt-no-clean
+
+  # ============================================================================
+  # CERTIFICATE VALIDATION
+  # ============================================================================
+  - id: dockerfile.security.audit.curl-insecure
+    languages: [dockerfile]
+    severity: ERROR
+    message: "curl with -k/--insecure disables certificate validation."
+    patterns:
+      - "curl\\s+.*-k\\s+"
+      - "curl\\s+.*--insecure"
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.curl-insecure
+
+  - id: dockerfile.security.audit.wget-no-check
+    languages: [dockerfile]
+    severity: ERROR
+    message: "wget with --no-check-certificate disables certificate validation."
+    patterns:
+      - "wget\\s+.*--no-check-certificate"
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.wget-no-check
+
+  # ============================================================================
+  # SHELL FORM
+  # ============================================================================
+  - id: dockerfile.security.audit.run-shell-form
+    languages: [dockerfile]
+    severity: INFO
+    message: "RUN using shell form. Consider exec form for predictability."
+    patterns:
+      - "^RUN\\s+(?!\\[)"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.run-shell-form
+
+  # ============================================================================
+  # SUDO
+  # ============================================================================
+  - id: dockerfile.security.audit.sudo-in-dockerfile
+    languages: [dockerfile]
+    severity: WARNING
+    message: "sudo in Dockerfile is often unnecessary. Use USER directive instead."
+    patterns:
+      - "RUN\\s+.*sudo\\s+"
+    metadata:
+      cwe: "CWE-250"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.sudo-in-dockerfile
+
+  # ============================================================================
+  # WORKDIR
+  # ============================================================================
+  - id: dockerfile.security.audit.workdir-absolute
+    languages: [dockerfile]
+    severity: INFO
+    message: "WORKDIR should use absolute paths for clarity."
+    patterns:
+      - "WORKDIR\\s+[^/]"
+    metadata:
+      cwe: "CWE-426"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/dockerfile.security.audit.workdir-absolute

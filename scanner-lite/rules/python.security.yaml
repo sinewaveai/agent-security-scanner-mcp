@@ -1,0 +1,602 @@
+rules:
+  # ============================================================================
+  # INJECTION RULES
+  # ============================================================================
+  - id: python.lang.security.audit.sqli.sql-injection-db-cursor
+    languages: [python]
+    severity: ERROR
+    message: "Possible SQL injection via string concatenation. Use parameterized queries instead."
+    patterns:
+      - "cursor\\.execute\\s*\\(\\s*[\"'][^\"']*%"
+      - "cursor\\.execute\\s*\\(\\s*f[\"']"
+      - "cursor\\.execute\\s*\\(\\s*[^,)]+\\s*\\+\\s*"
+      - "cursor\\.execute\\s*\\(\\s*[\"'].*\\.format\\s*\\("
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.sqli.sql-injection-db-cursor
+        - https://owasp.org/Top10/A03_2021-Injection/
+
+  - id: python.lang.security.audit.sqli.sql-injection-using-sqlalchemy
+    languages: [python]
+    severity: ERROR
+    message: "Possible SQL injection in SQLAlchemy raw query. Use parameterized queries."
+    patterns:
+      - "text\\s*\\(\\s*f[\"']"
+      - "text\\s*\\(\\s*[^)]+\\+"
+      - "\\.execute\\s*\\(\\s*f[\"']SELECT"
+      - "\\.execute\\s*\\(\\s*f[\"']INSERT"
+      - "\\.execute\\s*\\(\\s*f[\"']UPDATE"
+      - "\\.execute\\s*\\(\\s*f[\"']DELETE"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.sqlalchemy.security.sqlalchemy-execute-raw-query
+
+  - id: python.lang.security.audit.sqli.sql-injection-using-django
+    languages: [python]
+    severity: ERROR
+    message: "Possible SQL injection in Django raw query. Use parameterized queries."
+    patterns:
+      - "\\.raw\\s*\\(\\s*f[\"']"
+      - "\\.raw\\s*\\(\\s*[^)]+\\+"
+      - "\\.extra\\s*\\(.*where.*\\+.*\\)"
+      - "RawSQL\\s*\\(\\s*f[\"']"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.django.security.injection.sql.sql-injection-using-raw
+
+  # ============================================================================
+  # COMMAND INJECTION RULES
+  # ============================================================================
+  - id: python.lang.security.audit.dangerous-subprocess-use
+    languages: [python]
+    severity: ERROR
+    message: "Detected subprocess with shell=True. This is dangerous when using user input. Use shell=False and pass arguments as a list."
+    patterns:
+      - "subprocess\\.call\\s*\\([^)]*shell\\s*=\\s*True"
+      - "subprocess\\.run\\s*\\([^)]*shell\\s*=\\s*True"
+      - "subprocess\\.Popen\\s*\\([^)]*shell\\s*=\\s*True"
+      - "subprocess\\.check_output\\s*\\([^)]*shell\\s*=\\s*True"
+      - "subprocess\\.check_call\\s*\\([^)]*shell\\s*=\\s*True"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.dangerous-subprocess-use
+
+  - id: python.lang.security.audit.dangerous-system-call
+    languages: [python]
+    severity: ERROR
+    message: "Detected os.system() call. This can lead to command injection. Use subprocess with shell=False instead."
+    patterns:
+      - "os\\.system\\s*\\("
+      - "os\\.popen\\s*\\("
+      - "os\\.spawn[lv]?[pe]?\\s*\\("
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.dangerous-system-call
+
+  # ============================================================================
+  # CODE INJECTION / DANGEROUS EVAL
+  # ============================================================================
+  - id: python.lang.security.audit.eval-detected
+    languages: [python]
+    severity: ERROR
+    message: "Detected use of eval(). This is dangerous and can lead to code injection. Avoid eval() with untrusted input."
+    patterns:
+      - "\\beval\\s*\\("
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.eval-detected
+
+  - id: python.lang.security.audit.exec-detected
+    languages: [python]
+    severity: ERROR
+    message: "Detected use of exec(). This is dangerous and can lead to code injection. Avoid exec() with untrusted input."
+    patterns:
+      - "\\bexec\\s*\\("
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.exec-detected
+
+  - id: python.lang.security.audit.compile-detected
+    languages: [python]
+    severity: WARNING
+    message: "Detected use of compile(). Ensure input is not from untrusted sources."
+    patterns:
+      - "\\bcompile\\s*\\([^)]*,[^)]*['\"]exec['\"]"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.compile-detected
+
+  # ============================================================================
+  # DESERIALIZATION RULES
+  # ============================================================================
+  - id: python.lang.security.deserialization.pickle-load
+    languages: [python]
+    severity: ERROR
+    message: "Detected pickle deserialization. Pickle is unsafe - arbitrary code execution is possible. Use JSON or other safe formats."
+    patterns:
+      - "pickle\\.load\\s*\\("
+      - "pickle\\.loads\\s*\\("
+      - "cPickle\\.load\\s*\\("
+      - "cPickle\\.loads\\s*\\("
+      - "_pickle\\.load\\s*\\("
+      - "_pickle\\.loads\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.deserialization.avoid-pickle
+
+  - id: python.lang.security.deserialization.yaml-load
+    languages: [python]
+    severity: ERROR
+    message: "Detected yaml.load() without safe Loader. Use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader)."
+    patterns:
+      - "yaml\\.load\\s*\\([^)]*\\)(?!.*Loader)"
+      - "yaml\\.load\\s*\\([^)]*,\\s*Loader\\s*=\\s*yaml\\.Loader"
+      - "yaml\\.load\\s*\\([^)]*,\\s*Loader\\s*=\\s*yaml\\.UnsafeLoader"
+      - "yaml\\.load\\s*\\([^)]*,\\s*Loader\\s*=\\s*yaml\\.FullLoader"
+      - "yaml\\.unsafe_load\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.deserialization.avoid-unsafe-yaml
+
+  - id: python.lang.security.deserialization.marshal-load
+    languages: [python]
+    severity: ERROR
+    message: "Detected marshal deserialization. Marshal is not secure against malicious data."
+    patterns:
+      - "marshal\\.load\\s*\\("
+      - "marshal\\.loads\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.deserialization.avoid-marshal
+
+  - id: python.lang.security.deserialization.shelve-open
+    languages: [python]
+    severity: WARNING
+    message: "Detected shelve.open(). Shelve uses pickle internally and is vulnerable to code execution."
+    patterns:
+      - "shelve\\.open\\s*\\("
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.deserialization.avoid-shelve
+
+  # ============================================================================
+  # CRYPTOGRAPHY RULES
+  # ============================================================================
+  - id: python.lang.security.crypto.insecure-hash-md5
+    languages: [python]
+    severity: WARNING
+    message: "Detected MD5 hash. MD5 is cryptographically weak. Use SHA-256 or stronger for security purposes."
+    patterns:
+      - "hashlib\\.md5\\s*\\("
+      - "MD5\\.new\\s*\\("
+      - "Crypto\\.Hash\\.MD5"
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.insecure-hash-function-md5
+
+  - id: python.lang.security.crypto.insecure-hash-sha1
+    languages: [python]
+    severity: WARNING
+    message: "Detected SHA1 hash. SHA1 is cryptographically weak. Use SHA-256 or stronger for security purposes."
+    patterns:
+      - "hashlib\\.sha1\\s*\\("
+      - "SHA1\\.new\\s*\\("
+      - "Crypto\\.Hash\\.SHA1"
+      - "SHA\\.new\\s*\\("
+    metadata:
+      cwe: "CWE-328"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.insecure-hash-function-sha1
+
+  - id: python.lang.security.crypto.insecure-cipher-des
+    languages: [python]
+    severity: ERROR
+    message: "Detected DES cipher. DES is insecure due to small key size. Use AES instead."
+    patterns:
+      - "DES\\.new\\s*\\("
+      - "DES3\\.new\\s*\\("
+      - "Crypto\\.Cipher\\.DES"
+      - "Blowfish\\.new\\s*\\("
+      - "RC2\\.new\\s*\\("
+      - "RC4\\.new\\s*\\("
+      - "ARC2\\.new\\s*\\("
+      - "ARC4\\.new\\s*\\("
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.insecure-cipher-algorithm-des
+
+  - id: python.lang.security.crypto.insecure-random
+    languages: [python]
+    severity: WARNING
+    message: "Detected use of random module for security purposes. Use secrets module instead."
+    patterns:
+      - "random\\.random\\s*\\("
+      - "random\\.randint\\s*\\("
+      - "random\\.choice\\s*\\("
+      - "random\\.randrange\\s*\\("
+      - "random\\.sample\\s*\\("
+      - "random\\.shuffle\\s*\\("
+    metadata:
+      cwe: "CWE-330"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.insecure-random-generator
+
+  - id: python.lang.security.crypto.weak-rsa-key
+    languages: [python]
+    severity: ERROR
+    message: "RSA key size may be too small. Use at least 2048 bits for RSA keys."
+    patterns:
+      - "RSA\\.generate\\s*\\(\\s*(512|768|1024)\\s*\\)"
+      - "rsa\\.generate_private_key\\s*\\([^)]*key_size\\s*=\\s*(512|768|1024)"
+    metadata:
+      cwe: "CWE-326"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.weak-rsa-key-size
+
+  # ============================================================================
+  # PATH TRAVERSAL RULES
+  # ============================================================================
+  - id: python.lang.security.audit.path-traversal-open
+    languages: [python]
+    severity: WARNING
+    message: "Possible path traversal vulnerability. Validate and sanitize file paths."
+    patterns:
+      - "open\\s*\\([^)]*\\+[^)]*\\)"
+      - "open\\s*\\(\\s*f[\"'][^\"']*\\{"
+      - "open\\s*\\([^)]*\\.format\\s*\\("
+      - "open\\s*\\([^)]*%[^)]*\\)"
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.path-traversal-open
+
+  - id: python.lang.security.audit.path-traversal-pathlib
+    languages: [python]
+    severity: WARNING
+    message: "Possible path traversal with pathlib. Validate user input."
+    patterns:
+      - "Path\\s*\\([^)]*\\+[^)]*\\)"
+      - "Path\\s*\\(\\s*f[\"']"
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.path-traversal-pathlib
+
+  # ============================================================================
+  # SSRF RULES
+  # ============================================================================
+  - id: python.lang.security.audit.ssrf-requests
+    languages: [python]
+    severity: WARNING
+    message: "Possible SSRF vulnerability. Validate and whitelist URLs before making requests."
+    patterns:
+      - "requests\\.get\\s*\\([^)]*\\+[^)]*\\)"
+      - "requests\\.get\\s*\\(\\s*f[\"']"
+      - "requests\\.post\\s*\\([^)]*\\+[^)]*\\)"
+      - "requests\\.post\\s*\\(\\s*f[\"']"
+      - "requests\\.put\\s*\\([^)]*\\+[^)]*\\)"
+      - "requests\\.delete\\s*\\([^)]*\\+[^)]*\\)"
+      - "requests\\.head\\s*\\([^)]*\\+[^)]*\\)"
+      - "requests\\.request\\s*\\([^)]*\\+[^)]*\\)"
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.ssrf.ssrf-requests
+
+  - id: python.lang.security.audit.ssrf-urllib
+    languages: [python]
+    severity: WARNING
+    message: "Possible SSRF vulnerability with urllib. Validate and whitelist URLs."
+    patterns:
+      - "urllib\\.request\\.urlopen\\s*\\([^)]*\\+[^)]*\\)"
+      - "urllib\\.request\\.urlopen\\s*\\(\\s*f[\"']"
+      - "urlopen\\s*\\([^)]*\\+[^)]*\\)"
+      - "urllib2\\.urlopen\\s*\\("
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.ssrf.ssrf-urllib
+
+  # ============================================================================
+  # XML / XXE RULES
+  # ============================================================================
+  - id: python.lang.security.xxe.xml-etree
+    languages: [python]
+    severity: WARNING
+    message: "xml.etree is vulnerable to XXE attacks. Use defusedxml instead."
+    patterns:
+      - "xml\\.etree\\.ElementTree\\.parse\\s*\\("
+      - "ET\\.parse\\s*\\("
+      - "ElementTree\\.parse\\s*\\("
+      - "xml\\.etree\\.ElementTree\\.fromstring\\s*\\("
+      - "ET\\.fromstring\\s*\\("
+    metadata:
+      cwe: "CWE-611"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.xxe.xml-etree-parse
+
+  - id: python.lang.security.xxe.lxml
+    languages: [python]
+    severity: ERROR
+    message: "lxml parsing with resolve_entities=True is vulnerable to XXE. Use resolve_entities=False."
+    patterns:
+      - "lxml\\.etree\\.parse\\s*\\("
+      - "etree\\.parse\\s*\\([^)]*resolve_entities\\s*=\\s*True"
+      - "XMLParser\\s*\\([^)]*resolve_entities\\s*=\\s*True"
+    metadata:
+      cwe: "CWE-611"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.xxe.lxml-xxe
+
+  # ============================================================================
+  # AUTHENTICATION / JWT RULES
+  # ============================================================================
+  - id: python.lang.security.jwt.jwt-decode-without-verify
+    languages: [python]
+    severity: ERROR
+    message: "JWT decoded without signature verification. Set verify=True or use algorithms parameter."
+    patterns:
+      - "jwt\\.decode\\s*\\([^)]*verify\\s*=\\s*False"
+      - "jwt\\.decode\\s*\\([^)]*options\\s*=\\s*\\{[^}]*[\"']verify_signature[\"']\\s*:\\s*False"
+    metadata:
+      cwe: "CWE-347"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.jwt.security.jwt-decode-without-verification
+
+  - id: python.lang.security.jwt.jwt-hardcoded-secret
+    languages: [python]
+    severity: ERROR
+    message: "Hardcoded JWT secret detected. Use environment variables for secrets."
+    patterns:
+      - "jwt\\.encode\\s*\\([^)]*,\\s*[\"'][^\"']{8,}[\"']\\s*,"
+      - "jwt\\.decode\\s*\\([^)]*,\\s*[\"'][^\"']{8,}[\"']\\s*,"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.jwt.security.jwt-hardcoded-secret
+
+  # ============================================================================
+  # SSL/TLS RULES
+  # ============================================================================
+  - id: python.lang.security.ssl.ssl-verify-disabled
+    languages: [python]
+    severity: ERROR
+    message: "SSL certificate verification is disabled. This allows MITM attacks."
+    patterns:
+      - "verify\\s*=\\s*False"
+      - "ssl\\._create_unverified_context"
+      - "CERT_NONE"
+      - "check_hostname\\s*=\\s*False"
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.ssl-verify-disabled
+
+  # ============================================================================
+  # TEMPLATE INJECTION RULES
+  # ============================================================================
+  - id: python.lang.security.audit.jinja2-autoescape-disabled
+    languages: [python]
+    severity: ERROR
+    message: "Jinja2 autoescape is disabled. This can lead to XSS vulnerabilities."
+    patterns:
+      - "Environment\\s*\\([^)]*autoescape\\s*=\\s*False"
+      - "Template\\s*\\([^)]*autoescape\\s*=\\s*False"
+      - "jinja2\\.Environment\\s*\\([^)]*autoescape\\s*=\\s*False"
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.jinja2-autoescape-disabled
+
+  # ============================================================================
+  # DJANGO SPECIFIC RULES
+  # ============================================================================
+  - id: python.django.security.csrf-exempt
+    languages: [python]
+    severity: WARNING
+    message: "CSRF protection is disabled with @csrf_exempt. Ensure this is intentional."
+    patterns:
+      - "@csrf_exempt"
+    metadata:
+      cwe: "CWE-352"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.django.security.audit.csrf-exempt
+
+  - id: python.django.security.debug-enabled
+    languages: [python]
+    severity: ERROR
+    message: "Django DEBUG mode is enabled. Disable in production."
+    patterns:
+      - "DEBUG\\s*=\\s*True"
+    metadata:
+      cwe: "CWE-489"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.django.security.audit.debug-enabled
+
+  - id: python.django.security.secret-key-hardcoded
+    languages: [python]
+    severity: ERROR
+    message: "Django SECRET_KEY is hardcoded. Use environment variables."
+    patterns:
+      - "SECRET_KEY\\s*=\\s*[\"'][^\"']{20,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.django.security.audit.hardcoded-secret-key
+
+  # ============================================================================
+  # FLASK SPECIFIC RULES
+  # ============================================================================
+  - id: python.flask.security.debug-enabled
+    languages: [python]
+    severity: ERROR
+    message: "Flask debug mode is enabled. Disable in production."
+    patterns:
+      - "app\\.run\\s*\\([^)]*debug\\s*=\\s*True"
+      - "Flask\\s*\\([^)]*\\)\\.run\\s*\\([^)]*debug\\s*=\\s*True"
+    metadata:
+      cwe: "CWE-489"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.flask.security.audit.debug-enabled
+
+  - id: python.flask.security.secret-key-hardcoded
+    languages: [python]
+    severity: ERROR
+    message: "Flask secret key is hardcoded. Use environment variables."
+    patterns:
+      - "app\\.secret_key\\s*=\\s*[\"'][^\"']{8,}[\"']"
+      - "SECRET_KEY\\s*=\\s*[\"'][^\"']{8,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.flask.security.audit.hardcoded-secret-key
+
+  # ============================================================================
+  # LOGGING RULES
+  # ============================================================================
+  - id: python.lang.security.audit.logging-sensitive-data
+    languages: [python]
+    severity: WARNING
+    message: "Possible sensitive data in log statement. Avoid logging passwords, tokens, or secrets."
+    patterns:
+      - "logging\\.(info|debug|warning|error|critical)\\s*\\([^)]*password"
+      - "logging\\.(info|debug|warning|error|critical)\\s*\\([^)]*secret"
+      - "logging\\.(info|debug|warning|error|critical)\\s*\\([^)]*token"
+      - "logging\\.(info|debug|warning|error|critical)\\s*\\([^)]*api_key"
+      - "logger\\.(info|debug|warning|error|critical)\\s*\\([^)]*password"
+      - "print\\s*\\([^)]*password"
+    metadata:
+      cwe: "CWE-532"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.logging-sensitive-data
+
+  # ============================================================================
+  # REGEX DENIAL OF SERVICE
+  # ============================================================================
+  - id: python.lang.security.audit.regex-dos
+    languages: [python]
+    severity: WARNING
+    message: "Potentially vulnerable regex pattern (ReDoS). Review for catastrophic backtracking."
+    patterns:
+      - "re\\.compile\\s*\\([^)]*\\([^)]*\\+\\)[^)]*\\+"
+      - "re\\.match\\s*\\([^)]*\\([^)]*\\*\\)[^)]*\\*"
+      - "re\\.search\\s*\\([^)]*\\([^)]*\\+\\)[^)]*\\+"
+    metadata:
+      cwe: "CWE-1333"
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      confidence: LOW
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.regex-dos
+
+  # ============================================================================
+  # HARDCODED CREDENTIALS / SECRETS
+  # ============================================================================
+  - id: python.lang.security.audit.hardcoded-password
+    languages: [python]
+    severity: ERROR
+    message: "Hardcoded password detected. Use environment variables or a secrets manager."
+    patterns:
+      - "password\\s*=\\s*[\"'][^\"']{4,}[\"']"
+      - "passwd\\s*=\\s*[\"'][^\"']{4,}[\"']"
+      - "pwd\\s*=\\s*[\"'][^\"']{4,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.hardcoded-password
+
+  - id: python.lang.security.audit.hardcoded-api-key
+    languages: [python]
+    severity: ERROR
+    message: "Hardcoded API key detected. Use environment variables."
+    patterns:
+      - "api_key\\s*=\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']"
+      - "apikey\\s*=\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']"
+      - "API_KEY\\s*=\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']"
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: HIGH
+      references:
+        - https://semgrep.dev/r/python.lang.security.audit.hardcoded-api-key

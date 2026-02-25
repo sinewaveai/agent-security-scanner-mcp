@@ -1,0 +1,70 @@
+{
+  "name": "@prooflayer/scanner-lite",
+  "version": "1.0.0",
+  "description": "Lightweight MCP security scanner for AI coding agents. 400+ YAML rules, tool-poisoning detection, prompt injection scanning, package hallucination checks, auto-fix generation, and optional LLM deep audit. MIT licensed, fully offline-capable.",
+  "main": "index.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "scanner-lite": "cli.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "security",
+    "scanner",
+    "vulnerability",
+    "sast",
+    "tool-poisoning",
+    "prompt-injection",
+    "package-hallucination",
+    "typosquatting",
+    "llm-security",
+    "ai-safety",
+    "claude-code",
+    "mcp-server",
+    "cursor",
+    "cline",
+    "windsurf",
+    "lightweight",
+    "zero-python",
+    "prooflayer",
+    "offline",
+    "sarif"
+  ],
+  "author": "Sinewave AI <divya@sinewave.ai>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sinewaveai/agent-security-scanner-mcp.git",
+    "directory": "scanner-lite"
+  },
+  "homepage": "https://www.proof-layer.com/",
+  "bugs": {
+    "url": "https://github.com/sinewaveai/agent-security-scanner-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "index.js",
+    "cli.js",
+    "src/*.js",
+    "rules/**"
+  ]
+}
