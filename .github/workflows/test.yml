@@ -46,4 +46,4 @@ jobs:
         run: npm test
       - name: Run AST engine tests
         if: matrix.python-mode == 'ast'
-        run: python -m pytest test_ast_engine.py -v
+        run: python -m pytest tests/test_ast_engine.py tests/test_interprocedural.py -v
