@@ -1,0 +1,108 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+export interface ImportInfo {
+  specifier: string;
+  isLocal: boolean;
+  resolved: string | null;
+}
+
+const JS_EXTENSIONS = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs'];
+const PY_EXTENSIONS = ['.py'];
+
+export function extractImports(content: string, language: string): ImportInfo[] {
+  const imports: ImportInfo[] = [];
+
+  if (['javascript', 'typescript'].includes(language)) {
+    // ES imports
+    for (const m of content.matchAll(/import\s+(?:.*?\s+from\s+)?['"]([^'"]+)['"]/g)) {
+      const spec = m[1];
+      imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+    }
+    // require
+    for (const m of content.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1];
+      imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+    }
+    // dynamic import
+    for (const m of content.matchAll(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1];
+      imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+    }
+  } else if (language === 'python') {
+    for (const m of content.matchAll(/(?:from\s+(\S+)\s+import|import\s+(\S+))/g)) {
+      const spec = m[1] ?? m[2];
+      imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+    }
+  } else if (language === 'go') {
+    for (const m of content.matchAll(/["']([^"']+)["']/g)) {
+      const spec = m[1];
+      if (spec.includes('/')) {
+        imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+      }
+    }
+  }
+
+  return imports;
+}
+
+export function resolveImportPath(
+  specifier: string,
+  fromFile: string,
+  language: string,
+): string | null {
+  if (!isLocalImport(specifier, language)) return null;
+
+  const fromDir = path.dirname(fromFile);
+
+  if (['javascript', 'typescript'].includes(language)) {
+    // Try exact path first, then with extensions, then index files
+    const candidates: string[] = [];
+    const base = path.resolve(fromDir, specifier);
+
+    candidates.push(base);
+    for (const ext of JS_EXTENSIONS) {
+      candidates.push(base + ext);
+    }
+    for (const ext of JS_EXTENSIONS) {
+      candidates.push(path.join(base, `index${ext}`));
+    }
+
+    for (const candidate of candidates) {
+      try {
+        if (fs.statSync(candidate).isFile()) return candidate;
+      } catch { /* not found */ }
+    }
+  } else if (language === 'python') {
+    const modulePath = specifier.replace(/\./g, path.sep);
+    const base = path.resolve(fromDir, modulePath);
+
+    for (const ext of PY_EXTENSIONS) {
+      try {
+        const candidate = base + ext;
+        if (fs.statSync(candidate).isFile()) return candidate;
+      } catch { /* not found */ }
+    }
+
+    // Try as package (directory with __init__.py)
+    try {
+      const initFile = path.join(base, '__init__.py');
+      if (fs.statSync(initFile).isFile()) return initFile;
+    } catch { /* not found */ }
+  }
+
+  return null;
+}
+
+export function isLocalImport(specifier: string, language: string): boolean {
+  if (['javascript', 'typescript'].includes(language)) {
+    return specifier.startsWith('./') || specifier.startsWith('../');
+  }
+  if (language === 'python') {
+    return specifier.startsWith('.');
+  }
+  if (language === 'go') {
+    return !specifier.includes('.');
+  }
+  return false;
+}
