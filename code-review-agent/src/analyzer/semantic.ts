@@ -56,9 +56,7 @@ Decide "skip" if the file:
 
 If you decide to analyze, identify specific areas of interest (line ranges) that deserve the most attention.`;
 
-// Max lines per chunk — leaves room for system prompt + intent + project context
-const CHUNK_MAX_LINES = 500;
-const CHUNK_OVERLAP = 30;
+const CHUNK_OVERLAP_LINES = 30;
 
 export class SemanticAnalyzer {
   private assembler: ContextAssembler;
@@ -77,13 +75,18 @@ export class SemanticAnalyzer {
   ): Promise<{ findings: Finding[]; tokensUsed: number; truncated: boolean }> {
     const lines = file.content.split('\n');
 
-    // If file fits in one chunk, analyze directly
-    if (lines.length <= CHUNK_MAX_LINES) {
+    // Dynamically calculate how many lines fit based on available token budget
+    const maxLines = this.assembler.calculateMaxLines(
+      intent, project, file, ANALYSIS_SYSTEM_PROMPT,
+    );
+
+    // If file fits in one call, analyze directly — no chunking overhead
+    if (lines.length <= maxLines) {
       return this.analyzeSingleChunk(intent, project, file);
     }
 
-    // Split into overlapping chunks and analyze each
-    const chunks = this.splitIntoChunks(lines, CHUNK_MAX_LINES, CHUNK_OVERLAP);
+    // Split into overlapping chunks sized to fit the budget
+    const chunks = this.splitIntoChunks(lines, maxLines, CHUNK_OVERLAP_LINES);
     const allFindings: Finding[] = [];
     let totalTokens = 0;
 

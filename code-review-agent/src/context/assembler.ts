@@ -11,8 +11,53 @@ const TOKEN_BUDGETS: Record<string, number> = {
 
 const TRUNCATION_MARKER = '\n[TRUNCATED — file too large for context window]\n';
 
+// Reserve 20% of budget for LLM output tokens
+const OUTPUT_RESERVE = 0.2;
+
 export class ContextAssembler {
   constructor(private provider: LLMProvider) {}
+
+  /**
+   * Calculate how many lines of source code fit in the remaining
+   * token budget after system prompt, intent, project context, and
+   * metadata are accounted for.
+   */
+  calculateMaxLines(
+    intent: IntentProfile,
+    project: ProjectContext,
+    file: FileContext,
+    systemPrompt: string,
+  ): number {
+    const budget = TOKEN_BUDGETS[this.provider.providerName] ?? 60_000;
+    const usableBudget = budget * (1 - OUTPUT_RESERVE);
+
+    // Measure fixed overhead
+    const overheadParts = [
+      systemPrompt,
+      formatIntent(intent),
+      formatProjectContextForLLM(project),
+      formatFileMetadata(file),
+      // Framing text around file content
+      `\n## File Content\nFile: ${file.filePath} (${file.language})\n\`\`\`\n\`\`\`\n`,
+    ];
+    const overheadTokens = this.provider.countTokens(overheadParts.join('\n'));
+
+    const remainingTokens = usableBudget - overheadTokens;
+    if (remainingTokens <= 0) return 100; // absolute minimum
+
+    // Estimate chars per line from actual file content (avg line length)
+    const lines = file.content.split('\n');
+    const avgCharsPerLine = lines.length > 0
+      ? file.content.length / lines.length
+      : 40;
+    // ~4 chars per token + line number prefix ("1234: ")
+    const charsPerToken = 4;
+    const lineNumberOverhead = 6;
+    const tokensPerLine = (avgCharsPerLine + lineNumberOverhead) / charsPerToken;
+
+    const maxLines = Math.floor(remainingTokens / tokensPerLine);
+    return Math.max(maxLines, 100); // never go below 100 lines
+  }
 
   assembleAnalysisContext(
     intent: IntentProfile,
