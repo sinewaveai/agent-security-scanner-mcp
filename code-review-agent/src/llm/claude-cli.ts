@@ -127,14 +127,16 @@ export class ClaudeCliProvider implements LLMProvider {
 
       child.on('close', (code) => {
         if (code !== 0 && !stdout) {
-          reject(new Error(`claude CLI exited with code ${code}${stderr ? `\nstderr: ${stderr}` : ''}`));
+          // Sanitize stderr — only show first 200 chars, never leak prompt content
+          const safeStderr = stderr ? sanitizeError(stderr) : '';
+          reject(new Error(`claude CLI exited with code ${code}${safeStderr ? `: ${safeStderr}` : ''}`));
           return;
         }
 
         try {
           const result = JSON.parse(stdout) as ClaudeCliResult;
           if (result.is_error) {
-            reject(new Error(`claude CLI returned error: ${result.result}`));
+            reject(new Error(`claude CLI error: ${sanitizeError(result.result)}`));
             return;
           }
           resolve(result.result);
@@ -144,7 +146,7 @@ export class ClaudeCliProvider implements LLMProvider {
       });
 
       child.on('error', (err) => {
-        reject(new Error(`claude CLI failed to start: ${err.message}`));
+        reject(new Error(`claude CLI failed to start: ${sanitizeError(err.message)}`));
       });
 
       // Write prompt to stdin and close it
@@ -152,6 +154,13 @@ export class ClaudeCliProvider implements LLMProvider {
       child.stdin.end();
     });
   }
+}
+
+function sanitizeError(msg: string): string {
+  // Never leak prompt content in errors — truncate and strip anything
+  // that looks like it could be prompt/code/schema content
+  const firstLine = msg.split('\n')[0].trim();
+  return firstLine.length > 200 ? firstLine.slice(0, 200) + '...' : firstLine;
 }
 
 function extractJson(text: string): string {

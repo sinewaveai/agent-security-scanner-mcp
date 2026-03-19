@@ -88,7 +88,11 @@ program
 
       process.exit(result.findings.some((f) => f.severity === 'critical' || f.severity === 'high') ? 1 : 0);
     } catch (err) {
-      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      // Never leak full prompt/context in error output
+      const msg = err instanceof Error ? err.message : String(err);
+      const safeLine = msg.split('\n')[0].slice(0, 300);
+      process.stderr.write('\n');
+      console.error(chalk.red(`Error: ${safeLine}`));
       process.exit(2);
     }
   });
@@ -129,7 +133,8 @@ program
         console.log(`  - ${b}`);
       }
     } catch (err) {
-      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(chalk.red(`Error: ${msg.split('\n')[0].slice(0, 300)}`));
       process.exit(2);
     }
   });

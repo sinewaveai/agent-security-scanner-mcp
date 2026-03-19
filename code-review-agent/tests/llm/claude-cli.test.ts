@@ -171,7 +171,7 @@ describe('ClaudeCliProvider', () => {
 
       await expect(provider.chat([
         { role: 'user', content: 'test' },
-      ])).rejects.toThrow('claude CLI returned error');
+      ])).rejects.toThrow('claude CLI error');
     });
   });
 
