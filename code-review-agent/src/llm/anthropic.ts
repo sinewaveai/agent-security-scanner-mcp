@@ -47,7 +47,7 @@ export class AnthropicProvider implements LLMProvider {
         max_tokens: 8192,
         system: system ?? undefined,
         messages: conversationMessages,
-        tools: [tool],
+        tools: [tool as Anthropic.Tool],
         tool_choice: { type: 'tool' as const, name: schemaName },
       });
 

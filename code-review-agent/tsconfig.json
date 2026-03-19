@@ -13,8 +13,8 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "include": ["src/**/*", "bin/**/*"],
-    "exclude": ["node_modules", "dist", "tests"]
-  }
+    "sourceMap": true
+  },
+  "include": ["src/**/*", "bin/**/*"],
+  "exclude": ["node_modules", "dist", "tests"]
 }
