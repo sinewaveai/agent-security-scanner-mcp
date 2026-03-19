@@ -5,6 +5,7 @@ export { SemanticAnalyzer } from './analyzer/semantic.js';
 
 // LLM providers
 export { AnthropicProvider } from './llm/anthropic.js';
+export { ClaudeCliProvider } from './llm/claude-cli.js';
 export { OpenAIProvider } from './llm/openai.js';
 export { ModelRouter } from './llm/router.js';
 export type { LLMProvider, ChatMessage } from './llm/provider.js';

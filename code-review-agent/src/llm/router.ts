@@ -1,16 +1,19 @@
 import type { AnalysisOptions } from '../types/config.js';
 import { AnthropicProvider } from './anthropic.js';
+import { ClaudeCliProvider } from './claude-cli.js';
 import { OpenAIProvider } from './openai.js';
 import type { LLMProvider } from './provider.js';
 
 const TRIAGE_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5-20251001',
   openai: 'gpt-4o-mini',
+  'claude-cli': 'haiku',
 };
 
 const ANALYSIS_MODELS: Record<string, string> = {
   anthropic: 'claude-sonnet-4-20250514',
   openai: 'gpt-4o',
+  'claude-cli': 'sonnet',
 };
 
 // Approximate USD per million tokens (input + output averaged)
@@ -57,8 +60,12 @@ export class ModelRouter {
 
   private createProvider(model: string): LLMProvider {
     const provider = this.options.provider;
-    const apiKey = this.getApiKey(provider);
 
+    if (provider === 'claude-cli') {
+      return new ClaudeCliProvider(model);
+    }
+
+    const apiKey = this.getApiKey(provider);
     if (provider === 'anthropic') {
       return new AnthropicProvider(apiKey, model);
     }

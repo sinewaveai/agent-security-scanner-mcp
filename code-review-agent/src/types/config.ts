@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 export interface AnalysisOptions {
-  provider: 'anthropic' | 'openai';
+  provider: 'anthropic' | 'openai' | 'claude-cli';
   model?: string;
   triageModel?: string;
   confidenceThreshold: number;
@@ -15,7 +15,7 @@ export interface AnalysisOptions {
 }
 
 export interface CRAgentConfig {
-  provider?: 'anthropic' | 'openai';
+  provider?: 'anthropic' | 'openai' | 'claude-cli';
   model?: string;
   triageModel?: string;
   confidenceThreshold?: number;
@@ -54,7 +54,7 @@ export function resolveOptions(
     provider:
       cliFlags.provider ??
       config?.provider ??
-      (env.CR_AGENT_PROVIDER as 'anthropic' | 'openai' | undefined) ??
+      (env.CR_AGENT_PROVIDER as AnalysisOptions['provider'] | undefined) ??
       DEFAULTS.provider,
     model: cliFlags.model ?? config?.model ?? env.CR_AGENT_MODEL ?? undefined,
     triageModel: cliFlags.triageModel ?? config?.triageModel ?? undefined,

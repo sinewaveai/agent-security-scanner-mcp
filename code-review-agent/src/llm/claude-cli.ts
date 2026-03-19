@@ -1,0 +1,156 @@
+import { execFile } from 'node:child_process';
+import type { z } from 'zod';
+import { type ChatMessage, type LLMProvider, SchemaValidationError } from './provider.js';
+import { zodToJsonSchema } from './schemas.js';
+
+const MAX_RETRIES = 3;
+
+interface ClaudeCliResult {
+  type: string;
+  result: string;
+  is_error: boolean;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+}
+
+export class ClaudeCliProvider implements LLMProvider {
+  readonly modelId: string;
+  readonly providerName = 'claude-cli';
+
+  constructor(model?: string) {
+    this.modelId = model ?? 'sonnet';
+  }
+
+  async chat(messages: ChatMessage[]): Promise<string> {
+    const prompt = this.formatMessages(messages);
+    return this.runClaude(prompt);
+  }
+
+  async chatStructured<T>(
+    messages: ChatMessage[],
+    schema: z.ZodType<T>,
+    schemaName: string,
+  ): Promise<T> {
+    const jsonSchema = zodToJsonSchema(schema);
+    const schemaInstruction = [
+      `You MUST respond with ONLY a valid JSON object matching this schema (no markdown, no explanation, no wrapping):`,
+      `Schema name: ${schemaName}`,
+      '```json',
+      JSON.stringify(jsonSchema, null, 2),
+      '```',
+      'Respond with ONLY the JSON object. No other text.',
+    ].join('\n');
+
+    let lastError: Error | null = null;
+    const conversationParts = [...messages];
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const prompt = this.formatMessages([
+        ...conversationParts,
+        { role: 'user', content: schemaInstruction },
+      ]);
+
+      const raw = await this.runClaude(prompt);
+
+      // Extract JSON from response (handle markdown code blocks)
+      const jsonStr = extractJson(raw);
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (e) {
+        lastError = e instanceof Error ? e : new Error(String(e));
+        conversationParts.push(
+          { role: 'assistant', content: raw },
+          { role: 'user', content: `That was not valid JSON. Parse error: ${lastError.message}. Respond with ONLY a valid JSON object.` },
+        );
+        continue;
+      }
+
+      const result = schema.safeParse(parsed);
+      if (result.success) {
+        return result.data;
+      }
+
+      lastError = new Error(result.error.message);
+      conversationParts.push(
+        { role: 'assistant', content: raw },
+        { role: 'user', content: `Schema validation error: ${result.error.message}. Fix the JSON and respond with ONLY the corrected JSON object.` },
+      );
+    }
+
+    throw new SchemaValidationError(MAX_RETRIES, lastError!);
+  }
+
+  countTokens(text: string): number {
+    // Approximate — Claude CLI doesn't expose a token counter
+    return Math.ceil(text.length / 4);
+  }
+
+  private formatMessages(messages: ChatMessage[]): string {
+    const parts: string[] = [];
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        parts.push(`[System Instructions]\n${msg.content}\n`);
+      } else if (msg.role === 'user') {
+        parts.push(`${msg.content}`);
+      } else if (msg.role === 'assistant') {
+        parts.push(`[Previous response]\n${msg.content}\n`);
+      }
+    }
+
+    return parts.join('\n\n');
+  }
+
+  private runClaude(prompt: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const args = [
+        '-p', prompt,
+        '--output-format', 'json',
+        '--model', this.modelId,
+        '--no-session-persistence',
+      ];
+
+      execFile('claude', args, {
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: 120_000,
+      }, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`claude CLI failed: ${error.message}${stderr ? `\nstderr: ${stderr}` : ''}`));
+          return;
+        }
+
+        try {
+          const result = JSON.parse(stdout) as ClaudeCliResult;
+          if (result.is_error) {
+            reject(new Error(`claude CLI returned error: ${result.result}`));
+            return;
+          }
+          resolve(result.result);
+        } catch {
+          // If JSON parse fails, treat stdout as raw text
+          resolve(stdout.trim());
+        }
+      });
+    });
+  }
+}
+
+function extractJson(text: string): string {
+  // Try to extract JSON from markdown code blocks
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+
+  // Try to find a JSON object directly
+  const objectMatch = text.match(/\{[\s\S]*\}/);
+  if (objectMatch) {
+    return objectMatch[0];
+  }
+
+  return text.trim();
+}

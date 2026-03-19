@@ -22,7 +22,7 @@ program
   .command('analyze')
   .description('Analyze a file or directory for bugs and vulnerabilities')
   .argument('<target>', 'File or directory to analyze')
-  .option('-p, --provider <provider>', 'LLM provider (anthropic|openai)')
+  .option('-p, --provider <provider>', 'LLM provider (anthropic|openai|claude-cli)')
   .option('-m, --model <model>', 'Model to use for analysis')
   .option('--triage-model <model>', 'Model to use for triage')
   .option('-c, --confidence <threshold>', 'Confidence threshold (0-1)', parseFloat)
@@ -70,7 +70,7 @@ program
   .command('intent')
   .description('Show the intent profile for a project')
   .argument('<dir>', 'Project directory')
-  .option('-p, --provider <provider>', 'LLM provider (anthropic|openai)')
+  .option('-p, --provider <provider>', 'LLM provider (anthropic|openai|claude-cli)')
   .option('-m, --model <model>', 'Model to use')
   .action(async (dir: string, flags: Record<string, unknown>) => {
     try {
