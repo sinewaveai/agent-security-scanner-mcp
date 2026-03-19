@@ -56,6 +56,10 @@ Decide "skip" if the file:
 
 If you decide to analyze, identify specific areas of interest (line ranges) that deserve the most attention.`;
 
+// Max lines per chunk — leaves room for system prompt + intent + project context
+const CHUNK_MAX_LINES = 500;
+const CHUNK_OVERLAP = 30;
+
 export class SemanticAnalyzer {
   private assembler: ContextAssembler;
 
@@ -67,6 +71,43 @@ export class SemanticAnalyzer {
   }
 
   async analyzeFile(
+    intent: IntentProfile,
+    project: ProjectContext,
+    file: FileContext,
+  ): Promise<{ findings: Finding[]; tokensUsed: number; truncated: boolean }> {
+    const lines = file.content.split('\n');
+
+    // If file fits in one chunk, analyze directly
+    if (lines.length <= CHUNK_MAX_LINES) {
+      return this.analyzeSingleChunk(intent, project, file);
+    }
+
+    // Split into overlapping chunks and analyze each
+    const chunks = this.splitIntoChunks(lines, CHUNK_MAX_LINES, CHUNK_OVERLAP);
+    const allFindings: Finding[] = [];
+    let totalTokens = 0;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const chunkFile: FileContext = {
+        ...file,
+        content: chunk.lines.join('\n'),
+        lineCount: chunk.lines.length,
+      };
+
+      const chunkContext = [
+        `[Chunk ${i + 1}/${chunks.length} — lines ${chunk.startLine}-${chunk.endLine} of ${lines.length}]`,
+      ].join('\n');
+
+      const result = await this.analyzeChunk(intent, project, chunkFile, chunk.startLine, chunkContext);
+      allFindings.push(...result.findings);
+      totalTokens += result.tokensUsed;
+    }
+
+    return { findings: allFindings, tokensUsed: totalTokens, truncated: false };
+  }
+
+  private async analyzeSingleChunk(
     intent: IntentProfile,
     project: ProjectContext,
     file: FileContext,
@@ -87,13 +128,73 @@ export class SemanticAnalyzer {
       'file_analysis',
     );
 
-    // Inject file path into findings
     const findings = response.findings.map((f) => ({
       ...f,
       location: { ...f.location, file: file.filePath },
     }));
 
     return { findings, tokensUsed, truncated };
+  }
+
+  private async analyzeChunk(
+    intent: IntentProfile,
+    project: ProjectContext,
+    chunkFile: FileContext,
+    lineOffset: number,
+    chunkInfo: string,
+  ): Promise<{ findings: Finding[]; tokensUsed: number }> {
+    const context = this.assembler.assembleAnalysisContext(intent, project, chunkFile);
+
+    const tokensUsed = this.analysisProvider.countTokens(
+      ANALYSIS_SYSTEM_PROMPT + context,
+    );
+
+    const response = await this.analysisProvider.chatStructured(
+      [
+        { role: 'system', content: ANALYSIS_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `${chunkInfo}\nAnalyze this code for real bugs and vulnerabilities:\n\n${context}`,
+        },
+      ],
+      FileAnalysisResponseSchema,
+      'file_analysis',
+    );
+
+    // Adjust line numbers to account for chunk offset
+    const findings = response.findings.map((f) => ({
+      ...f,
+      location: {
+        ...f.location,
+        file: chunkFile.filePath,
+        startLine: f.location.startLine + lineOffset - 1,
+        endLine: f.location.endLine + lineOffset - 1,
+      },
+    }));
+
+    return { findings, tokensUsed };
+  }
+
+  private splitIntoChunks(
+    lines: string[],
+    maxLines: number,
+    overlap: number,
+  ): Array<{ lines: string[]; startLine: number; endLine: number }> {
+    const chunks: Array<{ lines: string[]; startLine: number; endLine: number }> = [];
+    let start = 0;
+
+    while (start < lines.length) {
+      const end = Math.min(start + maxLines, lines.length);
+      chunks.push({
+        lines: lines.slice(start, end),
+        startLine: start + 1, // 1-indexed
+        endLine: end,
+      });
+      if (end >= lines.length) break;
+      start = end - overlap; // overlap for context continuity
+    }
+
+    return chunks;
   }
 
   async triageFile(

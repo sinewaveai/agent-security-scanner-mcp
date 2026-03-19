@@ -108,31 +108,25 @@ export class AnalysisEngine {
           };
         }
 
+        // On triage failure, default to ANALYZE (don't skip — we'd miss vulns)
+        let decision: import('../types/findings.js').TriageDecision;
         try {
-          const decision = await analyzer.triageFile(projectContext, fileCtx);
-          triageCount++;
-          const icon = decision.action === 'skip' ? 'SKIP' : 'ANALYZE';
-          this.onProgress('triage', `[${triageCount}/${targetFiles.length}] ${icon} ${fileCtx.filePath} — ${decision.reason.slice(0, 60)}`);
-          return {
-            file: fileCtx.filePath,
-            findings: [],
-            triageDecision: decision,
-            tokensUsed: 0,
-            skipped: decision.action === 'skip',
-            truncated: false,
-          };
+          decision = await analyzer.triageFile(projectContext, fileCtx);
         } catch {
-          triageCount++;
-          this.onProgress('triage', `[${triageCount}/${targetFiles.length}] ERROR ${fileCtx.filePath} — triage failed, skipping`);
-          return {
-            file: fileCtx.filePath,
-            findings: [],
-            triageDecision: { action: 'skip' as const, reason: 'Triage failed', areasOfInterest: [] },
-            tokensUsed: 0,
-            skipped: true,
-            truncated: false,
-          };
+          decision = { action: 'analyze', reason: 'Triage failed — defaulting to analyze', areasOfInterest: [] };
         }
+
+        triageCount++;
+        const icon = decision.action === 'skip' ? 'SKIP' : 'ANALYZE';
+        this.onProgress('triage', `[${triageCount}/${targetFiles.length}] ${icon} ${fileCtx.filePath} — ${decision.reason.slice(0, 60)}`);
+        return {
+          file: fileCtx.filePath,
+          findings: [],
+          triageDecision: decision,
+          tokensUsed: 0,
+          skipped: decision.action === 'skip',
+          truncated: false,
+        };
       },
       this.options.concurrencyLimit,
     );
@@ -152,38 +146,47 @@ export class AnalysisEngine {
         const fileCtx = buildFileContext(filePath, projectRoot, graph);
 
         analyzeCount++;
-        this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] Analyzing ${triageResult.file}...`);
+        this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] Analyzing ${triageResult.file} (${fileCtx.lineCount} lines)...`);
 
-        try {
-          const { findings, tokensUsed, truncated } = await analyzer.analyzeFile(
-            intentProfile,
-            projectContext,
-            fileCtx,
-          );
+        // Retry up to 2 times on transient errors
+        let lastErr: Error | null = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const { findings, tokensUsed, truncated } = await analyzer.analyzeFile(
+              intentProfile,
+              projectContext,
+              fileCtx,
+            );
 
-          this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → ${findings.length} finding(s)`);
+            this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → ${findings.length} finding(s)`);
 
-          return {
-            file: triageResult.file,
-            findings,
-            triageDecision: triageResult.triageDecision,
-            tokensUsed,
-            skipped: false,
-            truncated,
-          };
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → ERROR: ${msg.split('\n')[0].slice(0, 100)}`);
-
-          return {
-            file: triageResult.file,
-            findings: [],
-            triageDecision: triageResult.triageDecision,
-            tokensUsed: 0,
-            skipped: false,
-            truncated: false,
-          };
+            return {
+              file: triageResult.file,
+              findings,
+              triageDecision: triageResult.triageDecision,
+              tokensUsed,
+              skipped: false,
+              truncated,
+            };
+          } catch (err) {
+            lastErr = err instanceof Error ? err : new Error(String(err));
+            if (attempt < 2) {
+              this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → retry (${lastErr.message.split('\n')[0].slice(0, 80)})`);
+            }
+          }
         }
+
+        // Both attempts failed — log error but still return the file (no findings, not skipped)
+        this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → FAILED after retries: ${lastErr!.message.split('\n')[0].slice(0, 100)}`);
+
+        return {
+          file: triageResult.file,
+          findings: [],
+          triageDecision: triageResult.triageDecision,
+          tokensUsed: 0,
+          skipped: false,
+          truncated: false,
+        };
       },
       this.options.concurrencyLimit,
     );
@@ -258,8 +261,7 @@ export class AnalysisEngine {
           if (!CODE_EXTENSIONS.has(ext)) continue;
 
           try {
-            const stat = fs.statSync(fullPath);
-            if (stat.size > this.options.maxFileSize) continue;
+            fs.statSync(fullPath);
           } catch {
             continue;
           }
