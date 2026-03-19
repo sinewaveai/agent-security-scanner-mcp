@@ -1,5 +1,5 @@
 // Core engine
-export { AnalysisEngine } from './analyzer/engine.js';
+export { AnalysisEngine, type ProgressCallback } from './analyzer/engine.js';
 export { IntentProfiler } from './analyzer/intent.js';
 export { SemanticAnalyzer } from './analyzer/semantic.js';
 

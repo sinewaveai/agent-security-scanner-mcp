@@ -48,7 +48,22 @@ program
         config,
       );
 
-      const engine = new AnalysisEngine(options);
+      const showProgress = options.format === 'text';
+      const engine = new AnalysisEngine(options, showProgress ? (step, detail) => {
+        const icons: Record<string, string> = {
+          discover: '[1/7 discover]',
+          context:  '[2/7 context ]',
+          intent:   '[3/7 intent  ]',
+          graph:    '[4/7 graph   ]',
+          triage:   '[5/7 triage  ]',
+          analyze:  '[6/7 analyze ]',
+          finalize: '[7/7 finalize]',
+          done:     '[  done  ]',
+        };
+        const label = icons[step] ?? `[${step}]`;
+        process.stderr.write(`\r\x1b[K${chalk.dim(label)} ${detail ?? ''}`);
+        if (step === 'done') process.stderr.write('\n');
+      } : undefined);
       const result = await engine.analyze(target);
 
       if (options.format === 'json') {

@@ -29,13 +29,17 @@ const CODE_EXTENSIONS = new Set([
   '.kt',
 ]);
 
+export type ProgressCallback = (step: string, detail?: string) => void;
+
 export class AnalysisEngine {
   private options: AnalysisOptions;
   private router: ModelRouter;
+  private onProgress: ProgressCallback;
 
-  constructor(options: AnalysisOptions) {
+  constructor(options: AnalysisOptions, onProgress?: ProgressCallback) {
     this.options = options;
     this.router = new ModelRouter(options);
+    this.onProgress = onProgress ?? (() => {});
   }
 
   async analyze(targetPath: string): Promise<AnalysisResult> {
@@ -46,6 +50,8 @@ export class AnalysisEngine {
     let projectRoot: string;
     let targetFiles: string[];
 
+    this.onProgress('discover', `Scanning ${resolvedPath}`);
+
     const stat = fs.statSync(resolvedPath);
     if (stat.isDirectory()) {
       projectRoot = resolvedPath;
@@ -55,16 +61,24 @@ export class AnalysisEngine {
       targetFiles = [resolvedPath];
     }
 
+    this.onProgress('discover', `Found ${targetFiles.length} file(s)`);
+
     // Build project context and intent profile
+    this.onProgress('context', 'Reading project context (README, package.json, structure)');
     const projectContext = buildProjectContext(projectRoot);
+
+    this.onProgress('intent', 'Profiling project intent via LLM...');
     const intentProfiler = new IntentProfiler(this.router.getAnalysisProvider());
     const intentProfile = await intentProfiler.profile(projectContext);
+    this.onProgress('intent', `Intent: ${intentProfile.purpose.slice(0, 80)}`);
 
     // Build dependency graph
+    this.onProgress('graph', 'Building dependency graph');
     const graphBuilder = new DependencyGraphBuilder(projectRoot);
     const graph = graphBuilder.build(
       targetFiles.map((f) => path.relative(projectRoot, f)),
     );
+    this.onProgress('graph', `Graph: ${graph.nodes.size} node(s)`);
 
     // Create analyzer
     const analyzer = new SemanticAnalyzer(
@@ -73,6 +87,8 @@ export class AnalysisEngine {
     );
 
     // Triage files in parallel
+    this.onProgress('triage', `Triaging ${targetFiles.length} file(s)...`);
+    let triageCount = 0;
     const triageResults = await this.runParallel(
       targetFiles,
       async (file) => {
@@ -80,6 +96,8 @@ export class AnalysisEngine {
 
         // Auto-skip test, config, and generated files
         if (fileCtx.isTestFile || fileCtx.isConfigFile || fileCtx.isGenerated) {
+          triageCount++;
+          this.onProgress('triage', `[${triageCount}/${targetFiles.length}] SKIP ${fileCtx.filePath} (auto: test/config/generated)`);
           return {
             file: fileCtx.filePath,
             findings: [],
@@ -91,6 +109,9 @@ export class AnalysisEngine {
         }
 
         const decision = await analyzer.triageFile(projectContext, fileCtx);
+        triageCount++;
+        const icon = decision.action === 'skip' ? 'SKIP' : 'ANALYZE';
+        this.onProgress('triage', `[${triageCount}/${targetFiles.length}] ${icon} ${fileCtx.filePath} — ${decision.reason.slice(0, 60)}`);
         return {
           file: fileCtx.filePath,
           findings: [],
@@ -105,19 +126,28 @@ export class AnalysisEngine {
 
     // Analyze files that passed triage
     const filesToAnalyze = triageResults.filter((r) => !r.skipped);
+    const skippedCount = triageResults.filter((r) => r.skipped).length;
     const fileResults: FileAnalysisResult[] = [...triageResults.filter((r) => r.skipped)];
 
+    this.onProgress('analyze', `Analyzing ${filesToAnalyze.length} file(s) (${skippedCount} skipped)`);
+
+    let analyzeCount = 0;
     const analysisResults = await this.runParallel(
       filesToAnalyze,
       async (triageResult) => {
         const filePath = path.resolve(projectRoot, triageResult.file);
         const fileCtx = buildFileContext(filePath, projectRoot, graph);
 
+        analyzeCount++;
+        this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] Analyzing ${triageResult.file}...`);
+
         const { findings, tokensUsed, truncated } = await analyzer.analyzeFile(
           intentProfile,
           projectContext,
           fileCtx,
         );
+
+        this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → ${findings.length} finding(s)`);
 
         return {
           file: triageResult.file,
@@ -137,12 +167,15 @@ export class AnalysisEngine {
     let allFindings = fileResults.flatMap((r) => r.findings);
 
     // Dedup
+    this.onProgress('finalize', `Deduplicating ${allFindings.length} raw finding(s)`);
     allFindings = this.dedup(allFindings);
 
     // Filter by confidence
+    const beforeFilter = allFindings.length;
     allFindings = allFindings.filter(
       (f) => f.confidence >= this.options.confidenceThreshold,
     );
+    this.onProgress('finalize', `Filtered: ${beforeFilter} → ${allFindings.length} (threshold: ${this.options.confidenceThreshold})`);
 
     // Sort by severity then confidence
     const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
@@ -163,6 +196,8 @@ export class AnalysisEngine {
       estimatedCost: this.router.estimateCost(totalTokensUsed),
       durationMs: Date.now() - startTime,
     };
+
+    this.onProgress('done', `Complete: ${allFindings.length} finding(s) in ${(stats.durationMs / 1000).toFixed(1)}s`);
 
     return {
       findings: allFindings,
