@@ -353,6 +353,8 @@ export class AnalysisEngine {
     fn: (item: T) => Promise<R>,
     limit: number,
   ): Promise<R[]> {
+    if (items.length === 0) return [];
+
     const results: R[] = [];
     let index = 0;
 
@@ -363,7 +365,8 @@ export class AnalysisEngine {
       }
     };
 
-    const workers = Array.from({ length: Math.min(limit, items.length) }, () => runNext());
+    const workerCount = Math.min(Math.max(1, limit), items.length);
+    const workers = Array.from({ length: workerCount }, () => runNext());
     await Promise.all(workers);
 
     return results;

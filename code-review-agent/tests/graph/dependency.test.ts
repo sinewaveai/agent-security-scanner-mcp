@@ -101,4 +101,36 @@ describe('DependencyGraphBuilder', () => {
       fs.rmSync(tmpDir, { recursive: true });
     }
   });
+
+  it('includes barrel re-export edges in the graph', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-barrel-'));
+    try {
+      fs.writeFileSync(path.join(tmpDir, 'app.js'), "import { value } from './index.js';");
+      fs.writeFileSync(path.join(tmpDir, 'index.js'), "export * from './lib.js';");
+      fs.writeFileSync(path.join(tmpDir, 'lib.js'), 'export const value = 1;');
+
+      const builder = new DependencyGraphBuilder(tmpDir);
+      const graph = builder.build(['app.js']);
+
+      expect(graph.nodes.get('index.js')?.imports).toContain('lib.js');
+      expect(graph.nodes.get('lib.js')?.importedBy).toContain('index.js');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it('keeps supported non-JS entry files in the graph', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-java-'));
+    try {
+      fs.writeFileSync(path.join(tmpDir, 'Main.java'), 'class Main {}');
+
+      const builder = new DependencyGraphBuilder(tmpDir);
+      const graph = builder.build(['Main.java']);
+
+      expect(graph.entryPoints).toEqual(['Main.java']);
+      expect(graph.nodes.get('Main.java')?.file).toBe('Main.java');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
 });

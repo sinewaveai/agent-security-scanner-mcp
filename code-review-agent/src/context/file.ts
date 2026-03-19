@@ -107,9 +107,7 @@ export function isTestFile(filePath: string): boolean {
   // Normalize separators for cross-platform matching
   const normalized = filePath.replace(/\\/g, '/');
   return TEST_PATTERNS.some((p) => p.test(name)) ||
-    normalized.includes('/test/') ||
-    normalized.includes('/tests/') ||
-    normalized.includes('/__tests__/');
+    /(^|\/)(test|tests|__tests__)\//.test(normalized);
 }
 
 export function isConfigFile(filePath: string): boolean {

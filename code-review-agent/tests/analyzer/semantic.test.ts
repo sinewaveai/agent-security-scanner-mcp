@@ -89,6 +89,7 @@ describe('SemanticAnalyzer', () => {
 
     expect(decision.action).toBe('analyze');
     expect(decision.areasOfInterest).toHaveLength(1);
+    expect(triageProvider.structuredCalls[0]?.messages[0]?.content).toContain('UNTRUSTED INPUT');
   });
 
   it('returns skip decision for safe files', async () => {

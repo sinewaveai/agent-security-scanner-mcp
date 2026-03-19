@@ -171,4 +171,24 @@ describe('AnalysisEngine', () => {
     expect(result.stats.totalFindings).toBe(result.findings.length);
     expect(typeof result.stats.estimatedCost).toBe('number');
   });
+
+  it('clamps private worker count when concurrency is zero', async () => {
+    const options: AnalysisOptions = {
+      provider: 'anthropic',
+      confidenceThreshold: 0.7,
+      format: 'text',
+      verbose: false,
+      projectRoot: path.join(FIXTURES_DIR, 'vuln-api-server'),
+      exclude: ['node_modules', 'dist', '.git'],
+      concurrencyLimit: 0,
+      maxFileSize: 512 * 1024,
+    };
+
+    const engine = new AnalysisEngine(options);
+    const results = await (engine as unknown as {
+      runParallel<T, R>(items: T[], fn: (item: T) => Promise<R>, limit: number): Promise<R[]>;
+    }).runParallel([1, 2, 3], async (value) => value * 2, 0);
+
+    expect(results).toEqual([2, 4, 6]);
+  });
 });

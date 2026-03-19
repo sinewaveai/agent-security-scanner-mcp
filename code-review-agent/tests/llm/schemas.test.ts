@@ -96,6 +96,12 @@ describe('zodToJsonSchema', () => {
     const result = zodToJsonSchema(z.literal('analyze'));
     expect(result).toEqual({ type: 'string', const: 'analyze' });
   });
+
+  it('throws for unsupported zod types instead of returning an empty schema', () => {
+    expect(() => zodToJsonSchema(z.tuple([z.string()]))).toThrow(
+      'unsupported Zod type',
+    );
+  });
 });
 
 describe('zodToAnthropicTool', () => {
