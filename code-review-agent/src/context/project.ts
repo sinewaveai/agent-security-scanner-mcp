@@ -4,6 +4,7 @@ import type { ProjectContext } from '../types/analysis.js';
 
 const README_MAX_CHARS = 2000;
 const TREE_MAX_DEPTH = 2;
+const LANGUAGE_CENSUS_MAX_FILES = 200;
 
 export function buildProjectContext(projectRoot: string): ProjectContext {
   return {
@@ -156,16 +157,49 @@ function detectLanguage(root: string): string {
   if (fileExists(root, 'Cargo.toml')) return 'rust';
   if (fileExists(root, 'pom.xml') || fileExists(root, 'build.gradle')) return 'java';
 
-  // Fallback: census of file extensions in the root directory
+  // Fallback: recursive census of file extensions across the project
   try {
-    const entries = fs.readdirSync(root).filter((f) => {
-      try { return fs.statSync(path.join(root, f)).isFile(); } catch { return false; }
-    });
     const extCounts: Record<string, number> = {};
-    for (const f of entries) {
-      const ext = path.extname(f);
-      if (ext) extCounts[ext] = (extCounts[ext] ?? 0) + 1;
+    let countedFiles = 0;
+    const exclude = new Set([
+      'node_modules', 'dist', 'build', '.git', 'vendor', '__pycache__',
+      '.venv', 'venv', 'env', '.next', 'coverage', '.nyc_output',
+    ]);
+
+    const walk = (dir: string): void => {
+      if (countedFiles >= LANGUAGE_CENSUS_MAX_FILES) return;
+
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+
+      for (const entry of entries) {
+        if (countedFiles >= LANGUAGE_CENSUS_MAX_FILES) return;
+        if (exclude.has(entry.name) || entry.name.startsWith('.')) continue;
+
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(fullPath);
+          continue;
+        }
+
+        if (!entry.isFile()) continue;
+        const ext = path.extname(entry.name);
+        if (!ext) continue;
+        extCounts[ext] = (extCounts[ext] ?? 0) + 1;
+        countedFiles++;
+      }
+    };
+
+    walk(root);
+
+    if (countedFiles === 0) {
+      return 'unknown';
     }
+
     const jsExts = ['.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx'];
     const pyExts = ['.py'];
     const jsCount = jsExts.reduce((n, e) => n + (extCounts[e] ?? 0), 0);

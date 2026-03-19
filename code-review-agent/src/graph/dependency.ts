@@ -11,6 +11,17 @@ const LANGUAGE_MAP: Record<string, string> = {
   '.ts': 'typescript', '.tsx': 'typescript',
   '.py': 'python',
   '.go': 'go',
+  '.rs': 'rust',
+  '.java': 'java',
+  '.rb': 'ruby',
+  '.php': 'php',
+  '.c': 'c',
+  '.cpp': 'cpp',
+  '.h': 'c',
+  '.hpp': 'cpp',
+  '.cs': 'csharp',
+  '.swift': 'swift',
+  '.kt': 'kotlin',
 };
 
 export class DependencyGraphBuilder {
