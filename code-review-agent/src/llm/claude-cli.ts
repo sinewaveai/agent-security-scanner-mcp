@@ -149,6 +149,14 @@ export class ClaudeCliProvider implements LLMProvider {
         reject(new Error(`claude CLI failed to start: ${sanitizeError(err.message)}`));
       });
 
+      // Handle stdin write errors (e.g., broken pipe if child exits early)
+      child.stdin.on('error', (err) => {
+        // Ignore EPIPE — child may have already exited, close handler will deal with it
+        if ((err as NodeJS.ErrnoException).code !== 'EPIPE') {
+          reject(new Error(`Failed to write prompt to claude CLI: ${sanitizeError(err.message)}`));
+        }
+      });
+
       // Write prompt to stdin and close it
       child.stdin.write(prompt);
       child.stdin.end();

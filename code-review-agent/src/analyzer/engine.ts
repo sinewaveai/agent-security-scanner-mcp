@@ -108,18 +108,31 @@ export class AnalysisEngine {
           };
         }
 
-        const decision = await analyzer.triageFile(projectContext, fileCtx);
-        triageCount++;
-        const icon = decision.action === 'skip' ? 'SKIP' : 'ANALYZE';
-        this.onProgress('triage', `[${triageCount}/${targetFiles.length}] ${icon} ${fileCtx.filePath} — ${decision.reason.slice(0, 60)}`);
-        return {
-          file: fileCtx.filePath,
-          findings: [],
-          triageDecision: decision,
-          tokensUsed: 0,
-          skipped: decision.action === 'skip',
-          truncated: false,
-        };
+        try {
+          const decision = await analyzer.triageFile(projectContext, fileCtx);
+          triageCount++;
+          const icon = decision.action === 'skip' ? 'SKIP' : 'ANALYZE';
+          this.onProgress('triage', `[${triageCount}/${targetFiles.length}] ${icon} ${fileCtx.filePath} — ${decision.reason.slice(0, 60)}`);
+          return {
+            file: fileCtx.filePath,
+            findings: [],
+            triageDecision: decision,
+            tokensUsed: 0,
+            skipped: decision.action === 'skip',
+            truncated: false,
+          };
+        } catch {
+          triageCount++;
+          this.onProgress('triage', `[${triageCount}/${targetFiles.length}] ERROR ${fileCtx.filePath} — triage failed, skipping`);
+          return {
+            file: fileCtx.filePath,
+            findings: [],
+            triageDecision: { action: 'skip' as const, reason: 'Triage failed', areasOfInterest: [] },
+            tokensUsed: 0,
+            skipped: true,
+            truncated: false,
+          };
+        }
       },
       this.options.concurrencyLimit,
     );
@@ -141,22 +154,36 @@ export class AnalysisEngine {
         analyzeCount++;
         this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] Analyzing ${triageResult.file}...`);
 
-        const { findings, tokensUsed, truncated } = await analyzer.analyzeFile(
-          intentProfile,
-          projectContext,
-          fileCtx,
-        );
+        try {
+          const { findings, tokensUsed, truncated } = await analyzer.analyzeFile(
+            intentProfile,
+            projectContext,
+            fileCtx,
+          );
 
-        this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → ${findings.length} finding(s)`);
+          this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → ${findings.length} finding(s)`);
 
-        return {
-          file: triageResult.file,
-          findings,
-          triageDecision: triageResult.triageDecision,
-          tokensUsed,
-          skipped: false,
-          truncated,
-        };
+          return {
+            file: triageResult.file,
+            findings,
+            triageDecision: triageResult.triageDecision,
+            tokensUsed,
+            skipped: false,
+            truncated,
+          };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] ${triageResult.file} → ERROR: ${msg.split('\n')[0].slice(0, 100)}`);
+
+          return {
+            file: triageResult.file,
+            findings: [],
+            triageDecision: triageResult.triageDecision,
+            tokensUsed: 0,
+            skipped: false,
+            truncated: false,
+          };
+        }
       },
       this.options.concurrencyLimit,
     );

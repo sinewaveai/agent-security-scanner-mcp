@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { SchemaValidationError } from '../../src/llm/provider.js';
 
 // Mock child_process.spawn before importing the provider
-const mockStdin = { write: vi.fn(), end: vi.fn() };
+const mockStdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
 const mockStdout = { on: vi.fn() };
 const mockStderr = { on: vi.fn() };
 const mockChild = {

@@ -6,6 +6,7 @@ import { formatProjectContextForLLM } from './project.js';
 const TOKEN_BUDGETS: Record<string, number> = {
   anthropic: 100_000,
   openai: 60_000,
+  'claude-cli': 100_000,
 };
 
 const TRUNCATION_MARKER = '\n[TRUNCATED — file too large for context window]\n';
