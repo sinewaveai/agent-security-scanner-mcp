@@ -1,0 +1,36 @@
+{
+  "name": "code-review-agent",
+  "version": "0.1.0",
+  "description": "LLM-powered code review agent — context-aware semantic analysis, not rules-based scanning",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "cr-agent": "dist/bin/cr-agent.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx bin/cr-agent.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/tokenizer": "^0.0.4",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "openai": "^4.85.0",
+    "tiktoken": "^1.0.18",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
