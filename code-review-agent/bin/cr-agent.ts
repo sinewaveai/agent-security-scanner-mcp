@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Suppress Node.js deprecation warnings (e.g. punycode from dependencies)
+process.removeAllListeners('warning');
+
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { AnalysisEngine } from '../src/analyzer/engine.js';
