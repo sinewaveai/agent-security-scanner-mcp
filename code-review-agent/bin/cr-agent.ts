@@ -1,0 +1,260 @@
+#!/usr/bin/env node
+
+import { Command } from 'commander';
+import chalk from 'chalk';
+import { AnalysisEngine } from '../src/analyzer/engine.js';
+import { IntentProfiler } from '../src/analyzer/intent.js';
+import { ModelRouter } from '../src/llm/router.js';
+import { DependencyGraphBuilder } from '../src/graph/dependency.js';
+import { buildProjectContext } from '../src/context/project.js';
+import { loadConfig, resolveOptions } from '../src/types/config.js';
+import type { AnalysisOptions } from '../src/types/config.js';
+import type { AnalysisResult, Finding } from '../src/index.js';
+
+const program = new Command();
+
+program
+  .name('cr-agent')
+  .description('LLM-powered semantic code review agent')
+  .version('0.1.0');
+
+program
+  .command('analyze')
+  .description('Analyze a file or directory for bugs and vulnerabilities')
+  .argument('<target>', 'File or directory to analyze')
+  .option('-p, --provider <provider>', 'LLM provider (anthropic|openai)')
+  .option('-m, --model <model>', 'Model to use for analysis')
+  .option('--triage-model <model>', 'Model to use for triage')
+  .option('-c, --confidence <threshold>', 'Confidence threshold (0-1)', parseFloat)
+  .option('-f, --format <format>', 'Output format (text|json|sarif)')
+  .option('-v, --verbose', 'Verbose output')
+  .option('--exclude <patterns...>', 'Patterns to exclude')
+  .option('--concurrency <limit>', 'Concurrency limit', parseInt)
+  .action(async (target: string, flags: Record<string, unknown>) => {
+    try {
+      const config = loadConfig(process.cwd());
+      const options = resolveOptions(
+        {
+          provider: flags.provider as AnalysisOptions['provider'] | undefined,
+          model: flags.model as string | undefined,
+          triageModel: flags.triageModel as string | undefined,
+          confidenceThreshold: flags.confidence as number | undefined,
+          format: (flags.format as AnalysisOptions['format']) ?? 'text',
+          verbose: flags.verbose as boolean | undefined,
+          exclude: flags.exclude as string[] | undefined,
+          concurrencyLimit: flags.concurrency as number | undefined,
+          projectRoot: process.cwd(),
+        },
+        config,
+      );
+
+      const engine = new AnalysisEngine(options);
+      const result = await engine.analyze(target);
+
+      if (options.format === 'json') {
+        console.log(JSON.stringify(result, null, 2));
+      } else if (options.format === 'sarif') {
+        console.log(JSON.stringify(toSarif(result), null, 2));
+      } else {
+        printTextResult(result, options.verbose);
+      }
+
+      process.exit(result.findings.some((f) => f.severity === 'critical' || f.severity === 'high') ? 1 : 0);
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(2);
+    }
+  });
+
+program
+  .command('intent')
+  .description('Show the intent profile for a project')
+  .argument('<dir>', 'Project directory')
+  .option('-p, --provider <provider>', 'LLM provider (anthropic|openai)')
+  .option('-m, --model <model>', 'Model to use')
+  .action(async (dir: string, flags: Record<string, unknown>) => {
+    try {
+      const config = loadConfig(dir);
+      const options = resolveOptions(
+        {
+          provider: flags.provider as AnalysisOptions['provider'] | undefined,
+          model: flags.model as string | undefined,
+          projectRoot: dir,
+        },
+        config,
+      );
+
+      const router = new ModelRouter(options);
+      const profiler = new IntentProfiler(router.getAnalysisProvider());
+      const projectContext = buildProjectContext(dir);
+      const intent = await profiler.profile(projectContext);
+
+      console.log(chalk.bold('\nIntent Profile'));
+      console.log(chalk.cyan('Purpose: ') + intent.purpose);
+      console.log(chalk.cyan('Risk Domain: ') + intent.riskDomain);
+      console.log(chalk.cyan('Framework: ') + intent.framework);
+      console.log(chalk.green('\nExpected Behaviors:'));
+      for (const b of intent.expectedBehaviors) {
+        console.log(`  + ${b}`);
+      }
+      console.log(chalk.red('\nUnexpected Behaviors:'));
+      for (const b of intent.unexpectedBehaviors) {
+        console.log(`  - ${b}`);
+      }
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(2);
+    }
+  });
+
+program
+  .command('graph')
+  .description('Show the dependency graph for a project')
+  .argument('<dir>', 'Project directory')
+  .action((dir: string) => {
+    const builder = new DependencyGraphBuilder(dir);
+
+    // Discover entry files
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const entries: string[] = [];
+    const walk = (d: string) => {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        if (['node_modules', 'dist', '.git', 'vendor'].includes(entry.name)) continue;
+        const full = path.join(d, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/\.[jt]sx?$/.test(entry.name)) entries.push(full);
+      }
+    };
+    walk(dir);
+
+    const graph = builder.build(entries.map((e: string) => path.relative(dir, e)));
+
+    console.log(chalk.bold(`\nDependency Graph (${graph.nodes.size} files)\n`));
+    for (const [file, node] of graph.nodes) {
+      console.log(chalk.cyan(file));
+      if (node.imports.length > 0) {
+        console.log(`  imports: ${node.imports.join(', ')}`);
+      }
+      if (node.importedBy.length > 0) {
+        console.log(`  imported by: ${node.importedBy.join(', ')}`);
+      }
+    }
+  });
+
+program.parse();
+
+// --- Output formatting ---
+
+function printTextResult(result: AnalysisResult, verbose: boolean): void {
+  const { findings, intentProfile, stats } = result;
+
+  if (intentProfile) {
+    console.log(chalk.bold('\nIntent Profile'));
+    console.log(`  Purpose: ${intentProfile.purpose}`);
+    console.log(`  Domain: ${intentProfile.riskDomain}`);
+    console.log('');
+  }
+
+  if (findings.length === 0) {
+    console.log(chalk.green('\nNo findings above confidence threshold.\n'));
+  } else {
+    console.log(chalk.bold(`\n${findings.length} Finding(s)\n`));
+    for (const f of findings) {
+      printFinding(f, verbose);
+    }
+  }
+
+  console.log(chalk.bold('Stats'));
+  console.log(`  Files analyzed: ${stats.filesAnalyzed}`);
+  console.log(`  Files skipped: ${stats.filesSkipped}`);
+  console.log(`  Total findings: ${stats.totalFindings}`);
+  console.log(`  Tokens used: ${stats.totalTokensUsed.toLocaleString()}`);
+  console.log(`  Estimated cost: $${stats.estimatedCost.toFixed(4)}`);
+  console.log(`  Duration: ${(stats.durationMs / 1000).toFixed(1)}s`);
+  console.log('');
+}
+
+function printFinding(f: Finding, verbose: boolean): void {
+  const severityColors: Record<string, (s: string) => string> = {
+    critical: chalk.bgRed.white.bold,
+    high: chalk.red.bold,
+    medium: chalk.yellow,
+    low: chalk.blue,
+    info: chalk.gray,
+  };
+
+  const colorFn = severityColors[f.severity] ?? chalk.white;
+  const badge = colorFn(` ${f.severity.toUpperCase()} `);
+  const alignment =
+    f.intentAlignment === 'violates-intent' ? chalk.red('VIOLATES INTENT') :
+    f.intentAlignment === 'matches-intent' ? chalk.green('MATCHES INTENT') :
+    chalk.gray('UNCLEAR');
+
+  console.log(`${badge} ${f.title}`);
+  console.log(`  ${chalk.dim(`${f.location.file}:${f.location.startLine}-${f.location.endLine}`)}  ${alignment}  confidence: ${f.confidence}`);
+  console.log(`  ${chalk.dim(f.category)}${f.cwe ? ` | ${f.cwe}` : ''}`);
+
+  if (verbose) {
+    console.log(`  ${chalk.dim('Reasoning:')} ${f.reasoning}`);
+    console.log(`  ${chalk.dim('Action:')} ${f.suggestedAction}`);
+  }
+
+  console.log('');
+}
+
+function toSarif(result: AnalysisResult): object {
+  return {
+    $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
+    version: '2.1.0',
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: 'cr-agent',
+            version: '0.1.0',
+            informationUri: 'https://github.com/anthropics/agent-security-scanner-mcp',
+            rules: result.findings.map((f, i) => ({
+              id: `CR${String(i + 1).padStart(3, '0')}`,
+              name: f.title.replace(/\s+/g, ''),
+              shortDescription: { text: f.title },
+              fullDescription: { text: f.reasoning },
+              defaultConfiguration: {
+                level: f.severity === 'critical' || f.severity === 'high' ? 'error' :
+                       f.severity === 'medium' ? 'warning' : 'note',
+              },
+              properties: {
+                category: f.category,
+                intentAlignment: f.intentAlignment,
+              },
+            })),
+          },
+        },
+        results: result.findings.map((f, i) => ({
+          ruleId: `CR${String(i + 1).padStart(3, '0')}`,
+          level: f.severity === 'critical' || f.severity === 'high' ? 'error' :
+                 f.severity === 'medium' ? 'warning' : 'note',
+          message: { text: f.reasoning },
+          locations: [
+            {
+              physicalLocation: {
+                artifactLocation: { uri: f.location.file },
+                region: {
+                  startLine: f.location.startLine,
+                  endLine: f.location.endLine,
+                },
+              },
+            },
+          ],
+          properties: {
+            confidence: f.confidence,
+            intentAlignment: f.intentAlignment,
+            suggestedAction: f.suggestedAction,
+            cwe: f.cwe,
+            owasp: f.owasp,
+          },
+        })),
+      },
+    ],
+  };
+}
