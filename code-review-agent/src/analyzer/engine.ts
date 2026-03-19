@@ -1,0 +1,301 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type {
+  AnalysisResult,
+  AnalysisStats,
+  FileAnalysisResult,
+} from '../types/analysis.js';
+import type { Finding, IntentProfile } from '../types/findings.js';
+import type { AnalysisOptions } from '../types/config.js';
+import { ModelRouter } from '../llm/router.js';
+import { IntentProfiler } from './intent.js';
+import { SemanticAnalyzer } from './semantic.js';
+import { buildProjectContext } from '../context/project.js';
+import { buildFileContext } from '../context/file.js';
+import { DependencyGraphBuilder } from '../graph/dependency.js';
+
+const CODE_EXTENSIONS = new Set([
+  '.js', '.mjs', '.cjs', '.jsx',
+  '.ts', '.tsx',
+  '.py',
+  '.go',
+  '.rs',
+  '.java',
+  '.rb',
+  '.php',
+  '.c', '.cpp', '.h', '.hpp',
+  '.cs',
+  '.swift',
+  '.kt',
+]);
+
+export class AnalysisEngine {
+  private options: AnalysisOptions;
+  private router: ModelRouter;
+
+  constructor(options: AnalysisOptions) {
+    this.options = options;
+    this.router = new ModelRouter(options);
+  }
+
+  async analyze(targetPath: string): Promise<AnalysisResult> {
+    const startTime = Date.now();
+    const resolvedPath = path.resolve(this.options.projectRoot, targetPath);
+
+    // Determine project root and target
+    let projectRoot: string;
+    let targetFiles: string[];
+
+    const stat = fs.statSync(resolvedPath);
+    if (stat.isDirectory()) {
+      projectRoot = resolvedPath;
+      targetFiles = this.discoverFiles(resolvedPath);
+    } else {
+      projectRoot = this.options.projectRoot;
+      targetFiles = [resolvedPath];
+    }
+
+    // Build project context and intent profile
+    const projectContext = buildProjectContext(projectRoot);
+    const intentProfiler = new IntentProfiler(this.router.getAnalysisProvider());
+    const intentProfile = await intentProfiler.profile(projectContext);
+
+    // Build dependency graph
+    const graphBuilder = new DependencyGraphBuilder(projectRoot);
+    const graph = graphBuilder.build(
+      targetFiles.map((f) => path.relative(projectRoot, f)),
+    );
+
+    // Create analyzer
+    const analyzer = new SemanticAnalyzer(
+      this.router.getAnalysisProvider(),
+      this.router.getTriageProvider(),
+    );
+
+    // Triage files in parallel
+    const triageResults = await this.runParallel(
+      targetFiles,
+      async (file) => {
+        const fileCtx = buildFileContext(file, projectRoot, graph);
+
+        // Auto-skip test, config, and generated files
+        if (fileCtx.isTestFile || fileCtx.isConfigFile || fileCtx.isGenerated) {
+          return {
+            file: fileCtx.filePath,
+            findings: [],
+            triageDecision: { action: 'skip' as const, reason: 'Auto-skipped (test/config/generated)', areasOfInterest: [] },
+            tokensUsed: 0,
+            skipped: true,
+            truncated: false,
+          };
+        }
+
+        const decision = await analyzer.triageFile(projectContext, fileCtx);
+        return {
+          file: fileCtx.filePath,
+          findings: [],
+          triageDecision: decision,
+          tokensUsed: 0,
+          skipped: decision.action === 'skip',
+          truncated: false,
+        };
+      },
+      this.options.concurrencyLimit,
+    );
+
+    // Analyze files that passed triage
+    const filesToAnalyze = triageResults.filter((r) => !r.skipped);
+    const fileResults: FileAnalysisResult[] = [...triageResults.filter((r) => r.skipped)];
+
+    const analysisResults = await this.runParallel(
+      filesToAnalyze,
+      async (triageResult) => {
+        const filePath = path.resolve(projectRoot, triageResult.file);
+        const fileCtx = buildFileContext(filePath, projectRoot, graph);
+
+        const { findings, tokensUsed, truncated } = await analyzer.analyzeFile(
+          intentProfile,
+          projectContext,
+          fileCtx,
+        );
+
+        return {
+          file: triageResult.file,
+          findings,
+          triageDecision: triageResult.triageDecision,
+          tokensUsed,
+          skipped: false,
+          truncated,
+        };
+      },
+      this.options.concurrencyLimit,
+    );
+
+    fileResults.push(...analysisResults);
+
+    // Collect all findings
+    let allFindings = fileResults.flatMap((r) => r.findings);
+
+    // Dedup
+    allFindings = this.dedup(allFindings);
+
+    // Filter by confidence
+    allFindings = allFindings.filter(
+      (f) => f.confidence >= this.options.confidenceThreshold,
+    );
+
+    // Sort by severity then confidence
+    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    allFindings.sort((a, b) => {
+      const sevDiff = severityOrder[a.severity] - severityOrder[b.severity];
+      if (sevDiff !== 0) return sevDiff;
+      return b.confidence - a.confidence;
+    });
+
+    // Compute stats
+    const totalTokensUsed = fileResults.reduce((sum, r) => sum + r.tokensUsed, 0);
+    const stats: AnalysisStats = {
+      filesAnalyzed: filesToAnalyze.length,
+      filesSkipped: triageResults.filter((r) => r.skipped).length,
+      totalFindings: allFindings.length,
+      findingsBySeverity: this.countBySeverity(allFindings),
+      totalTokensUsed,
+      estimatedCost: this.router.estimateCost(totalTokensUsed),
+      durationMs: Date.now() - startTime,
+    };
+
+    return {
+      findings: allFindings,
+      intentProfile,
+      fileResults,
+      stats,
+    };
+  }
+
+  private discoverFiles(dir: string): string[] {
+    const files: string[] = [];
+    const excludeSet = new Set(this.options.exclude);
+
+    const walk = (current: string) => {
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(current, { withFileTypes: true });
+      } catch {
+        return;
+      }
+
+      for (const entry of entries) {
+        if (excludeSet.has(entry.name) || entry.name.startsWith('.')) continue;
+
+        const fullPath = path.join(current, entry.name);
+
+        if (entry.isDirectory()) {
+          walk(fullPath);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name);
+          if (!CODE_EXTENSIONS.has(ext)) continue;
+
+          try {
+            const stat = fs.statSync(fullPath);
+            if (stat.size > this.options.maxFileSize) continue;
+          } catch {
+            continue;
+          }
+
+          files.push(fullPath);
+        }
+      }
+    };
+
+    walk(dir);
+    return files;
+  }
+
+  private dedup(findings: Finding[]): Finding[] {
+    const groups = new Map<string, Finding[]>();
+
+    for (const finding of findings) {
+      const key = `${finding.location.file}:${finding.category}`;
+      const group = groups.get(key) ?? [];
+      group.push(finding);
+      groups.set(key, group);
+    }
+
+    const result: Finding[] = [];
+    for (const group of groups.values()) {
+      // Merge overlapping line ranges, keep highest confidence
+      const merged = this.mergeOverlapping(group);
+      result.push(...merged);
+    }
+
+    return result;
+  }
+
+  private mergeOverlapping(findings: Finding[]): Finding[] {
+    if (findings.length <= 1) return findings;
+
+    findings.sort((a, b) => a.location.startLine - b.location.startLine);
+
+    const merged: Finding[] = [findings[0]];
+
+    for (let i = 1; i < findings.length; i++) {
+      const current = findings[i];
+      const last = merged[merged.length - 1];
+
+      if (current.location.startLine <= last.location.endLine + 1) {
+        // Overlapping — keep the one with higher confidence
+        if (current.confidence > last.confidence) {
+          merged[merged.length - 1] = {
+            ...current,
+            location: {
+              ...current.location,
+              startLine: Math.min(last.location.startLine, current.location.startLine),
+              endLine: Math.max(last.location.endLine, current.location.endLine),
+            },
+          };
+        } else {
+          merged[merged.length - 1] = {
+            ...last,
+            location: {
+              ...last.location,
+              endLine: Math.max(last.location.endLine, current.location.endLine),
+            },
+          };
+        }
+      } else {
+        merged.push(current);
+      }
+    }
+
+    return merged;
+  }
+
+  private countBySeverity(findings: Finding[]): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const f of findings) {
+      counts[f.severity] = (counts[f.severity] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  private async runParallel<T, R>(
+    items: T[],
+    fn: (item: T) => Promise<R>,
+    limit: number,
+  ): Promise<R[]> {
+    const results: R[] = [];
+    let index = 0;
+
+    const runNext = async (): Promise<void> => {
+      while (index < items.length) {
+        const currentIndex = index++;
+        results[currentIndex] = await fn(items[currentIndex]);
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(limit, items.length) }, () => runNext());
+    await Promise.all(workers);
+
+    return results;
+  }
+}
