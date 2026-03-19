@@ -57,8 +57,14 @@ export class AnalysisEngine {
       projectRoot = resolvedPath;
       targetFiles = this.discoverFiles(resolvedPath);
     } else {
+      // For single files, use the configured projectRoot (CLI resolves this from the target)
       projectRoot = this.options.projectRoot;
       targetFiles = [resolvedPath];
+    }
+
+    if (targetFiles.length === 0) {
+      this.onProgress('done', 'No analyzable files found');
+      return { findings: [], intentProfile: null, fileResults: [], stats: { filesAnalyzed: 0, filesSkipped: 0, totalFindings: 0, findingsBySeverity: {}, totalTokensUsed: 0, estimatedCost: 0, durationMs: Date.now() - startTime } };
     }
 
     this.onProgress('discover', `Found ${targetFiles.length} file(s)`);

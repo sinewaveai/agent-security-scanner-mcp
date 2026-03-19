@@ -86,7 +86,8 @@ function convertType(schema: z.ZodTypeAny): JsonSchema {
       };
 
     default:
-      return {};
+      // Fail loud instead of silently producing invalid schema
+      throw new Error(`zodToJsonSchema: unsupported Zod type "${typeName}". Add explicit handling for this type.`);
   }
 }
 

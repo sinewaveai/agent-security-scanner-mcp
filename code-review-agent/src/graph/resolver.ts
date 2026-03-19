@@ -19,6 +19,11 @@ export function extractImports(content: string, language: string): ImportInfo[] 
       const spec = m[1];
       imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
     }
+    // Re-exports: export { ... } from '...', export * from '...', export { default } from '...'
+    for (const m of content.matchAll(/export\s+(?:\*|{[^}]*})\s+from\s+['"]([^'"]+)['"]/g)) {
+      const spec = m[1];
+      imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+    }
     // require
     for (const m of content.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
       const spec = m[1];
@@ -30,8 +35,14 @@ export function extractImports(content: string, language: string): ImportInfo[] 
       imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
     }
   } else if (language === 'python') {
-    for (const m of content.matchAll(/(?:from\s+(\S+)\s+import|import\s+(\S+))/g)) {
-      const spec = m[1] ?? m[2];
+    // from .module import ... (relative) and from package import ... (absolute)
+    for (const m of content.matchAll(/from\s+(\S+)\s+import/g)) {
+      const spec = m[1];
+      imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+    }
+    // import module
+    for (const m of content.matchAll(/^import\s+(\S+)/gm)) {
+      const spec = m[1];
       imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
     }
   } else if (language === 'go') {
@@ -74,8 +85,27 @@ export function resolveImportPath(
       } catch { /* not found */ }
     }
   } else if (language === 'python') {
-    const modulePath = specifier.replace(/\./g, path.sep);
-    const base = path.resolve(fromDir, modulePath);
+    // Handle relative imports: .utils, ..models, .sub.module
+    let resolveDir = fromDir;
+    let moduleSpec = specifier;
+
+    if (specifier.startsWith('.')) {
+      // Count leading dots for parent traversal
+      const dotMatch = specifier.match(/^(\.+)(.*)/);
+      if (dotMatch) {
+        const dots = dotMatch[1].length;
+        moduleSpec = dotMatch[2]; // remainder after dots (may be empty for bare ".")
+        // Each dot beyond the first goes up one directory
+        resolveDir = fromDir;
+        for (let i = 1; i < dots; i++) {
+          resolveDir = path.dirname(resolveDir);
+        }
+      }
+    }
+
+    // Convert module.path to filesystem path
+    const modulePath = moduleSpec ? moduleSpec.replace(/\./g, path.sep) : '';
+    const base = modulePath ? path.resolve(resolveDir, modulePath) : resolveDir;
 
     for (const ext of PY_EXTENSIONS) {
       try {

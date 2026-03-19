@@ -149,11 +149,34 @@ function buildDirectoryTree(root: string, maxDepth: number, prefix = '', depth =
 }
 
 function detectLanguage(root: string): string {
+  // Check manifest files first
   if (fileExists(root, 'package.json') || fileExists(root, 'tsconfig.json')) return 'javascript/typescript';
   if (fileExists(root, 'requirements.txt') || fileExists(root, 'setup.py') || fileExists(root, 'pyproject.toml')) return 'python';
   if (fileExists(root, 'go.mod')) return 'go';
   if (fileExists(root, 'Cargo.toml')) return 'rust';
   if (fileExists(root, 'pom.xml') || fileExists(root, 'build.gradle')) return 'java';
+
+  // Fallback: census of file extensions in the root directory
+  try {
+    const entries = fs.readdirSync(root).filter((f) => {
+      try { return fs.statSync(path.join(root, f)).isFile(); } catch { return false; }
+    });
+    const extCounts: Record<string, number> = {};
+    for (const f of entries) {
+      const ext = path.extname(f);
+      if (ext) extCounts[ext] = (extCounts[ext] ?? 0) + 1;
+    }
+    const jsExts = ['.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx'];
+    const pyExts = ['.py'];
+    const jsCount = jsExts.reduce((n, e) => n + (extCounts[e] ?? 0), 0);
+    const pyCount = pyExts.reduce((n, e) => n + (extCounts[e] ?? 0), 0);
+    if (jsCount > 0 && jsCount >= pyCount) return 'javascript/typescript';
+    if (pyCount > 0) return 'python';
+    if (extCounts['.go']) return 'go';
+    if (extCounts['.rs']) return 'rust';
+    if (extCounts['.java']) return 'java';
+  } catch { /* can't read directory */ }
+
   return 'unknown';
 }
 

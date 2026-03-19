@@ -35,8 +35,8 @@ export type RiskDomain = z.infer<typeof RiskDomainSchema>;
 
 export const LocationSchema = z.object({
   file: z.string(),
-  startLine: z.number(),
-  endLine: z.number(),
+  startLine: z.number().int().min(1),
+  endLine: z.number().int().min(1),
 });
 
 export const FindingSchema = z.object({

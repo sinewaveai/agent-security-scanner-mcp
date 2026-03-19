@@ -96,18 +96,20 @@ export function buildFileContext(
     imports,
     importedBy,
     siblingFiles,
-    isTestFile: isTestFile(filePath),
-    isConfigFile: isConfigFile(filePath),
+    isTestFile: isTestFile(relativePath),
+    isConfigFile: isConfigFile(relativePath),
     isGenerated: isGeneratedFile(content),
   };
 }
 
 export function isTestFile(filePath: string): boolean {
   const name = path.basename(filePath);
+  // Normalize separators for cross-platform matching
+  const normalized = filePath.replace(/\\/g, '/');
   return TEST_PATTERNS.some((p) => p.test(name)) ||
-    filePath.includes('/test/') ||
-    filePath.includes('/tests/') ||
-    filePath.includes('/__tests__/');
+    normalized.includes('/test/') ||
+    normalized.includes('/tests/') ||
+    normalized.includes('/__tests__/');
 }
 
 export function isConfigFile(filePath: string): boolean {

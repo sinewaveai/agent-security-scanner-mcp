@@ -66,7 +66,7 @@ export function resolveOptions(
     verbose: cliFlags.verbose ?? DEFAULTS.verbose,
     projectRoot: cliFlags.projectRoot ?? DEFAULTS.projectRoot,
     exclude: cliFlags.exclude ?? config?.exclude ?? DEFAULTS.exclude,
-    concurrencyLimit: cliFlags.concurrencyLimit ?? config?.concurrencyLimit ?? DEFAULTS.concurrencyLimit,
+    concurrencyLimit: Math.max(1, cliFlags.concurrencyLimit ?? config?.concurrencyLimit ?? DEFAULTS.concurrencyLimit),
     maxFileSize: cliFlags.maxFileSize ?? config?.maxFileSize ?? DEFAULTS.maxFileSize,
   };
 }

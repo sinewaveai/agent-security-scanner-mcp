@@ -3,6 +3,8 @@
 // Suppress Node.js deprecation warnings (e.g. punycode from dependencies)
 process.removeAllListeners('warning');
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { AnalysisEngine } from '../src/analyzer/engine.js';
@@ -35,7 +37,12 @@ program
   .option('--concurrency <limit>', 'Concurrency limit', parseInt)
   .action(async (target: string, flags: Record<string, unknown>) => {
     try {
-      const config = loadConfig(process.cwd());
+      // Resolve project root from target, not cwd
+      const resolvedTarget = path.resolve(target);
+      const targetProjectRoot = fs.statSync(resolvedTarget).isDirectory()
+        ? resolvedTarget
+        : findProjectRoot(resolvedTarget);
+      const config = loadConfig(targetProjectRoot);
       const options = resolveOptions(
         {
           provider: flags.provider as AnalysisOptions['provider'] | undefined,
@@ -46,7 +53,7 @@ program
           verbose: flags.verbose as boolean | undefined,
           exclude: flags.exclude as string[] | undefined,
           concurrencyLimit: flags.concurrency as number | undefined,
-          projectRoot: process.cwd(),
+          projectRoot: targetProjectRoot,
         },
         config,
       );
@@ -146,19 +153,21 @@ program
   .action((dir: string) => {
     const builder = new DependencyGraphBuilder(dir);
 
-    // Discover entry files
-    const fs = require('node:fs');
-    const path = require('node:path');
+    // Discover entry files — support all languages the engine supports
+    const codeExtRe = /\.(js|mjs|cjs|jsx|ts|tsx|py|go|rs|java|rb|php|c|cpp|h|hpp|cs|swift|kt)$/;
+    const excludeSet = new Set(['node_modules', 'dist', '.git', 'vendor', '__pycache__', 'venv', '.venv']);
     const entries: string[] = [];
-    const walk = (d: string) => {
-      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
-        if (['node_modules', 'dist', '.git', 'vendor'].includes(entry.name)) continue;
+    const walkGraph = (d: string) => {
+      let dirEntries: import('node:fs').Dirent[];
+      try { dirEntries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+      for (const entry of dirEntries) {
+        if (excludeSet.has(entry.name) || entry.name.startsWith('.')) continue;
         const full = path.join(d, entry.name);
-        if (entry.isDirectory()) walk(full);
-        else if (/\.[jt]sx?$/.test(entry.name)) entries.push(full);
+        if (entry.isDirectory()) walkGraph(full);
+        else if (codeExtRe.test(entry.name)) entries.push(full);
       }
     };
-    walk(dir);
+    walkGraph(dir);
 
     const graph = builder.build(entries.map((e: string) => path.relative(dir, e)));
 
@@ -233,6 +242,18 @@ function printFinding(f: Finding, verbose: boolean): void {
   }
 
   console.log('');
+}
+
+function findProjectRoot(filePath: string): string {
+  const markers = ['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml', 'requirements.txt', '.git', '.cr-agent.json'];
+  let dir = path.dirname(path.resolve(filePath));
+  while (dir !== path.dirname(dir)) {
+    if (markers.some((m) => { try { fs.statSync(path.join(dir, m)); return true; } catch { return false; } })) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  return path.dirname(path.resolve(filePath));
 }
 
 function toSarif(result: AnalysisResult): object {
