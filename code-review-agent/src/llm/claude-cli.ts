@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { z } from 'zod';
 import { type ChatMessage, type LLMProvider, SchemaValidationError } from './provider.js';
 import { zodToJsonSchema } from './schemas.js';
@@ -108,18 +108,26 @@ export class ClaudeCliProvider implements LLMProvider {
   private runClaude(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const args = [
-        '-p', prompt,
+        '-p', '-',
         '--output-format', 'json',
         '--model', this.modelId,
         '--no-session-persistence',
       ];
 
-      execFile('claude', args, {
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: 120_000,
-      }, (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error(`claude CLI failed: ${error.message}${stderr ? `\nstderr: ${stderr}` : ''}`));
+      const child = spawn('claude', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 180_000,
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+      child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+      child.on('close', (code) => {
+        if (code !== 0 && !stdout) {
+          reject(new Error(`claude CLI exited with code ${code}${stderr ? `\nstderr: ${stderr}` : ''}`));
           return;
         }
 
@@ -131,10 +139,17 @@ export class ClaudeCliProvider implements LLMProvider {
           }
           resolve(result.result);
         } catch {
-          // If JSON parse fails, treat stdout as raw text
           resolve(stdout.trim());
         }
       });
+
+      child.on('error', (err) => {
+        reject(new Error(`claude CLI failed to start: ${err.message}`));
+      });
+
+      // Write prompt to stdin and close it
+      child.stdin.write(prompt);
+      child.stdin.end();
     });
   }
 }
