@@ -49,6 +49,7 @@ program
       );
 
       const showProgress = options.format === 'text';
+      let lastStep = '';
       const engine = new AnalysisEngine(options, showProgress ? (step, detail) => {
         const icons: Record<string, string> = {
           discover: '[1/7 discover]',
@@ -61,7 +62,15 @@ program
           done:     '[  done  ]',
         };
         const label = icons[step] ?? `[${step}]`;
-        process.stderr.write(`\r\x1b[K${chalk.dim(label)} ${detail ?? ''}`);
+        if (step !== lastStep) {
+          // New stage — print on a new line, keep it visible
+          if (lastStep) process.stderr.write('\n');
+          lastStep = step;
+          process.stderr.write(`${chalk.cyan(label)} ${detail ?? ''}`);
+        } else {
+          // Same stage — overwrite the current line with updated detail
+          process.stderr.write(`\r\x1b[K${chalk.dim(label)} ${detail ?? ''}`);
+        }
         if (step === 'done') process.stderr.write('\n');
       } : undefined);
       const result = await engine.analyze(target);
