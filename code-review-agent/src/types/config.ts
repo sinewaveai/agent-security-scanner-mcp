@@ -30,7 +30,7 @@ const DEFAULTS: AnalysisOptions = {
   format: 'text',
   verbose: false,
   projectRoot: process.cwd(),
-  exclude: ['node_modules', 'dist', 'build', '.git', 'vendor', '__pycache__', '.venv'],
+  exclude: ['node_modules', 'dist', 'build', '.git', 'vendor', '__pycache__', '.venv', 'venv', 'env', '.env', 'site-packages', '.tox', '.mypy_cache', '.pytest_cache', 'coverage', '.nyc_output', '.next', 'target'],
   concurrencyLimit: 5,
   maxFileSize: 512 * 1024,
 };
