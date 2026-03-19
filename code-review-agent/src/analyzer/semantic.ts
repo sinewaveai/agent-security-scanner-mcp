@@ -1,0 +1,114 @@
+import type { FileContext, ProjectContext } from '../types/analysis.js';
+import {
+  FileAnalysisResponseSchema,
+  type Finding,
+  type IntentProfile,
+  TriageDecisionSchema,
+  type TriageDecision,
+} from '../types/findings.js';
+import type { LLMProvider } from '../llm/provider.js';
+import { ContextAssembler } from '../context/assembler.js';
+
+const ANALYSIS_SYSTEM_PROMPT = `You are a senior security engineer performing a semantic code review. You have been given:
+1. An intent profile describing what this project is supposed to do
+2. A source file to analyze
+3. Project context
+
+Your job is to find REAL bugs — logic errors, security vulnerabilities, race conditions, null references, boundary issues, and unhandled exceptions. Focus on issues that actually matter, not style or conventions.
+
+CRITICAL — Intent-Aware Analysis:
+The same code pattern can be safe or dangerous depending on the project's purpose. You MUST consider the intent profile when making judgments:
+
+- A file organizer that calls os.remove() / shutil.move() is NOT a vulnerability — that's its purpose
+- An auth API endpoint that writes arbitrary files to disk IS a vulnerability — an auth service has no reason to do that
+- A build tool that calls subprocess.run() with hardcoded commands is NOT a vulnerability — that's its purpose
+- An e-commerce app that calls eval() on user input IS a vulnerability — a product catalog has no reason to eval
+
+Ask yourself: "Given what this project is supposed to do, is this code pattern expected or surprising?"
+
+For each finding:
+- Explain your reasoning step by step
+- State whether it violates, matches, or is unclear relative to the project's intent
+- Assign a confidence score (0-1) — be conservative. Only use high confidence (>0.8) when you're certain.
+- If the behavior matches the project's expected purpose, it's probably not a vulnerability — skip it or mark as info.
+
+Do NOT report:
+- Missing input validation on internal functions (only flag at system boundaries)
+- Style issues, naming conventions, or missing documentation
+- Theoretical vulnerabilities that require attacker control of trusted inputs
+- Patterns that are standard for the project's framework`;
+
+const TRIAGE_SYSTEM_PROMPT = `You are a code review triage system. Given a file and project context, decide whether this file needs deep security analysis.
+
+Decide "analyze" if the file:
+- Handles user input, network requests, or external data
+- Performs authentication, authorization, or session management
+- Accesses databases, filesystems, or external APIs
+- Contains security-sensitive logic (crypto, parsing, eval, exec)
+- Has complex control flow that could harbor logic bugs
+
+Decide "skip" if the file:
+- Is a test file (test helpers, mocks, fixtures)
+- Is a configuration file (JSON, YAML, TOML)
+- Is auto-generated code
+- Contains only type definitions, interfaces, or constants
+- Is a simple utility with no I/O or security relevance
+
+If you decide to analyze, identify specific areas of interest (line ranges) that deserve the most attention.`;
+
+export class SemanticAnalyzer {
+  private assembler: ContextAssembler;
+
+  constructor(
+    private analysisProvider: LLMProvider,
+    private triageProvider: LLMProvider,
+  ) {
+    this.assembler = new ContextAssembler(analysisProvider);
+  }
+
+  async analyzeFile(
+    intent: IntentProfile,
+    project: ProjectContext,
+    file: FileContext,
+  ): Promise<{ findings: Finding[]; tokensUsed: number; truncated: boolean }> {
+    const context = this.assembler.assembleAnalysisContext(intent, project, file);
+    const truncated = context.includes('[TRUNCATED');
+
+    const tokensUsed = this.analysisProvider.countTokens(
+      ANALYSIS_SYSTEM_PROMPT + context,
+    );
+
+    const response = await this.analysisProvider.chatStructured(
+      [
+        { role: 'system', content: ANALYSIS_SYSTEM_PROMPT },
+        { role: 'user', content: `Analyze this code for real bugs and vulnerabilities:\n\n${context}` },
+      ],
+      FileAnalysisResponseSchema,
+      'file_analysis',
+    );
+
+    // Inject file path into findings
+    const findings = response.findings.map((f) => ({
+      ...f,
+      location: { ...f.location, file: file.filePath },
+    }));
+
+    return { findings, tokensUsed, truncated };
+  }
+
+  async triageFile(
+    project: ProjectContext,
+    file: FileContext,
+  ): Promise<TriageDecision> {
+    const context = this.assembler.assembleTriageContext(project, file);
+
+    return this.triageProvider.chatStructured(
+      [
+        { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
+        { role: 'user', content: `Should this file be analyzed?\n\n${context}` },
+      ],
+      TriageDecisionSchema,
+      'triage_decision',
+    );
+  }
+}
