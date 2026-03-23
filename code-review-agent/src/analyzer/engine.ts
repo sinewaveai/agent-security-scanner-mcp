@@ -13,6 +13,7 @@ import { SemanticAnalyzer } from './semantic.js';
 import { buildProjectContext } from '../context/project.js';
 import { buildFileContext } from '../context/file.js';
 import { DependencyGraphBuilder } from '../graph/dependency.js';
+import { postFilterFindings, suppressCarrierFindings } from './postprocess.js';
 
 const CODE_EXTENSIONS = new Set([
   '.js', '.mjs', '.cjs', '.jsx',
@@ -206,6 +207,14 @@ export class AnalysisEngine {
     // Dedup
     this.onProgress('finalize', `Deduplicating ${allFindings.length} raw finding(s)`);
     allFindings = this.dedup(allFindings);
+
+    // Mode-aware post-filtering
+    const beforePostFilter = allFindings.length;
+    allFindings = postFilterFindings(allFindings, this.options.mode);
+    if (this.options.mode === 'security') {
+      allFindings = suppressCarrierFindings(allFindings);
+      this.onProgress('finalize', `Security filter: ${beforePostFilter} → ${allFindings.length}`);
+    }
 
     // Filter by confidence
     const beforeFilter = allFindings.length;
