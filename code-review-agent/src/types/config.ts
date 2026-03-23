@@ -1,7 +1,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+export type AnalysisMode = 'review' | 'security';
+
 export interface AnalysisOptions {
+  mode: AnalysisMode;
   provider: 'anthropic' | 'openai' | 'claude-cli';
   model?: string;
   triageModel?: string;
@@ -15,6 +18,7 @@ export interface AnalysisOptions {
 }
 
 export interface CRAgentConfig {
+  mode?: AnalysisMode;
   provider?: 'anthropic' | 'openai' | 'claude-cli';
   model?: string;
   triageModel?: string;
@@ -25,6 +29,7 @@ export interface CRAgentConfig {
 }
 
 const DEFAULTS: AnalysisOptions = {
+  mode: 'review',
   provider: 'anthropic',
   confidenceThreshold: 0.7,
   format: 'text',
@@ -51,6 +56,11 @@ export function resolveOptions(
   env: Record<string, string | undefined> = process.env,
 ): AnalysisOptions {
   return {
+    mode:
+      cliFlags.mode ??
+      config?.mode ??
+      (env.CR_AGENT_MODE as AnalysisMode | undefined) ??
+      DEFAULTS.mode,
     provider:
       cliFlags.provider ??
       config?.provider ??

@@ -32,6 +32,7 @@ export type {
   DependencyGraph,
 } from './types/analysis.js';
 export type {
+  AnalysisMode,
   AnalysisOptions,
   CRAgentConfig,
 } from './types/config.js';

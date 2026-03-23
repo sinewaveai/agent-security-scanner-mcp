@@ -6,6 +6,7 @@ import {
   TriageDecisionSchema,
   type TriageDecision,
 } from '../types/findings.js';
+import type { AnalysisMode } from '../types/config.js';
 import type { LLMProvider } from '../llm/provider.js';
 import { ContextAssembler } from '../context/assembler.js';
 
@@ -64,12 +65,15 @@ const CHUNK_OVERLAP_LINES = 30;
 
 export class SemanticAnalyzer {
   private assembler: ContextAssembler;
+  private mode: AnalysisMode;
 
   constructor(
     private analysisProvider: LLMProvider,
     private triageProvider: LLMProvider,
+    mode: AnalysisMode = 'review',
   ) {
     this.assembler = new ContextAssembler(analysisProvider);
+    this.mode = mode;
   }
 
   async analyzeFile(

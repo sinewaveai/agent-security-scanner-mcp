@@ -13,7 +13,7 @@ import { ModelRouter } from '../src/llm/router.js';
 import { DependencyGraphBuilder } from '../src/graph/dependency.js';
 import { buildProjectContext } from '../src/context/project.js';
 import { loadConfig, resolveOptions } from '../src/types/config.js';
-import type { AnalysisOptions } from '../src/types/config.js';
+import type { AnalysisOptions, AnalysisMode } from '../src/types/config.js';
 import type { AnalysisResult, Finding } from '../src/index.js';
 
 const program = new Command();
@@ -27,6 +27,8 @@ program
   .command('analyze')
   .description('Analyze a file or directory for bugs and vulnerabilities')
   .argument('<target>', 'File or directory to analyze')
+  .option('--mode <mode>', 'Analysis mode (review|security)', 'review')
+  .option('--security-only', 'Shorthand for --mode security')
   .option('-p, --provider <provider>', 'LLM provider (anthropic|openai|claude-cli)')
   .option('-m, --model <model>', 'Model to use for analysis')
   .option('--triage-model <model>', 'Model to use for triage')
@@ -43,8 +45,12 @@ program
         ? resolvedTarget
         : findProjectRoot(resolvedTarget);
       const config = loadConfig(targetProjectRoot);
+      const mode: AnalysisMode | undefined = flags.securityOnly
+        ? 'security'
+        : (flags.mode as AnalysisMode | undefined);
       const options = resolveOptions(
         {
+          mode,
           provider: flags.provider as AnalysisOptions['provider'] | undefined,
           model: flags.model as string | undefined,
           triageModel: flags.triageModel as string | undefined,

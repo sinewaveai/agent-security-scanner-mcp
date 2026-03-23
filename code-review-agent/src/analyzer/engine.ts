@@ -90,6 +90,7 @@ export class AnalysisEngine {
     const analyzer = new SemanticAnalyzer(
       this.router.getAnalysisProvider(),
       this.router.getTriageProvider(),
+      this.options.mode,
     );
 
     // Triage files in parallel
