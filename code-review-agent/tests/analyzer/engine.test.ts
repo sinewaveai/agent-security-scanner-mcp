@@ -86,6 +86,7 @@ describe('AnalysisEngine', () => {
 
   it('analyzes vuln-api-server and finds vulnerabilities', async () => {
     const options: AnalysisOptions = {
+      mode: 'review',
       provider: 'anthropic',
       confidenceThreshold: 0.7,
       format: 'text',
@@ -108,6 +109,7 @@ describe('AnalysisEngine', () => {
 
   it('returns sorted findings (critical first)', async () => {
     const options: AnalysisOptions = {
+      mode: 'review',
       provider: 'anthropic',
       confidenceThreshold: 0.5,
       format: 'text',
@@ -133,6 +135,7 @@ describe('AnalysisEngine', () => {
 
   it('filters findings below confidence threshold', async () => {
     const options: AnalysisOptions = {
+      mode: 'review',
       provider: 'anthropic',
       confidenceThreshold: 0.99,
       format: 'text',
@@ -154,6 +157,7 @@ describe('AnalysisEngine', () => {
 
   it('computes stats correctly', async () => {
     const options: AnalysisOptions = {
+      mode: 'review',
       provider: 'anthropic',
       confidenceThreshold: 0.7,
       format: 'text',
@@ -174,6 +178,7 @@ describe('AnalysisEngine', () => {
 
   it('clamps private worker count when concurrency is zero', async () => {
     const options: AnalysisOptions = {
+      mode: 'review',
       provider: 'anthropic',
       confidenceThreshold: 0.7,
       format: 'text',
