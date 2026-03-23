@@ -23,14 +23,20 @@ npm run build
 ### Analyze a project
 
 ```bash
-# Text output (default)
+# Text output (default — review mode)
 npx tsx bin/cr-agent.ts analyze ./path/to/project
+
+# Security-only mode — focused on exploitable vulnerabilities
+npx tsx bin/cr-agent.ts analyze ./path/to/project --mode security
+
+# Shorthand for security mode
+npx tsx bin/cr-agent.ts analyze ./path/to/project --security-only
 
 # JSON output
 npx tsx bin/cr-agent.ts analyze ./path/to/project --format json
 
-# SARIF output
-npx tsx bin/cr-agent.ts analyze ./path/to/project --format sarif
+# SARIF output (recommended with --mode security for CI)
+npx tsx bin/cr-agent.ts analyze ./path/to/project --format sarif --mode security
 
 # Custom confidence threshold
 npx tsx bin/cr-agent.ts analyze ./path/to/project --confidence 0.8
@@ -38,6 +44,17 @@ npx tsx bin/cr-agent.ts analyze ./path/to/project --confidence 0.8
 # Use OpenAI instead of Anthropic
 npx tsx bin/cr-agent.ts analyze ./path/to/project --provider openai
 ```
+
+### Analysis modes
+
+| Mode | Description |
+|------|-------------|
+| `review` (default) | Broad semantic review: logic bugs, security, race conditions, null refs, boundary issues, unhandled exceptions |
+| `security` | Focused security scanner: exploitable vulnerabilities only, sink-localized findings, carrier suppression, CWE mapping |
+
+**Review mode** is best for human code review workflows where you want to catch all types of real bugs.
+
+**Security mode** is best for CI pipelines, SARIF integrations, and security-focused audits where you want clean, actionable vulnerability reports without generic code quality noise.
 
 ### View intent profile
 
@@ -64,6 +81,7 @@ Or create a `.cr-agent.json` in your project root:
 
 ```json
 {
+  "mode": "review",
   "provider": "anthropic",
   "model": "claude-sonnet-4-20250514",
   "triageModel": "claude-haiku-4-5-20251001",
@@ -78,6 +96,8 @@ Or create a `.cr-agent.json` in your project root:
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--mode` | Analysis mode (`review` or `security`) | `review` |
+| `--security-only` | Shorthand for `--mode security` | — |
 | `-p, --provider` | LLM provider (`anthropic` or `openai`) | `anthropic` |
 | `-m, --model` | Analysis model | `claude-sonnet-4-20250514` / `gpt-4o` |
 | `--triage-model` | Triage model | `claude-haiku-4-5-20251001` / `gpt-4o-mini` |
@@ -92,7 +112,8 @@ Or create a `.cr-agent.json` in your project root:
 ```
 Pipeline: discover files → build dependency graph → profile intent
         → triage (parallel, cheap model) → analyze (parallel, analysis model)
-        → dedup → filter by confidence → sort by severity → output
+        → dedup → mode-aware post-filter → carrier suppression (security mode)
+        → filter by confidence → sort by severity → output
 ```
 
 ### Components

@@ -2,6 +2,7 @@
 export { AnalysisEngine, type ProgressCallback } from './analyzer/engine.js';
 export { IntentProfiler } from './analyzer/intent.js';
 export { SemanticAnalyzer } from './analyzer/semantic.js';
+export { postFilterFindings, suppressCarrierFindings } from './analyzer/postprocess.js';
 
 // LLM providers
 export { AnthropicProvider } from './llm/anthropic.js';
