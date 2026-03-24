@@ -92,6 +92,8 @@ export class AnalysisEngine {
       this.router.getAnalysisProvider(),
       this.router.getTriageProvider(),
       this.options.mode,
+      projectRoot,
+      graph,
     );
 
     // Triage files in parallel

@@ -17,6 +17,8 @@ export { zodToJsonSchema, zodToAnthropicTool, zodToOpenAIResponseFormat } from '
 export { buildProjectContext, formatProjectContextForLLM } from './context/project.js';
 export { buildFileContext, isTestFile, isConfigFile, isGeneratedFile } from './context/file.js';
 export { ContextAssembler } from './context/assembler.js';
+export { buildRelatedFileSummaries, formatRelatedFileSummaries } from './context/security-summary.js';
+export type { RelatedFileSummary } from './context/security-summary.js';
 
 // Graph
 export { DependencyGraphBuilder } from './graph/dependency.js';

@@ -1,7 +1,9 @@
-import type { FileContext, ProjectContext } from '../types/analysis.js';
+import type { FileContext, ProjectContext, DependencyGraph } from '../types/analysis.js';
 import type { IntentProfile } from '../types/findings.js';
+import type { AnalysisMode } from '../types/config.js';
 import type { LLMProvider } from '../llm/provider.js';
 import { formatProjectContextForLLM } from './project.js';
+import { buildRelatedFileSummaries, formatRelatedFileSummaries } from './security-summary.js';
 
 const TOKEN_BUDGETS: Record<string, number> = {
   anthropic: 100_000,
@@ -15,7 +17,20 @@ const TRUNCATION_MARKER = '\n[TRUNCATED — file too large for context window]\n
 const OUTPUT_RESERVE = 0.2;
 
 export class ContextAssembler {
-  constructor(private provider: LLMProvider) {}
+  private mode: AnalysisMode;
+  private projectRoot: string;
+  private graph?: DependencyGraph;
+
+  constructor(
+    private provider: LLMProvider,
+    mode: AnalysisMode = 'review',
+    projectRoot: string = '',
+    graph?: DependencyGraph,
+  ) {
+    this.mode = mode;
+    this.projectRoot = projectRoot;
+    this.graph = graph;
+  }
 
   /**
    * Calculate how many lines of source code fit in the remaining
@@ -89,6 +104,19 @@ export class ContextAssembler {
         priority: 4,
       },
     ];
+
+    // In security mode, add cross-file security context
+    if (this.mode === 'security' && this.projectRoot) {
+      const summaries = buildRelatedFileSummaries(file, this.projectRoot, this.graph);
+      const formatted = formatRelatedFileSummaries(summaries);
+      if (formatted) {
+        sections.push({
+          label: 'Related Files (security-relevant lines)',
+          content: formatted,
+          priority: 3, // same priority as project context — fits before metadata
+        });
+      }
+    }
 
     // Sort by priority and assemble within budget
     sections.sort((a, b) => a.priority - b.priority);
