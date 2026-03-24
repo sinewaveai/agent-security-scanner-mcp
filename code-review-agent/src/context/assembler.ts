@@ -55,6 +55,16 @@ export class ContextAssembler {
       // Framing text around file content
       `\n## File Content\nFile: ${file.filePath} (${file.language})\n\`\`\`\n\`\`\`\n`,
     ];
+
+    // In security mode, account for cross-file summary section
+    if (this.mode === 'security' && this.projectRoot) {
+      const summaries = buildRelatedFileSummaries(file, this.projectRoot, this.graph);
+      const formatted = formatRelatedFileSummaries(summaries);
+      if (formatted) {
+        overheadParts.push(`\n## Related Files (security-relevant lines)\n${formatted}\n`);
+      }
+    }
+
     const overheadTokens = this.provider.countTokens(overheadParts.join('\n'));
 
     const remainingTokens = usableBudget - overheadTokens;

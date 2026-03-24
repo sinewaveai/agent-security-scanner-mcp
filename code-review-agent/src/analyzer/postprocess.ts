@@ -78,12 +78,13 @@ function isWeakGuardFinding(finding: Finding): boolean {
   // Check if the bypass description is weak/theoretical
   const hasWeakBypass = WEAK_BYPASS_PHRASES.test(finding.reasoning);
 
-  // Strong guard + weak/no bypass → suppress
-  if (hasStrongGuard && (hasWeakBypass || finding.confidence < 0.7)) {
+  // Strong guard + weak/theoretical bypass language → suppress
+  // Low confidence alone is NOT enough — the model may be cautious but correct
+  if (hasStrongGuard && hasWeakBypass) {
     return true;
   }
 
-  // Finding is about a guard module + no concrete exploit + low confidence → suppress
+  // Finding is about a guard module + weak bypass language + low confidence → suppress
   if (isAboutGuard && hasWeakBypass && finding.confidence < 0.8) {
     return true;
   }
@@ -226,12 +227,15 @@ export function suppressCarrierFindings(findings: Finding[]): Finding[] {
 
 /**
  * Generate a normalized signature for grouping related findings.
+ * CWE-based grouping is cross-file (carrier/sink suppression).
+ * Title-based grouping is per-file to avoid collapsing distinct findings
+ * with generic titles like "Missing authorization check" in different files.
  */
 function findingSignature(f: Finding): string {
-  // Use CWE as primary grouping key if available
+  // Use CWE as primary grouping key — cross-file is intentional for carrier/sink dedup
   if (f.cwe) return `cwe:${f.cwe.toLowerCase()}`;
 
-  // Fall back to a normalized title: lowercase, strip line numbers and file refs
+  // Fall back to normalized title + file path to keep per-file scope
   const normalized = f.title
     .toLowerCase()
     .replace(/\b(line|col|at)\s*\d+/g, '')
@@ -239,5 +243,5 @@ function findingSignature(f: Finding): string {
     .replace(/\s+/g, ' ')
     .trim();
 
-  return `title:${normalized}`;
+  return `title:${f.location.file}:${normalized}`;
 }

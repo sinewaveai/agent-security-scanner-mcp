@@ -142,17 +142,43 @@ function summarizeFile(
 
 /**
  * Try to resolve a local import specifier to an actual file path.
+ * Handles:
+ * - Relative imports: ./foo, ../bar
+ * - Python bare module imports: tools.executor → tools/executor.py
  */
 function resolveLocalFile(
   specifier: string,
   fromFile: string,
   projectRoot: string,
 ): string | null {
-  // Only resolve relative imports
-  if (!specifier.startsWith('.')) return null;
-
   const fromDir = path.dirname(path.resolve(projectRoot, fromFile));
-  const basePath = path.resolve(fromDir, specifier);
+
+  let basePath: string;
+
+  if (specifier.startsWith('.')) {
+    // Relative import (JS/TS/Python relative)
+    basePath = path.resolve(fromDir, specifier);
+  } else if (/^[a-zA-Z_]\w*(\.[a-zA-Z_]\w*)+$/.test(specifier) && !specifier.includes('/')) {
+    // Python bare module import: tools.executor → tools/executor
+    // Only treat as local if the top-level directory exists relative to the file
+    const asPath = specifier.replace(/\./g, '/');
+    basePath = path.resolve(fromDir, asPath);
+
+    // Also try from project root (Python resolves from project root or cwd)
+    const fromRoot = path.resolve(projectRoot, asPath);
+    const rootCandidates = [
+      `${fromRoot}.py`,
+      path.join(fromRoot, '__init__.py'),
+    ];
+    for (const candidate of rootCandidates) {
+      try {
+        if (fs.statSync(candidate).isFile()) return candidate;
+      } catch { /* not found */ }
+    }
+  } else {
+    // Non-local third-party import
+    return null;
+  }
 
   // Try exact path, then common extensions
   const candidates = [
@@ -165,6 +191,7 @@ function resolveLocalFile(
     path.join(basePath, 'index.js'),
     `${basePath}.tsx`,
     `${basePath}.jsx`,
+    path.join(basePath, '__init__.py'),
   ];
 
   for (const candidate of candidates) {

@@ -83,6 +83,20 @@ describe('buildRelatedFileSummaries', () => {
     const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
     expect(summaries.length).toBeLessThanOrEqual(4);
   });
+
+  it('resolves Python bare module imports (tools.executor style)', () => {
+    const file = makeFileContext({
+      filePath: 'router.py',
+      imports: ['tools.executor'],  // as buildFileContext would actually produce
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+
+    const executorSummary = summaries.find((s) => s.filePath.includes('executor'));
+    expect(executorSummary).toBeDefined();
+    expect(executorSummary!.relationship).toBe('imports');
+    expect(executorSummary!.relevantLines.some((l) => l.includes('subprocess'))).toBe(true);
+  });
 });
 
 describe('formatRelatedFileSummaries', () => {

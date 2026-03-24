@@ -189,6 +189,20 @@ describe('guard finding suppression', () => {
     expect(result).toHaveLength(1);
   });
 
+  it('keeps low-confidence finding with strong guard when bypass is concrete (not theoretical)', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        category: 'security',
+        title: 'Argument injection in subprocess.run call',
+        reasoning: 'The function uses subprocess.run with shell=False, but the arguments list includes unsanitized user input that can inject additional flags to the command.',
+        confidence: 0.6,
+      }),
+    ];
+
+    const result = postFilterFindings(findings, 'security');
+    expect(result).toHaveLength(1);
+  });
+
   it('suppresses guard-module finding with weak bypass language', () => {
     const findings: Finding[] = [
       makeFinding({
@@ -343,5 +357,23 @@ describe('suppressCarrierFindings', () => {
     // Single finding - no suppression should occur
     const result = suppressCarrierFindings(findings);
     expect(result).toHaveLength(1);
+  });
+
+  it('preserves same-title no-CWE findings in different files', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        title: 'Missing authorization check',
+        location: { file: 'src/routes/users.js', startLine: 10, endLine: 10 },
+        confidence: 0.85,
+      }),
+      makeFinding({
+        title: 'Missing authorization check',
+        location: { file: 'src/routes/admin.js', startLine: 20, endLine: 20 },
+        confidence: 0.8,
+      }),
+    ];
+
+    const result = suppressCarrierFindings(findings);
+    expect(result).toHaveLength(2);
   });
 });
