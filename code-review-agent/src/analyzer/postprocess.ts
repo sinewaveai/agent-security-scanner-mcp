@@ -227,13 +227,16 @@ export function suppressCarrierFindings(findings: Finding[]): Finding[] {
     const files = new Set(group.map((f) => f.location.file));
     if (files.size <= 1) continue;
 
+    // Require language signals in the finding text, not just file-path patterns.
+    // File path alone is too aggressive — a "Missing authorization check" in
+    // controller/users.js and service/admin.js are likely distinct real findings.
     const hasCarrier = group.some((f) => {
       const text = `${f.title} ${f.reasoning}`;
-      return CARRIER_LANGUAGE.test(text) || CARRIER_FILE_PATTERNS.test(f.location.file.toLowerCase());
+      return CARRIER_LANGUAGE.test(text);
     });
     const hasSink = group.some((f) => {
       const text = `${f.title} ${f.reasoning}`;
-      return SINK_LANGUAGE.test(text) || SINK_FILE_PATTERNS.test(f.location.file.toLowerCase());
+      return SINK_LANGUAGE.test(text);
     });
 
     if (hasCarrier && hasSink) {
@@ -260,8 +263,20 @@ export function suppressCarrierFindings(findings: Finding[]): Finding[] {
       continue;
     }
 
-    // CWE groups: score and keep best
-    const scored = group.map((f) => ({ finding: f, score: carrierSinkScore(f) }));
+    // For multi-item groups: filter out suppressed findings first, then score
+    const unsuppressed = group.filter((f) => {
+      const suppKey = `${f.location.file}:${f.location.startLine}:${f.title}`;
+      return !suppressedFiles.has(suppKey);
+    });
+
+    if (unsuppressed.length === 0) continue;
+    if (unsuppressed.length === 1) {
+      result.push(unsuppressed[0]);
+      continue;
+    }
+
+    // CWE groups or remaining multi-item: score and keep best
+    const scored = unsuppressed.map((f) => ({ finding: f, score: carrierSinkScore(f) }));
     scored.sort((a, b) => b.score - a.score);
     result.push(scored[0].finding);
   }

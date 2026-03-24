@@ -111,6 +111,22 @@ describe('buildRelatedFileSummaries', () => {
     expect(guardSummary!.relevantLines.some((l) => /allow/i.test(l))).toBe(true);
   });
 
+  it('resolves bare package import to security-relevant child (from tools import executor)', () => {
+    // file.ts records `tools` from `from tools import executor`
+    // security-summary should find tools/ directory, scan children, find executor.py
+    const file = makeFileContext({
+      filePath: 'router.py',
+      imports: ['tools'],  // as file.ts would actually produce for `from tools import executor`
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+
+    // Should find executor.py (has subprocess) or guard.py (has ALLOWED) as a child
+    const toolsSummary = summaries.find((s) =>
+      s.filePath.includes('executor') || s.filePath.includes('guard'));
+    expect(toolsSummary).toBeDefined();
+  });
+
   it('does not summarize the same file twice across relationships', () => {
     // If a file is both imported and a sibling, it should appear only once
     const file = makeFileContext({

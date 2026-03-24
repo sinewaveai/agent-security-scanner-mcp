@@ -119,6 +119,7 @@ export function resolveImportPath(
       const initFile = path.join(base, '__init__.py');
       if (fs.statSync(initFile).isFile()) return initFile;
     } catch { /* not found */ }
+
   }
 
   return null;
@@ -129,7 +130,11 @@ export function isLocalImport(specifier: string, language: string): boolean {
     return specifier.startsWith('./') || specifier.startsWith('../');
   }
   if (language === 'python') {
-    return specifier.startsWith('.');
+    // Relative imports (starts with .) are always local.
+    // Bare imports (tools, tools.executor) may be local — let resolveImportPath
+    // do a filesystem check rather than rejecting them outright.
+    if (specifier.startsWith('.')) return true;
+    return /^[a-zA-Z_]\w*(\.[a-zA-Z_]\w*)*$/.test(specifier);
   }
   if (language === 'go') {
     return !specifier.includes('.');

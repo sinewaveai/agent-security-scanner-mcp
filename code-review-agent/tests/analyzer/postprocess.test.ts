@@ -379,7 +379,7 @@ describe('suppressCarrierFindings', () => {
     expect(result).toHaveLength(2);
   });
 
-  it('collapses same-title no-CWE carrier/sink pair across files', () => {
+  it('collapses same-title no-CWE carrier/sink pair when language signals present', () => {
     const findings: Finding[] = [
       makeFinding({
         title: 'Unsafe file write',
@@ -398,5 +398,53 @@ describe('suppressCarrierFindings', () => {
     const result = suppressCarrierFindings(findings);
     expect(result).toHaveLength(1);
     expect(result[0].location.file).toBe('src/service/file-client.js');
+  });
+
+  it('preserves same-title findings in controller/service without carrier/sink language', () => {
+    // Both findings describe distinct issues — no forwarding/routing language
+    const findings: Finding[] = [
+      makeFinding({
+        title: 'Missing authorization check',
+        location: { file: 'src/controller/users.js', startLine: 10, endLine: 10 },
+        reasoning: 'No authorization check before database write',
+        confidence: 0.85,
+      }),
+      makeFinding({
+        title: 'Missing authorization check',
+        location: { file: 'src/service/admin.js', startLine: 20, endLine: 20 },
+        reasoning: 'No authorization check before database write',
+        confidence: 0.8,
+      }),
+    ];
+
+    const result = suppressCarrierFindings(findings);
+    expect(result).toHaveLength(2);
+  });
+
+  it('suppresses all carrier duplicates when carrier file has multiple same-title rows', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        title: 'Unsafe file write',
+        location: { file: 'src/router/handler.js', startLine: 10, endLine: 10 },
+        reasoning: 'User path forwarded through the router to the write service',
+        confidence: 0.7,
+      }),
+      makeFinding({
+        title: 'Unsafe file write',
+        location: { file: 'src/router/handler.js', startLine: 30, endLine: 30 },
+        reasoning: 'Another path forwarded through the router to the write service',
+        confidence: 0.65,
+      }),
+      makeFinding({
+        title: 'Unsafe file write',
+        location: { file: 'src/service/writer.js', startLine: 20, endLine: 20 },
+        reasoning: 'The service writes to disk at the user-specified path',
+        confidence: 0.85,
+      }),
+    ];
+
+    const result = suppressCarrierFindings(findings);
+    expect(result).toHaveLength(1);
+    expect(result[0].location.file).toBe('src/service/writer.js');
   });
 });

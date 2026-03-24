@@ -119,6 +119,23 @@ describe('DependencyGraphBuilder', () => {
     }
   });
 
+  it('resolves Python bare module imports into the graph', () => {
+    const fixtureDir = path.resolve(__dirname, '../fixtures/guarded-agent');
+    const builder = new DependencyGraphBuilder(fixtureDir);
+    const graph = builder.build(['router.py']);
+
+    // router.py has `from tools.executor import execute_tool`
+    // which should resolve to tools/executor.py
+    const routerNode = graph.nodes.get('router.py');
+    expect(routerNode).toBeTruthy();
+
+    // Check that tools/executor.py is in the graph with a reverse edge
+    const executorKey = Array.from(graph.nodes.keys()).find((k) => k.includes('executor'));
+    expect(executorKey).toBeDefined();
+    const executorNode = graph.nodes.get(executorKey!);
+    expect(executorNode?.importedBy).toContain('router.py');
+  });
+
   it('keeps supported non-JS entry files in the graph', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-java-'));
     try {
