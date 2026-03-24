@@ -359,21 +359,44 @@ describe('suppressCarrierFindings', () => {
     expect(result).toHaveLength(1);
   });
 
-  it('preserves same-title no-CWE findings in different files', () => {
+  it('preserves same-title no-CWE findings in different files when neither is carrier/sink', () => {
     const findings: Finding[] = [
       makeFinding({
         title: 'Missing authorization check',
         location: { file: 'src/routes/users.js', startLine: 10, endLine: 10 },
+        reasoning: 'No authorization check before database write',
         confidence: 0.85,
       }),
       makeFinding({
         title: 'Missing authorization check',
         location: { file: 'src/routes/admin.js', startLine: 20, endLine: 20 },
+        reasoning: 'No authorization check before database write',
         confidence: 0.8,
       }),
     ];
 
     const result = suppressCarrierFindings(findings);
     expect(result).toHaveLength(2);
+  });
+
+  it('collapses same-title no-CWE carrier/sink pair across files', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        title: 'Unsafe file write',
+        location: { file: 'src/router/upload-handler.js', startLine: 10, endLine: 10 },
+        reasoning: 'User-uploaded path is forwarded through the handler to the file service',
+        confidence: 0.75,
+      }),
+      makeFinding({
+        title: 'Unsafe file write',
+        location: { file: 'src/service/file-client.js', startLine: 20, endLine: 20 },
+        reasoning: 'The service writes to disk at the user-specified path',
+        confidence: 0.85,
+      }),
+    ];
+
+    const result = suppressCarrierFindings(findings);
+    expect(result).toHaveLength(1);
+    expect(result[0].location.file).toBe('src/service/file-client.js');
   });
 });

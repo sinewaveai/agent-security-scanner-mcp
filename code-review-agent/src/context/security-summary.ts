@@ -14,7 +14,7 @@ const SECURITY_RELEVANT_PATTERNS = [
   // Guard / policy patterns
   /\b(allowlist|allow_list|whitelist|denylist|deny_list|blocklist|blacklist)\b/,
   /\b(validate|sanitize|authorize|authenticate|check_perm|has_perm)\b/,
-  /\b(guard|policy|permission|auth_check|is_allowed|can_access)\b/,
+  /\b(guard|policy|permission|auth_check|is_allowed\w*|can_access\w*|ALLOWED_\w+)\b/,
   /\b(shell\s*=\s*(True|False)|parameterized|prepared_statement|bind_param)\b/,
   // Routing / dispatching
   /\b(app\.(get|post|put|delete|patch|use)|router\.(get|post|put|delete))\b/,
@@ -61,8 +61,10 @@ export function buildRelatedFileSummaries(
   for (const imp of file.imports) {
     if (summaries.length >= MAX_RELATED_FILES) break;
     const resolved = resolveLocalFile(imp, file.filePath, projectRoot);
-    if (!resolved || seen.has(resolved)) continue;
-    seen.add(resolved);
+    if (!resolved) continue;
+    const relativePath = path.relative(projectRoot, resolved);
+    if (seen.has(relativePath)) continue;
+    seen.add(relativePath);
 
     const summary = summarizeFile(resolved, projectRoot, 'imports');
     if (summary) summaries.push(summary);
@@ -145,6 +147,7 @@ function summarizeFile(
  * Handles:
  * - Relative imports: ./foo, ../bar
  * - Python bare module imports: tools.executor → tools/executor.py
+ * - Python single-token imports: guard → guard.py, tools → tools/__init__.py
  */
 function resolveLocalFile(
   specifier: string,
@@ -158,9 +161,11 @@ function resolveLocalFile(
   if (specifier.startsWith('.')) {
     // Relative import (JS/TS/Python relative)
     basePath = path.resolve(fromDir, specifier);
-  } else if (/^[a-zA-Z_]\w*(\.[a-zA-Z_]\w*)+$/.test(specifier) && !specifier.includes('/')) {
-    // Python bare module import: tools.executor → tools/executor
-    // Only treat as local if the top-level directory exists relative to the file
+  } else if (/^[a-zA-Z_]\w*(\.[a-zA-Z_]\w*)*$/.test(specifier) && !specifier.includes('/')) {
+    // Python bare module import:
+    //   tools.executor → tools/executor
+    //   guard → guard
+    //   tools → tools
     const asPath = specifier.replace(/\./g, '/');
     basePath = path.resolve(fromDir, asPath);
 

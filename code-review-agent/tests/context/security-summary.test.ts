@@ -97,6 +97,34 @@ describe('buildRelatedFileSummaries', () => {
     expect(executorSummary!.relationship).toBe('imports');
     expect(executorSummary!.relevantLines.some((l) => l.includes('subprocess'))).toBe(true);
   });
+
+  it('resolves Python single-token imports (import guard style)', () => {
+    const file = makeFileContext({
+      filePath: 'router.py',
+      imports: ['tools.guard'],  // from tools.guard import is_allowed_command
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+
+    const guardSummary = summaries.find((s) => s.filePath.includes('guard'));
+    expect(guardSummary).toBeDefined();
+    expect(guardSummary!.relevantLines.some((l) => /allow/i.test(l))).toBe(true);
+  });
+
+  it('does not summarize the same file twice across relationships', () => {
+    // If a file is both imported and a sibling, it should appear only once
+    const file = makeFileContext({
+      filePath: 'router.py',
+      imports: ['./tools/executor'],
+      importedBy: [],
+      siblingFiles: ['tools'],  // tools dir is a sibling
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+    const paths = summaries.map((s) => s.filePath);
+    const unique = new Set(paths);
+    expect(paths.length).toBe(unique.size);
+  });
 });
 
 describe('formatRelatedFileSummaries', () => {

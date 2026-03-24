@@ -198,7 +198,7 @@ function carrierSinkScore(finding: Finding): number {
 export function suppressCarrierFindings(findings: Finding[]): Finding[] {
   if (findings.length <= 1) return findings;
 
-  // Group findings by normalized signature (CWE or title-based)
+  // Phase 1: group by CWE (cross-file) or per-file title
   const groups = new Map<string, Finding[]>();
   for (const f of findings) {
     const key = findingSignature(f);
@@ -207,22 +207,78 @@ export function suppressCarrierFindings(findings: Finding[]): Finding[] {
     groups.set(key, group);
   }
 
+  // Phase 2: for no-CWE findings, merge cross-file groups when carrier/sink signals
+  // indicate they describe the same issue flowing across files.
+  const titleGroups = new Map<string, Finding[]>();
+  for (const f of findings) {
+    if (f.cwe) continue;
+    const key = normalizedTitle(f);
+    const group = titleGroups.get(key) ?? [];
+    group.push(f);
+    titleGroups.set(key, group);
+  }
+
+  // If a cross-file title group has at least one carrier and one sink signal,
+  // collapse it — otherwise leave per-file groups intact.
+  const suppressedFiles = new Set<string>();
+  for (const group of titleGroups.values()) {
+    if (group.length <= 1) continue;
+    // Check if group spans multiple files
+    const files = new Set(group.map((f) => f.location.file));
+    if (files.size <= 1) continue;
+
+    const hasCarrier = group.some((f) => {
+      const text = `${f.title} ${f.reasoning}`;
+      return CARRIER_LANGUAGE.test(text) || CARRIER_FILE_PATTERNS.test(f.location.file.toLowerCase());
+    });
+    const hasSink = group.some((f) => {
+      const text = `${f.title} ${f.reasoning}`;
+      return SINK_LANGUAGE.test(text) || SINK_FILE_PATTERNS.test(f.location.file.toLowerCase());
+    });
+
+    if (hasCarrier && hasSink) {
+      // Collapse: keep the most sink-like finding
+      const scored = group.map((f) => ({ finding: f, score: carrierSinkScore(f) }));
+      scored.sort((a, b) => b.score - a.score);
+      // Mark all but the winner for suppression
+      for (let i = 1; i < scored.length; i++) {
+        const f = scored[i].finding;
+        suppressedFiles.add(`${f.location.file}:${f.location.startLine}:${f.title}`);
+      }
+    }
+  }
+
+  // Phase 3: collapse CWE-based groups as before, and apply no-CWE suppression
   const result: Finding[] = [];
-  for (const group of groups.values()) {
+  for (const [key, group] of groups) {
     if (group.length <= 1) {
-      result.push(...group);
+      const f = group[0];
+      const suppKey = `${f.location.file}:${f.location.startLine}:${f.title}`;
+      if (!suppressedFiles.has(suppKey)) {
+        result.push(f);
+      }
       continue;
     }
 
-    // Score each finding: higher = more sink-like
+    // CWE groups: score and keep best
     const scored = group.map((f) => ({ finding: f, score: carrierSinkScore(f) }));
     scored.sort((a, b) => b.score - a.score);
-
-    // Keep the most sink-like finding
     result.push(scored[0].finding);
   }
 
   return result;
+}
+
+/**
+ * Normalize a title for grouping (strips noise, lowercases).
+ */
+function normalizedTitle(f: Finding): string {
+  return f.title
+    .toLowerCase()
+    .replace(/\b(line|col|at)\s*\d+/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
@@ -235,13 +291,6 @@ function findingSignature(f: Finding): string {
   // Use CWE as primary grouping key — cross-file is intentional for carrier/sink dedup
   if (f.cwe) return `cwe:${f.cwe.toLowerCase()}`;
 
-  // Fall back to normalized title + file path to keep per-file scope
-  const normalized = f.title
-    .toLowerCase()
-    .replace(/\b(line|col|at)\s*\d+/g, '')
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return `title:${f.location.file}:${normalized}`;
+  // Per-file title grouping: prevents collapsing distinct findings across files
+  return `title:${f.location.file}:${normalizedTitle(f)}`;
 }
