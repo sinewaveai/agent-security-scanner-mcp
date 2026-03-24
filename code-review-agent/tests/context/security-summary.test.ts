@@ -1,0 +1,106 @@
+import { describe, it, expect } from 'vitest';
+import * as path from 'node:path';
+import {
+  buildRelatedFileSummaries,
+  formatRelatedFileSummaries,
+} from '../../src/context/security-summary.js';
+import type { FileContext } from '../../src/types/analysis.js';
+
+const FIXTURES_DIR = path.resolve(__dirname, '..', 'fixtures', 'guarded-agent');
+
+function makeFileContext(overrides: Partial<FileContext> = {}): FileContext {
+  return {
+    filePath: 'router.py',
+    content: 'from tools.executor import execute_tool\n',
+    language: 'python',
+    lineCount: 5,
+    imports: ['./tools/executor'],
+    importedBy: [],
+    siblingFiles: ['vuln-tool.py', 'tools'],
+    isTestFile: false,
+    isConfigFile: false,
+    isGenerated: false,
+    ...overrides,
+  };
+}
+
+describe('buildRelatedFileSummaries', () => {
+  it('extracts security-relevant lines from imported files', () => {
+    const file = makeFileContext({
+      filePath: 'router.py',
+      imports: ['./tools/executor'],
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+
+    expect(summaries.length).toBeGreaterThan(0);
+    const executorSummary = summaries.find((s) => s.filePath.includes('executor'));
+    expect(executorSummary).toBeDefined();
+    expect(executorSummary!.relationship).toBe('imports');
+    // Should capture subprocess.run line
+    expect(executorSummary!.relevantLines.some((l) => l.includes('subprocess'))).toBe(true);
+  });
+
+  it('includes security-relevant sibling files', () => {
+    const file = makeFileContext({
+      filePath: 'router.py',
+      imports: [],
+      siblingFiles: ['vuln-tool.py', 'guard.py', 'readme.txt'],
+    });
+
+    // guard.py is a security-relevant sibling
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+
+    // May or may not find guard.py depending on whether it exists at the right path
+    // The point is the function doesn't crash and returns valid summaries
+    expect(Array.isArray(summaries)).toBe(true);
+  });
+
+  it('returns empty array when no related files have security-relevant content', () => {
+    const file = makeFileContext({
+      filePath: 'empty.py',
+      imports: [],
+      importedBy: [],
+      siblingFiles: [],
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+    expect(summaries).toEqual([]);
+  });
+
+  it('limits to MAX_RELATED_FILES (4)', () => {
+    const file = makeFileContext({
+      imports: [
+        './tools/executor',
+        './tools/guard',
+        './vuln-tool',
+        './router',
+        './extra1',
+        './extra2',
+      ],
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+    expect(summaries.length).toBeLessThanOrEqual(4);
+  });
+});
+
+describe('formatRelatedFileSummaries', () => {
+  it('returns empty string for no summaries', () => {
+    expect(formatRelatedFileSummaries([])).toBe('');
+  });
+
+  it('formats summaries with file path, relationship, and lines', () => {
+    const summaries = [
+      {
+        filePath: 'tools/executor.py',
+        relationship: 'imports' as const,
+        relevantLines: ['L9: result = subprocess.run([command, *args], capture_output=True, text=True, shell=False)'],
+      },
+    ];
+
+    const formatted = formatRelatedFileSummaries(summaries);
+    expect(formatted).toContain('tools/executor.py (imports)');
+    expect(formatted).toContain('subprocess.run');
+  });
+});

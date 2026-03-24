@@ -40,4 +40,32 @@ describe('mode configuration', () => {
     );
     expect(options.mode).toBe('security');
   });
+
+  it('env var wins when CLI mode is omitted (no Commander default)', () => {
+    // This tests the fix: CLI flags.mode is undefined when --mode not passed
+    const options = resolveOptions(
+      { mode: undefined },
+      null,
+      { CR_AGENT_MODE: 'security' },
+    );
+    expect(options.mode).toBe('security');
+  });
+
+  it('config wins when CLI mode is omitted', () => {
+    const options = resolveOptions(
+      { mode: undefined },
+      { mode: 'security' },
+      {},
+    );
+    expect(options.mode).toBe('security');
+  });
+
+  it('explicit CLI --mode review overrides env and config', () => {
+    const options = resolveOptions(
+      { mode: 'review' },
+      { mode: 'security' },
+      { CR_AGENT_MODE: 'security' },
+    );
+    expect(options.mode).toBe('review');
+  });
 });

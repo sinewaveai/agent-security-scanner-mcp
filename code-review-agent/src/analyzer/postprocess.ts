@@ -43,7 +43,7 @@ const GUARD_MODULE_PATTERNS = /\b(guard|policy|validator|validation|sanitiz|allo
  * Phrases indicating the finding describes a weak/theoretical bypass
  * rather than a concrete exploit path.
  */
-const WEAK_BYPASS_PHRASES = /\b(could\s+(potentially|theoretically|possibly)|may\s+be\s+bypass|policy\s+(may|could|might)\s+(change|be\s+(expanded|modified|updated))|theoretically|in\s+theory|if\s+the\s+(allowlist|whitelist|policy)\s+(is|were|was)\s+(expanded|changed|modified)|future\s+changes?\s+(could|may|might))\b/i;
+const WEAK_BYPASS_PHRASES = /\b(could\s+(potentially|theoretically|possibly)|may\s+be\s+bypass\w*|policy\s+(may|could|might)\s+(change|be\s+(expanded|modified|updated))|theoretically|in\s+theory|if\s+the\s+(allowlist|whitelist|policy)\s+(is|were|was)\s+(expanded|changed|modified)|future\s+changes?\s+(could|may|might))\b/i;
 
 /**
  * Apply mode-aware post-filtering to findings.

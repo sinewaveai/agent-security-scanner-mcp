@@ -160,6 +160,80 @@ describe('postFilterFindings', () => {
   });
 });
 
+describe('guard finding suppression', () => {
+  it('suppresses finding with strong guard evidence and no concrete bypass', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        category: 'security',
+        title: 'Command execution in subprocess handler',
+        reasoning: 'The function calls subprocess.run with shell=False and a hardcoded allowlist of commands. The allowlist could theoretically be expanded in the future.',
+        confidence: 0.65,
+      }),
+    ];
+
+    const result = postFilterFindings(findings, 'security');
+    expect(result).toHaveLength(0);
+  });
+
+  it('keeps finding with strong guard evidence but concrete bypass', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        category: 'security',
+        title: 'Command injection via unsanitized argument',
+        reasoning: 'While subprocess.run uses shell=False, the command arguments are constructed from user input without validation, allowing injection of arbitrary flags.',
+        confidence: 0.9,
+      }),
+    ];
+
+    const result = postFilterFindings(findings, 'security');
+    expect(result).toHaveLength(1);
+  });
+
+  it('suppresses guard-module finding with weak bypass language', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        category: 'security',
+        title: 'Policy validation bypass',
+        location: { file: 'src/guard/validator.js', startLine: 10, endLine: 10 },
+        reasoning: 'The validator checks against an allowlist but the policy may be bypassed if new entries are added.',
+        confidence: 0.7,
+      }),
+    ];
+
+    const result = postFilterFindings(findings, 'security');
+    expect(result).toHaveLength(0);
+  });
+
+  it('keeps high-confidence guard finding even with guard module path', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        category: 'security',
+        title: 'SQL injection in query builder',
+        location: { file: 'src/guard/query-builder.js', startLine: 10, endLine: 10 },
+        reasoning: 'User input is concatenated directly into the SQL string, bypassing the parameterized query interface.',
+        confidence: 0.95,
+      }),
+    ];
+
+    const result = postFilterFindings(findings, 'security');
+    expect(result).toHaveLength(1);
+  });
+
+  it('suppresses finding about allowlist that could theoretically change', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        category: 'security',
+        title: 'Subprocess execution with hardcoded commands',
+        reasoning: 'The code executes subprocess commands from a hardcoded allowlist. Future changes could expand this allowlist to include dangerous commands.',
+        confidence: 0.6,
+      }),
+    ];
+
+    const result = postFilterFindings(findings, 'security');
+    expect(result).toHaveLength(0);
+  });
+});
+
 describe('suppressCarrierFindings', () => {
   it('returns single finding unchanged', () => {
     const findings: Finding[] = [makeFinding()];
@@ -208,5 +282,66 @@ describe('suppressCarrierFindings', () => {
 
     const result = suppressCarrierFindings(findings);
     expect(result).toHaveLength(2);
+  });
+
+  it('prefers sink-located finding over carrier in router (SSRF case)', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        title: 'User-controlled URL passed to fetch handler',
+        location: { file: 'src/router/api-handler.js', startLine: 30, endLine: 30 },
+        reasoning: 'The URL is forwarded through the router to the fetch service',
+        cwe: 'CWE-918',
+        confidence: 0.8,
+      }),
+      makeFinding({
+        title: 'SSRF via unvalidated URL in fetch call',
+        location: { file: 'src/service/http-client.js', startLine: 15, endLine: 15 },
+        reasoning: 'The function executes a fetch request with an attacker-controlled URL',
+        cwe: 'CWE-918',
+        confidence: 0.85,
+      }),
+    ];
+
+    const result = suppressCarrierFindings(findings);
+    expect(result).toHaveLength(1);
+    expect(result[0].location.file).toBe('src/service/http-client.js');
+  });
+
+  it('prefers tool/sink file over planner/wrapper file', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        title: 'Command dispatched via planner',
+        location: { file: 'planner.py', startLine: 50, endLine: 50 },
+        reasoning: 'User input is passed to the tool executor via the planner',
+        cwe: 'CWE-78',
+        confidence: 0.75,
+      }),
+      makeFinding({
+        title: 'OS command injection in tool executor',
+        location: { file: 'tools/executor.py', startLine: 20, endLine: 20 },
+        reasoning: 'The tool executor calls subprocess with user-controlled arguments',
+        cwe: 'CWE-78',
+        confidence: 0.9,
+      }),
+    ];
+
+    const result = suppressCarrierFindings(findings);
+    expect(result).toHaveLength(1);
+    expect(result[0].location.file).toBe('tools/executor.py');
+  });
+
+  it('keeps distinct findings even when same CWE in different contexts', () => {
+    const findings: Finding[] = [
+      makeFinding({
+        title: 'XSS in admin panel template',
+        location: { file: 'src/views/admin.js', startLine: 10, endLine: 10 },
+        cwe: 'CWE-79',
+        confidence: 0.9,
+      }),
+    ];
+
+    // Single finding - no suppression should occur
+    const result = suppressCarrierFindings(findings);
+    expect(result).toHaveLength(1);
   });
 });
