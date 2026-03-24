@@ -166,6 +166,35 @@ describe('DependencyGraphBuilder', () => {
     }
   });
 
+  it('resolves "from package import submodule" form into the graph', () => {
+    // `from tools import executor` — the graph resolver must emit tools.executor
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-from-import-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, 'app'));
+      fs.mkdirSync(path.join(tmpDir, 'tools'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'app', 'router.py'),
+        'from tools import executor\n',
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, 'tools', 'executor.py'),
+        'def run(): pass\n',
+      );
+
+      const builder = new DependencyGraphBuilder(tmpDir);
+      const graph = builder.build(['app/router.py']);
+
+      const normalizedKey = Array.from(graph.nodes.keys()).find((k) =>
+        k.replace(/\\/g, '/').includes('tools/executor'));
+      expect(normalizedKey).toBeDefined();
+      const executorNode = graph.nodes.get(normalizedKey!);
+      const importedByNorm = executorNode?.importedBy.map((p) => p.replace(/\\/g, '/'));
+      expect(importedByNorm).toContain('app/router.py');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
+
   it('keeps supported non-JS entry files in the graph', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-java-'));
     try {

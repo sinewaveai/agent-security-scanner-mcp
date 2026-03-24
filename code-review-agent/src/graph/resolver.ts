@@ -35,10 +35,14 @@ export function extractImports(content: string, language: string): ImportInfo[] 
       imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
     }
   } else if (language === 'python') {
-    // from .module import ... (relative) and from package import ... (absolute)
-    for (const m of content.matchAll(/from\s+(\S+)\s+import/g)) {
-      const spec = m[1];
-      imports.push({ specifier: spec, isLocal: isLocalImport(spec, language), resolved: null });
+    // `from package import name` — emit both `package` and `package.name`
+    // since `name` might be a submodule (file) or a symbol within the package.
+    for (const m of content.matchAll(/from\s+(\S+)\s+import\s+(\w+)/g)) {
+      const pkg = m[1];
+      const name = m[2];
+      imports.push({ specifier: pkg, isLocal: isLocalImport(pkg, language), resolved: null });
+      const sub = `${pkg}.${name}`;
+      imports.push({ specifier: sub, isLocal: isLocalImport(sub, language), resolved: null });
     }
     // import module
     for (const m of content.matchAll(/^import\s+(\S+)/gm)) {
