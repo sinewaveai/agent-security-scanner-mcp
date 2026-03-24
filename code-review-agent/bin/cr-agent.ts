@@ -27,7 +27,7 @@ program
   .command('analyze')
   .description('Analyze a file or directory for bugs and vulnerabilities')
   .argument('<target>', 'File or directory to analyze')
-  .option('--mode <mode>', 'Analysis mode (review|security)', 'review')
+  .option('--mode <mode>', 'Analysis mode (review|security)')
   .option('--security-only', 'Shorthand for --mode security')
   .option('-p, --provider <provider>', 'LLM provider (anthropic|openai|claude-cli)')
   .option('-m, --model <model>', 'Model to use for analysis')
