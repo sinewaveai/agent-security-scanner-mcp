@@ -111,20 +111,37 @@ describe('buildRelatedFileSummaries', () => {
     expect(guardSummary!.relevantLines.some((l) => /allow/i.test(l))).toBe(true);
   });
 
-  it('resolves bare package import to security-relevant child (from tools import executor)', () => {
-    // file.ts records `tools` from `from tools import executor`
-    // security-summary should find tools/ directory, scan children, find executor.py
+  it('resolves submodule import from file.ts output (from tools import executor)', () => {
+    // file.ts now emits both 'tools' and 'tools.executor' for `from tools import executor`
+    // The resolver should find tools/executor.py via the dotted form
     const file = makeFileContext({
       filePath: 'router.py',
-      imports: ['tools'],  // as file.ts would actually produce for `from tools import executor`
+      imports: ['tools', 'tools.executor'],  // as file.ts now produces
     });
 
     const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
 
-    // Should find executor.py (has subprocess) or guard.py (has ALLOWED) as a child
-    const toolsSummary = summaries.find((s) =>
-      s.filePath.includes('executor') || s.filePath.includes('guard'));
-    expect(toolsSummary).toBeDefined();
+    const executorSummary = summaries.find((s) => s.filePath.includes('executor'));
+    expect(executorSummary).toBeDefined();
+    expect(executorSummary!.relevantLines.some((l) => l.includes('subprocess'))).toBe(true);
+  });
+
+  it('does not inject unrelated package children for bare import', () => {
+    // `from tools import safe_helper` should NOT pull in unrelated executor.py
+    // file.ts emits ['tools', 'tools.safe_helper'] — neither resolves to executor.py
+    const file = makeFileContext({
+      filePath: 'router.py',
+      imports: ['tools', 'tools.safe_helper'],  // safe_helper doesn't exist in fixture
+    });
+
+    const summaries = buildRelatedFileSummaries(file, FIXTURES_DIR);
+
+    // 'tools' alone resolves to nothing (no tools.py, no tools/__init__.py)
+    // 'tools.safe_helper' resolves to nothing (no tools/safe_helper.py)
+    // So no executor.py should appear from the import path
+    const executorFromImport = summaries.find((s) =>
+      s.filePath.includes('executor') && s.relationship === 'imports');
+    expect(executorFromImport).toBeUndefined();
   });
 
   it('does not summarize the same file twice across relationships', () => {

@@ -207,39 +207,6 @@ function resolveLocalFile(
     } catch { /* not found, try next */ }
   }
 
-  // If basePath is a directory (Python package), scan its .py children.
-  // This handles `from tools import executor` where file.ts records just `tools`.
-  try {
-    if (fs.statSync(basePath).isDirectory()) {
-      return findFirstSecurityRelevantChild(basePath);
-    }
-  } catch { /* not a directory */ }
-
-  return null;
-}
-
-/**
- * Scan a package directory for the first .py child with security-relevant content.
- * Returns the path or null.
- */
-function findFirstSecurityRelevantChild(dirPath: string): string | null {
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(dirPath).filter((f) => f.endsWith('.py') && f !== '__init__.py');
-  } catch {
-    return null;
-  }
-
-  for (const entry of entries.slice(0, 10)) {
-    const fullPath = path.join(dirPath, entry);
-    try {
-      const content = fs.readFileSync(fullPath, 'utf-8');
-      if (SECURITY_RELEVANT_PATTERNS.some((p) => p.test(content))) {
-        return fullPath;
-      }
-    } catch { /* skip unreadable */ }
-  }
-
   return null;
 }
 

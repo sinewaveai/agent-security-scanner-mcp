@@ -136,6 +136,36 @@ describe('DependencyGraphBuilder', () => {
     expect(executorNode?.importedBy).toContain('router.py');
   });
 
+  it('resolves Python bare imports from project root for nested files', () => {
+    // Simulate app/router.py importing tools.executor where tools/ is at project root
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-nested-py-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, 'app'));
+      fs.mkdirSync(path.join(tmpDir, 'tools'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'app', 'router.py'),
+        'from tools.executor import run\n',
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, 'tools', 'executor.py'),
+        'def run(): pass\n',
+      );
+
+      const builder = new DependencyGraphBuilder(tmpDir);
+      const graph = builder.build(['app/router.py']);
+
+      const normalizedKey = Array.from(graph.nodes.keys()).find((k) =>
+        k.replace(/\\/g, '/').includes('tools/executor'));
+      expect(normalizedKey).toBeDefined();
+      const executorNode = graph.nodes.get(normalizedKey!);
+      // Path separators vary by OS — normalize for comparison
+      const importedByNorm = executorNode?.importedBy.map((p) => p.replace(/\\/g, '/'));
+      expect(importedByNorm).toContain('app/router.py');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
+
   it('keeps supported non-JS entry files in the graph', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-java-'));
     try {

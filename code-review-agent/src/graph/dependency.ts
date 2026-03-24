@@ -64,7 +64,14 @@ export class DependencyGraphBuilder {
       for (const imp of imports) {
         if (!imp.isLocal) continue;
 
-        const resolved = resolveImportPath(imp.specifier, file, language);
+        // Try resolving from the file's directory first, then from project root
+        // (Python bare imports resolve from sys.path which includes project root)
+        let resolved = resolveImportPath(imp.specifier, file, language);
+        if (!resolved && !imp.specifier.startsWith('.')) {
+          // Create a synthetic "from project root" path for resolution
+          const rootSentinel = path.join(this.projectRoot, '__resolve_root__.py');
+          resolved = resolveImportPath(imp.specifier, rootSentinel, language);
+        }
         if (resolved) {
           const resolvedRel = path.relative(this.projectRoot, resolved);
           resolvedImports.push(resolvedRel);

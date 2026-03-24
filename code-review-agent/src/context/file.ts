@@ -131,8 +131,16 @@ function extractImports(content: string, language: string): string[] {
     const requires = content.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g);
     for (const m of requires) imports.push(m[1]);
   } else if (language === 'python') {
-    const pyImports = content.matchAll(/(?:from\s+(\S+)\s+import|import\s+(\S+))/g);
-    for (const m of pyImports) imports.push(m[1] ?? m[2]);
+    // `from package import name` — emit both `package` and `package.name`
+    // since `name` might be a submodule (file) or a symbol within the package.
+    for (const m of content.matchAll(/from\s+(\S+)\s+import\s+(\w+)/g)) {
+      imports.push(m[1]);
+      imports.push(`${m[1]}.${m[2]}`);
+    }
+    // `import module` — bare import
+    for (const m of content.matchAll(/^import\s+(\S+)/gm)) {
+      imports.push(m[1]);
+    }
   } else if (language === 'go') {
     const goImports = content.matchAll(/import\s+(?:\(\s*)?["']([^"']+)["']/g);
     for (const m of goImports) imports.push(m[1]);
