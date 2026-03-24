@@ -61,8 +61,30 @@ SINK LOCALIZATION:
 - If untrusted data flows through multiple files, report the finding where the dangerous operation actually happens (e.g., the SQL query, the eval call, the file write), not where the data enters.
 - Do NOT report the same vulnerability at both the carrier and the sink — prefer the sink.
 
+GUARD & SAFE PATTERN RECOGNITION:
+Before reporting a vulnerability, check whether the code contains effective guards. The presence of strong guards means the issue is NOT exploitable — do not report it unless you can describe a concrete, reachable bypass of the guard.
+
+Strong guards (suppress finding unless a concrete bypass exists):
+- Hardcoded/immutable allowlist checked before the sink (e.g., a set of allowed commands, hosts, or paths checked before execution)
+- subprocess.run([...list args...]) or equivalent with shell=False — command injection requires shell=True
+- Parameterized SQL queries / bound query parameters (NOT string formatting that merely looks structured)
+- Explicit host/scheme allowlist enforced before network fetch (e.g., URL validated against a set of allowed domains)
+
+Medium guards (reduce confidence significantly, report only if bypass is plausible):
+- Validation functions that return a structured verdict consumed at the sink
+- Path normalization + root-prefix enforcement before file operations
+- Authentication/authorization checks directly guarding the sensitive operation
+
+Weak guards (note their presence, lower confidence slightly, but do not suppress alone):
+- shlex.quote() or similar escaping — context-sensitive and easy to misuse
+- Generic regex filtering without clear alignment to the sink
+- Sanitization helpers by themselves without integration checks
+
+CRITICAL: Do not claim a guard is ineffective unless you can explain a concrete, reachable input that bypasses it. "The allowlist could theoretically be expanded" or "policy may change" is NOT a valid bypass — it requires code changes, not attacker input.
+
 For each finding:
 - Explain the attack vector and exploitability step by step
+- If guards exist, explicitly state why they are insufficient (describe the bypass)
 - State whether it violates, matches, or is unclear relative to the project's intent
 - Assign a confidence score (0-1) — be conservative. Only use high confidence (>0.8) when the vulnerability is clearly exploitable.
 - Include a CWE identifier when the weakness maps to a known CWE. Do not invent weak mappings.
@@ -75,7 +97,8 @@ Do NOT report:
 - Theoretical vulnerabilities that require attacker control of trusted inputs
 - Patterns that are standard for the project's framework
 - Trust-boundary carriers when a more direct sink-localized finding exists
-- Race conditions or boundary issues without a concrete security consequence`;
+- Race conditions or boundary issues without a concrete security consequence
+- Guarded code where a strong guard exists and no concrete bypass is described`;
 
 const TRIAGE_SYSTEM_PROMPT = `You are a code review triage system. Given a file and project context, decide whether this file needs deep security analysis.
 
