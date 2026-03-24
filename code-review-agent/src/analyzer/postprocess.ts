@@ -125,6 +125,71 @@ function isSecurityRelevant(finding: Finding): boolean {
 }
 
 /**
+ * Patterns in file paths that suggest the file is a carrier/router, not a sink.
+ */
+const CARRIER_FILE_PATTERNS = /\b(router|route|planner|controller|handler|middleware|dispatch|orchestrat|wrapper|proxy|gateway|facade|adapter)\b/i;
+
+/**
+ * Patterns in file paths that suggest the file contains a dangerous sink.
+ */
+const SINK_FILE_PATTERNS = /\b(tool|service|executor|worker|client|db|database|query|fetch|request|command|process|infra|util)\b/i;
+
+/**
+ * Language in finding titles/reasoning that suggests carrier (pass-through) behavior.
+ */
+const CARRIER_LANGUAGE = /\b(passed\s+to|forwarded|through|reaches|via\s+(router|wrapper|handler|middleware|planner|controller)|routed\s+to|dispatched|delegates?\s+to|calls?\s+into|relayed|proxied)\b/i;
+
+/**
+ * Language suggesting the finding is at the actual dangerous operation.
+ */
+const SINK_LANGUAGE = /\b(execut(es?|ed|ing)|calls?\s+(subprocess|exec|eval|system|popen|spawn)|queries|fetche[sd]|request[sd]?\s+(to|from)|writes?\s+to|reads?\s+from|sends?\s+(request|query)|connects?\s+to|opens?\s+(file|connection|socket))\b/i;
+
+/**
+ * CWEs that are typically associated with sinks, not carriers.
+ */
+const SINK_CWES = new Set([
+  'cwe-78',   // OS command injection
+  'cwe-79',   // XSS
+  'cwe-89',   // SQL injection
+  'cwe-90',   // LDAP injection
+  'cwe-91',   // XML injection
+  'cwe-94',   // Code injection
+  'cwe-95',   // Eval injection
+  'cwe-98',   // Remote file inclusion
+  'cwe-918',  // SSRF
+  'cwe-22',   // Path traversal
+  'cwe-77',   // Command injection
+  'cwe-502',  // Deserialization
+  'cwe-611',  // XXE
+]);
+
+/**
+ * Compute a carrier/sink score for a finding.
+ * Positive = more sink-like, negative = more carrier-like.
+ */
+function carrierSinkScore(finding: Finding): number {
+  let score = 0;
+  const text = `${finding.title} ${finding.reasoning}`;
+  const filePath = finding.location.file.toLowerCase();
+
+  // File path signals
+  if (CARRIER_FILE_PATTERNS.test(filePath)) score -= 2;
+  if (SINK_FILE_PATTERNS.test(filePath)) score += 2;
+
+  // Language signals
+  if (CARRIER_LANGUAGE.test(text)) score -= 2;
+  if (SINK_LANGUAGE.test(text)) score += 2;
+
+  // CWE-based signals — sink CWEs found in a tool/service file are strong sink signals
+  if (finding.cwe && SINK_CWES.has(finding.cwe.toLowerCase())) score += 1;
+
+  // Confidence as tiebreaker
+  score += finding.confidence;
+
+  return score;
+}
+
+/**
  * Suppress carrier findings when a sink-localized equivalent exists.
  * A carrier finding describes data flowing through a file, while the sink
  * finding describes the actual dangerous operation in a downstream file.
@@ -148,10 +213,12 @@ export function suppressCarrierFindings(findings: Finding[]): Finding[] {
       continue;
     }
 
-    // If any finding in the group has higher confidence, it's likely the sink.
-    // Keep only the highest-confidence finding per signature group.
-    group.sort((a, b) => b.confidence - a.confidence);
-    result.push(group[0]);
+    // Score each finding: higher = more sink-like
+    const scored = group.map((f) => ({ finding: f, score: carrierSinkScore(f) }));
+    scored.sort((a, b) => b.score - a.score);
+
+    // Keep the most sink-like finding
+    result.push(scored[0].finding);
   }
 
   return result;
