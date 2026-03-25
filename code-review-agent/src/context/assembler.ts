@@ -3,7 +3,7 @@ import type { IntentProfile } from '../types/findings.js';
 import type { AnalysisMode } from '../types/config.js';
 import type { LLMProvider } from '../llm/provider.js';
 import { formatProjectContextForLLM } from './project.js';
-import { buildRelatedFileSummaries, formatRelatedFileSummaries } from './security-summary.js';
+import { buildRelatedFileSummaries, formatRelatedFileSummaries, type RelatedFileSummary } from './security-summary.js';
 
 const TOKEN_BUDGETS: Record<string, number> = {
   anthropic: 100_000,
@@ -20,6 +20,7 @@ export class ContextAssembler {
   private mode: AnalysisMode;
   private projectRoot: string;
   private graph?: DependencyGraph;
+  private summaryCache = new Map<string, RelatedFileSummary[]>();
 
   constructor(
     private provider: LLMProvider,
@@ -30,6 +31,15 @@ export class ContextAssembler {
     this.mode = mode;
     this.projectRoot = projectRoot;
     this.graph = graph;
+  }
+
+  private getRelatedSummaries(file: FileContext): RelatedFileSummary[] {
+    if (this.mode !== 'security' || !this.projectRoot) return [];
+    const cached = this.summaryCache.get(file.filePath);
+    if (cached) return cached;
+    const summaries = buildRelatedFileSummaries(file, this.projectRoot, this.graph);
+    this.summaryCache.set(file.filePath, summaries);
+    return summaries;
   }
 
   /**
@@ -57,12 +67,9 @@ export class ContextAssembler {
     ];
 
     // In security mode, account for cross-file summary section
-    if (this.mode === 'security' && this.projectRoot) {
-      const summaries = buildRelatedFileSummaries(file, this.projectRoot, this.graph);
-      const formatted = formatRelatedFileSummaries(summaries);
-      if (formatted) {
-        overheadParts.push(`\n## Related Files (security-relevant lines)\n${formatted}\n`);
-      }
+    const relatedOverhead = formatRelatedFileSummaries(this.getRelatedSummaries(file));
+    if (relatedOverhead) {
+      overheadParts.push(`\n## Related Files (security-relevant lines)\n${relatedOverhead}\n`);
     }
 
     const overheadTokens = this.provider.countTokens(overheadParts.join('\n'));
@@ -116,16 +123,13 @@ export class ContextAssembler {
     ];
 
     // In security mode, add cross-file security context
-    if (this.mode === 'security' && this.projectRoot) {
-      const summaries = buildRelatedFileSummaries(file, this.projectRoot, this.graph);
-      const formatted = formatRelatedFileSummaries(summaries);
-      if (formatted) {
-        sections.push({
-          label: 'Related Files (security-relevant lines)',
-          content: formatted,
-          priority: 3, // same priority as project context — fits before metadata
-        });
-      }
+    const relatedContent = formatRelatedFileSummaries(this.getRelatedSummaries(file));
+    if (relatedContent) {
+      sections.push({
+        label: 'Related Files (security-relevant lines)',
+        content: relatedContent,
+        priority: 3, // same priority as project context — fits before metadata
+      });
     }
 
     // Sort by priority and assemble within budget
