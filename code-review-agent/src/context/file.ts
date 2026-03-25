@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DependencyGraph, FileContext } from '../types/analysis.js';
+import { extractImports as extractImportInfos } from '../graph/resolver.js';
 
 const LANGUAGE_MAP: Record<string, string> = {
   '.js': 'javascript',
@@ -121,33 +122,19 @@ export function isGeneratedFile(content: string): boolean {
 }
 
 function extractImports(content: string, language: string): string[] {
-  const imports: string[] = [];
-
-  if (['javascript', 'typescript'].includes(language)) {
-    // ES imports
-    const esImports = content.matchAll(/import\s+(?:.*?\s+from\s+)?['"]([^'"]+)['"]/g);
-    for (const m of esImports) imports.push(m[1]);
-    // require
-    const requires = content.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g);
-    for (const m of requires) imports.push(m[1]);
-  } else if (language === 'python') {
-    // `from package import name` — emit both `package` and `package.name`
-    // since `name` might be a submodule (file) or a symbol within the package.
-    for (const m of content.matchAll(/from\s+(\S+)\s+import\s+(\w+)/g)) {
-      imports.push(m[1]);
-      imports.push(`${m[1]}.${m[2]}`);
-    }
-    // `import module` — bare import
-    for (const m of content.matchAll(/^import\s+(\S+)/gm)) {
-      imports.push(m[1]);
-    }
-  } else if (language === 'go') {
-    const goImports = content.matchAll(/import\s+(?:\(\s*)?["']([^"']+)["']/g);
-    for (const m of goImports) imports.push(m[1]);
-  } else if (language === 'java') {
-    const javaImports = content.matchAll(/import\s+([\w.]+);/g);
-    for (const m of javaImports) imports.push(m[1]);
+  // Delegate to the canonical graph resolver for JS/TS/Python/Go
+  // to avoid logic divergence between file context and dependency graph
+  if (['javascript', 'typescript', 'python', 'go'].includes(language)) {
+    const infos = extractImportInfos(content, language);
+    return [...new Set(infos.map((i) => i.specifier))];
   }
 
+  // Languages not yet in the graph resolver
+  const imports: string[] = [];
+  if (language === 'java') {
+    for (const m of content.matchAll(/import\s+([\w.]+);/g)) {
+      imports.push(m[1]);
+    }
+  }
   return [...new Set(imports)];
 }
