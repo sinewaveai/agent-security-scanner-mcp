@@ -344,10 +344,11 @@ export class AnalysisEngine {
     if (this.options.mode !== 'security') return findings;
 
     const groups = new Map<string, Finding[]>();
+    let uniqueId = 0;
     for (const f of findings) {
       // Group cross-file only by CWE — title-based cross-file dedup is too aggressive
       if (!f.cwe) {
-        groups.set(`unique:${Math.random()}`, [f]);
+        groups.set(`unique:${uniqueId++}`, [f]);
         continue;
       }
       const key = `xfile:${f.cwe.toLowerCase()}`;
@@ -429,6 +430,7 @@ export class AnalysisEngine {
 
     const runNext = async (): Promise<void> => {
       while (index < items.length) {
+        // Safe: index++ between awaits is non-concurrent in single-threaded JS
         const currentIndex = index++;
         results[currentIndex] = await fn(items[currentIndex]);
       }
