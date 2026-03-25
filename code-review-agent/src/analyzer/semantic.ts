@@ -89,7 +89,6 @@ For each finding:
 - State whether it violates, matches, or is unclear relative to the project's intent
 - Assign a confidence score (0-1) — be conservative. Only use high confidence (>0.8) when the vulnerability is clearly exploitable.
 - Include a CWE identifier when the weakness maps to a known CWE. Do not invent weak mappings.
-- Use category "security" for all findings. Do not use generic categories like "logic-bug" or "unhandled-exception" unless they have direct security impact.
 
 Do NOT report:
 - Generic type mismatches, null checks, or exception handling unless they create a plausible security impact
