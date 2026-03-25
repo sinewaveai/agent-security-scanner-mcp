@@ -310,8 +310,7 @@ export class AnalysisEngine {
       result.push(...merged);
     }
 
-    // Phase 2: cross-file dedup for same issue reported in multiple files
-    return this.crossFileDedup(result);
+    return result;
   }
 
   /**
@@ -333,42 +332,6 @@ export class AnalysisEngine {
 
     // Use first 60 chars of normalized title + category for grouping
     return `${finding.category}:${normalized.slice(0, 60)}`;
-  }
-
-  /**
-   * Cross-file dedup: when the same issue (by CWE or normalized title) appears
-   * in multiple files, keep only the highest-confidence instance.
-   * This catches carrier/sink duplicates across files.
-   */
-  private crossFileDedup(findings: Finding[]): Finding[] {
-    if (this.options.mode !== 'security') return findings;
-
-    const groups = new Map<string, Finding[]>();
-    let uniqueId = 0;
-    for (const f of findings) {
-      // Group cross-file only by CWE — title-based cross-file dedup is too aggressive
-      if (!f.cwe) {
-        groups.set(`unique:${uniqueId++}`, [f]);
-        continue;
-      }
-      const key = `xfile:${f.cwe.toLowerCase()}`;
-      const group = groups.get(key) ?? [];
-      group.push(f);
-      groups.set(key, group);
-    }
-
-    const result: Finding[] = [];
-    for (const group of groups.values()) {
-      if (group.length <= 1) {
-        result.push(...group);
-        continue;
-      }
-      // Keep the highest-confidence finding (likely the sink)
-      group.sort((a, b) => b.confidence - a.confidence);
-      result.push(group[0]);
-    }
-
-    return result;
   }
 
   private mergeOverlapping(findings: Finding[]): Finding[] {
