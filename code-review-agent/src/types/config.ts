@@ -55,12 +55,18 @@ export function resolveOptions(
   config: CRAgentConfig | null,
   env: Record<string, string | undefined> = process.env,
 ): AnalysisOptions {
+  const mode =
+    cliFlags.mode ??
+    config?.mode ??
+    (env.CR_AGENT_MODE as AnalysisMode | undefined) ??
+    DEFAULTS.mode;
+
+  if (mode !== 'review' && mode !== 'security') {
+    throw new Error(`Invalid analysis mode "${mode}". Must be "review" or "security".`);
+  }
+
   return {
-    mode:
-      cliFlags.mode ??
-      config?.mode ??
-      (env.CR_AGENT_MODE as AnalysisMode | undefined) ??
-      DEFAULTS.mode,
+    mode,
     provider:
       cliFlags.provider ??
       config?.provider ??

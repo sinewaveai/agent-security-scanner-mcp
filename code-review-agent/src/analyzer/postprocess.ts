@@ -54,7 +54,7 @@ export function postFilterFindings(
   findings: Finding[],
   mode: AnalysisMode,
 ): Finding[] {
-  if (mode === 'review') return findings;
+  if (mode !== 'security') return findings;
 
   return findings
     .filter((f) => isSecurityRelevant(f))
