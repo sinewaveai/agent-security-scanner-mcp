@@ -334,46 +334,8 @@ runs:
           done
         else
           # Full project mode: scan entire project
-          # We need to scan individual files since scan-project does not output SARIF
-          agent-security-scanner-mcp scan-project . --verbosity full > /tmp/project-scan.json 2>&1 || true
-
-          python3 -c "
-        import json
-        sarif = {
-            '\$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
-            'version': '2.1.0',
-            'runs': [{
-                'tool': {
-                    'driver': {
-                        'name': 'agent-security-scanner-mcp',
-                        'version': '3.3.0',
-                        'informationUri': 'https://github.com/sinewaveai/agent-security-scanner-mcp',
-                        'rules': []
-                    }
-                },
-                'results': []
-            }]
-        }
-        try:
-            data = json.load(open('/tmp/project-scan.json'))
-            for f in data.get('files', []):
-                filepath = f.get('file', '')
-                for issue in f.get('issues', []):
-                    sarif['runs'][0]['results'].append({
-                        'ruleId': issue.get('ruleId', 'unknown'),
-                        'level': 'error' if issue.get('severity') == 'ERROR' else 'warning',
-                        'message': {'text': issue.get('message', 'Security issue detected')},
-                        'locations': [{
-                            'physicalLocation': {
-                                'artifactLocation': {'uri': filepath},
-                                'region': {'startLine': issue.get('line', 1)}
-                            }
-                        }]
-                    })
-        except Exception:
-            pass
-        json.dump(sarif, open('results.sarif', 'w'), indent=2)
-        "
+          agent-security-scanner-mcp scan-project . --verbosity full > /tmp/project-scan.json 2> /tmp/project-scan.stderr || true
+          python3 "${{ github.action_path }}/../../../scripts/project_scan_to_sarif.py" /tmp/project-scan.json results.sarif || true
         fi
 
         echo "::endgroup::"
