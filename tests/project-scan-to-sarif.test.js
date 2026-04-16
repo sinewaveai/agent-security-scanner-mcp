@@ -90,4 +90,66 @@ describe('project_scan_to_sarif.py', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('uses filePath when file is not present', () => {
+    const sarif = convert({
+      issues: [
+        {
+          filePath: 'src/from-filepath.ts',
+          line: 7,
+          ruleId: 'typescript.react.security.react-insecure-request',
+          severity: 'WARNING',
+          message: 'Unsafe request',
+        },
+      ],
+    });
+
+    const result = sarif.runs[0].results[0];
+    expect(result.locations[0].physicalLocation.artifactLocation.uri).toBe('src/from-filepath.ts');
+  });
+
+  it('normalizes invalid/negative line numbers to 1 and maps unknown severity to note', () => {
+    const sarif = convert({
+      issues: [
+        {
+          file: 'src/weird.js',
+          line: -99,
+          ruleId: 'javascript.security.custom',
+          severity: 'SOMETHING-ELSE',
+          message: 'Custom finding',
+        },
+      ],
+    });
+
+    const result = sarif.runs[0].results[0];
+    expect(result.level).toBe('note');
+    expect(result.locations[0].physicalLocation.region.startLine).toBe(1);
+  });
+
+  it('deduplicates rule catalog entries while keeping all results', () => {
+    const sarif = convert({
+      issues_count: 2,
+      issues: [
+        {
+          file: 'src/a.js',
+          line: 1,
+          ruleId: 'javascript.security.sql-injection',
+          severity: 'ERROR',
+          message: 'A',
+        },
+        {
+          file: 'src/b.js',
+          line: 2,
+          ruleId: 'javascript.security.sql-injection',
+          severity: 'ERROR',
+          message: 'B',
+        },
+      ],
+    });
+
+    const run = sarif.runs[0];
+    expect(run.results).toHaveLength(2);
+    expect(run.tool.driver.rules).toHaveLength(1);
+    expect(run.tool.driver.rules[0].id).toBe('javascript.security.sql-injection');
+  });
 });
