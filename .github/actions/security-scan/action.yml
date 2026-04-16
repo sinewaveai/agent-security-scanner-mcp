@@ -125,75 +125,85 @@ runs:
           # Use the merge base so we only see issues introduced in this PR.
           BASE_REF="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
           agent-security-scanner-mcp scan-diff "$BASE_REF" HEAD \
-            --verbosity full > scan-results.json 2>&1
+            --verbosity full > scan-results.json 2> scan-results.stderr
           SCAN_EXIT=$?
           echo "::endgroup::"
         else
           echo "::group::Running full project security scan"
           agent-security-scanner-mcp scan-project . \
-            --verbosity full > scan-results.json 2>&1
+            --verbosity full > scan-results.json 2> scan-results.stderr
           SCAN_EXIT=$?
           echo "::endgroup::"
         fi
 
-        # Parse issue counts from the JSON output.
-        # The scanner outputs JSON with issues_count, or structured issue arrays.
-        if [ -f scan-results.json ] && python3 -c "import json; json.load(open('scan-results.json'))" 2>/dev/null; then
-          ISSUES_COUNT=$(python3 -c "
-        import json, sys
-        try:
-            data = json.load(open('scan-results.json'))
-            total = data.get('issues_count', data.get('total', 0))
-            print(total)
-        except Exception:
-            print(0)
-        ")
-
-          CRITICAL_COUNT=$(python3 -c "
-        import json, sys
-        try:
-            data = json.load(open('scan-results.json'))
-            issues = data.get('issues', data.get('files', []))
-            count = 0
-            if isinstance(issues, list):
-                for item in issues:
-                    if isinstance(item, dict):
-                        sev = item.get('severity', '').upper()
-                        if sev == 'ERROR':
-                            count += 1
-                        # Handle nested issues in project scan
-                        for nested in item.get('issues', []):
-                            if isinstance(nested, dict) and nested.get('severity', '').upper() == 'ERROR':
-                                count += 1
-            print(count)
-        except Exception:
-            print(0)
-        ")
-
-          WARNING_COUNT=$(python3 -c "
-        import json, sys
-        try:
-            data = json.load(open('scan-results.json'))
-            issues = data.get('issues', data.get('files', []))
-            count = 0
-            if isinstance(issues, list):
-                for item in issues:
-                    if isinstance(item, dict):
-                        sev = item.get('severity', '').upper()
-                        if sev == 'WARNING':
-                            count += 1
-                        for nested in item.get('issues', []):
-                            if isinstance(nested, dict) and nested.get('severity', '').upper() == 'WARNING':
-                                count += 1
-            print(count)
-        except Exception:
-            print(0)
-        ")
-        else
-          ISSUES_COUNT=0
-          CRITICAL_COUNT=0
-          WARNING_COUNT=0
+        # Parse issue counts from JSON output.
+        # Fail closed on malformed/invalid schema output instead of silently reporting 0 issues.
+        if [ ! -s scan-results.json ]; then
+          echo "::error::Security scanner produced no JSON output."
+          [ -s scan-results.stderr ] && cat scan-results.stderr
+          exit 1
         fi
+
+        COUNTS=$(python3 - <<'PY'
+        import json
+        import sys
+
+        try:
+            with open('scan-results.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f"invalid JSON output: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        if not isinstance(data, dict):
+            print("scanner output must be a JSON object", file=sys.stderr)
+            sys.exit(1)
+
+        if data.get('error'):
+            print(f"scanner returned error: {data.get('error')}", file=sys.stderr)
+            sys.exit(1)
+
+        if not any(k in data for k in ('issues_count', 'total', 'issues', 'files', 'by_severity', 'grade')):
+            print("scanner output schema not recognized", file=sys.stderr)
+            sys.exit(1)
+
+        issues = data.get('issues', [])
+        files = data.get('files', [])
+        total = data.get('issues_count', data.get('total', 0))
+
+        def count_severity(level):
+            count = 0
+            if isinstance(issues, list):
+                for item in issues:
+                    if isinstance(item, dict):
+                        if str(item.get('severity', '')).upper() == level:
+                            count += 1
+                        nested = item.get('issues', [])
+                        if isinstance(nested, list):
+                            for n in nested:
+                                if isinstance(n, dict) and str(n.get('severity', '')).upper() == level:
+                                    count += 1
+            if isinstance(files, list):
+                for file_item in files:
+                    if isinstance(file_item, dict):
+                        nested = file_item.get('issues', [])
+                        if isinstance(nested, list):
+                            for n in nested:
+                                if isinstance(n, dict) and str(n.get('severity', '')).upper() == level:
+                                    count += 1
+            return count
+
+        print(f"{int(total)}\t{count_severity('ERROR')}\t{count_severity('WARNING')}")
+        PY
+        )
+        PARSE_EXIT=$?
+        if [ "$PARSE_EXIT" -ne 0 ]; then
+          echo "::error::Failed to parse security scan output safely (fail-closed)."
+          [ -s scan-results.stderr ] && cat scan-results.stderr
+          exit 1
+        fi
+
+        IFS=$'\t' read -r ISSUES_COUNT CRITICAL_COUNT WARNING_COUNT <<< "$COUNTS"
 
         echo "issues_count=$ISSUES_COUNT" >> "$GITHUB_OUTPUT"
         echo "critical_count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
