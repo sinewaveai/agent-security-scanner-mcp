@@ -63,6 +63,28 @@ describe('parse_scan_results.py', () => {
     }
   });
 
+  it('fails closed on empty JSON file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-parse-'));
+    const file = join(dir, 'scan-results.json');
+    try {
+      writeFileSync(file, '', 'utf-8');
+      expect(() => runParser(file)).toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when JSON root is not an object', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-parse-'));
+    const file = join(dir, 'scan-results.json');
+    try {
+      writeFileSync(file, JSON.stringify(['not', 'an', 'object']), 'utf-8');
+      expect(() => runParser(file)).toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('fails closed when scanner returns error object', () => {
     const dir = mkdtempSync(join(tmpdir(), 'scan-parse-'));
     const file = join(dir, 'scan-results.json');
@@ -80,6 +102,44 @@ describe('parse_scan_results.py', () => {
     try {
       writeFileSync(file, JSON.stringify({ hello: 'world' }), 'utf-8');
       expect(() => runParser(file)).toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when total count is not numeric', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-parse-'));
+    const file = join(dir, 'scan-results.json');
+    try {
+      writeFileSync(file, JSON.stringify({
+        total: 'not-a-number',
+        issues: [{ severity: 'ERROR' }],
+      }), 'utf-8');
+      expect(() => runParser(file)).toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('counts severities across both top-level issues and nested files issues', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-parse-'));
+    const file = join(dir, 'scan-results.json');
+    try {
+      writeFileSync(file, JSON.stringify({
+        issues_count: 4,
+        issues: [
+          { severity: 'ERROR' },
+          { severity: 'warning' },
+        ],
+        files: [
+          {
+            file: 'a.py',
+            issues: [{ severity: 'ERROR' }, { severity: 'WARNING' }],
+          },
+        ],
+      }), 'utf-8');
+      const out = runParser(file);
+      expect(out).toBe('4\t2\t2');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
