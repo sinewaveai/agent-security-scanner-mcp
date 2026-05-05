@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.1",
+  "framework": "SOC2-Technical",
+  "source": "AICPA Trust Services Criteria (2017) — technical controls subset",
+  "source_snapshot": "2026-03-31",
+  "source_note": "Technical controls only. This does not cover organizational, administrative, or physical SOC 2 controls. Not a substitute for a SOC 2 audit.",
+  "domains": ["security", "availability", "confidentiality", "supply-chain", "auth"],
+  "controls": [
+    {
+      "id": "SOC2-T001",
+      "title": "Software dependency inventory exists",
+      "domain": "supply-chain",
+      "references": ["CC6.6", "CC7.1"],
+      "scanner_tools": ["sbom_generate"],
+      "evidence_requirements": [
+        "CycloneDX SBOM generated from project lockfiles",
+        "Component count and ecosystem breakdown"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "sbom.component_count", "operator": "gte", "value": 1, "on_fail": "fail", "reason": "No dependency inventory — SBOM generation found zero components" }
+        ]
+      }
+    },
+    {
+      "id": "SOC2-T002",
+      "title": "No critical dependency vulnerabilities",
+      "domain": "supply-chain",
+      "references": ["CC6.6", "CC7.1", "CC7.2"],
+      "scanner_tools": ["sbom_generate", "sbom_scan_vulnerabilities"],
+      "evidence_requirements": [
+        "OSV vulnerability scan results for all SBOM components",
+        "Zero critical-severity known vulnerabilities"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "supply_chain.vulnerabilities.by_severity.critical", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical dependency vulnerabilities found", "default": 0 },
+          { "path": "supply_chain.vulnerabilities.by_severity.high", "operator": "lte", "value": 5, "on_fail": "partial", "reason": "High-severity dependency vulnerabilities exceed threshold", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "SOC2-T003",
+      "title": "No hallucinated (phantom) packages in dependency tree",
+      "domain": "supply-chain",
+      "references": ["CC6.6", "CC6.8"],
+      "scanner_tools": ["sbom_generate", "sbom_check_hallucinations"],
+      "evidence_requirements": [
+        "Hallucination check results for all SBOM components",
+        "Zero hallucinated packages detected"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "supply_chain.hallucinations.hallucinated_count", "operator": "eq", "value": 0, "on_fail": "fail", "reason": "Hallucinated (phantom) packages detected in dependency tree" },
+          { "path": "supply_chain.hallucinations.legitimate_count", "operator": "gte", "value": 1, "on_fail": "not_evaluated", "not_evaluated_reason": "No packages could be verified — all ecosystems unsupported by hallucination checker", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "SOC2-T004",
+      "title": "No critical code security findings",
+      "domain": "security",
+      "references": ["CC6.1", "CC6.6", "CC7.2"],
+      "scanner_tools": ["scan_security", "scan_project"],
+      "evidence_requirements": [
+        "Static analysis scan with zero CRITICAL findings",
+        "Project-level security grade"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "scan.by_category_severity.injection.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical injection vulnerabilities found", "default": 0 },
+          { "path": "scan.by_category_severity.deserialization.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical deserialization vulnerabilities found", "default": 0 },
+          { "path": "scan.by_severity.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical code findings present", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "SOC2-T005",
+      "title": "Data exfiltration and information exposure below threshold",
+      "domain": "confidentiality",
+      "references": ["CC6.1", "CC6.5", "C1.1"],
+      "scanner_tools": ["scan_security", "scan_project"],
+      "evidence_requirements": [
+        "Exfiltration pattern scan results",
+        "Information exposure findings below threshold"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "scan.by_category_severity.exfiltration.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical exfiltration findings detected", "default": 0 },
+          { "path": "scan.by_category_severity.exfiltration.HIGH", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "High-severity exfiltration findings detected", "default": 0 },
+          { "path": "scan.by_category_severity.info-exposure.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical information exposure findings detected", "default": 0 },
+          { "path": "scan.by_category_severity.info-exposure.HIGH", "operator": "lte", "value": 3, "on_fail": "partial", "reason": "High-severity information exposure findings exceed threshold", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "SOC2-T006",
+      "title": "Cryptographic controls adequate",
+      "domain": "confidentiality",
+      "references": ["CC6.1", "CC6.7", "C1.1"],
+      "scanner_tools": ["scan_security", "scan_project"],
+      "evidence_requirements": [
+        "No critical/high crypto findings (weak algorithms, hardcoded keys)",
+        "Encryption usage scan results"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "scan.by_category_severity.crypto.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical cryptographic findings (weak algorithms, hardcoded keys)", "default": 0 },
+          { "path": "scan.by_category_severity.crypto.HIGH", "operator": "lte", "value": 2, "on_fail": "partial", "reason": "High-severity cryptographic findings exceed threshold", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "SOC2-T007",
+      "title": "Authentication and authorization controls adequate",
+      "domain": "auth",
+      "references": ["CC6.1", "CC6.2", "CC6.3"],
+      "scanner_tools": ["scan_security", "scan_project"],
+      "evidence_requirements": [
+        "No critical auth findings (hardcoded creds, missing auth checks)",
+        "Least-privilege and permissions scan results"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "scan.by_category_severity.auth.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical authentication/authorization findings detected", "default": 0 },
+          { "path": "scan.by_category_severity.auth.HIGH", "operator": "lte", "value": 2, "on_fail": "partial", "reason": "High-severity auth findings exceed threshold", "default": 0 },
+          { "path": "scan.by_category_severity.permissions.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical permissions/least-privilege findings detected", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "SOC2-T008",
+      "title": "Dependency drift tracked when baseline exists",
+      "domain": "supply-chain",
+      "references": ["CC6.6", "CC8.1"],
+      "scanner_tools": ["sbom_generate", "sbom_diff"],
+      "evidence_requirements": [
+        "SBOM baseline comparison results",
+        "Change tracking for added, removed, and version-changed packages"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "supply_chain.drift.baseline_exists", "operator": "eq", "value": true, "on_fail": "not_evaluated", "not_evaluated_reason": "No SBOM baseline — dependency drift cannot be evaluated" }
+        ]
+      }
+    }
+  ]
+}

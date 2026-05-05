@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.1",
+  "framework": "GDPR-Technical",
+  "source": "GDPR Articles 25, 32 — technical measures subset",
+  "source_snapshot": "2026-03-31",
+  "source_note": "Technical controls only. This does not cover organizational measures, DPIAs, data subject rights, lawful basis, or processor contracts. Not a substitute for legal compliance assessment.",
+  "domains": ["privacy", "security", "supply-chain"],
+  "controls": [
+    {
+      "id": "GDPR-T001",
+      "title": "Sensitive data exposure findings below threshold",
+      "domain": "privacy",
+      "references": ["Art. 25(1)", "Art. 32(1)(b)"],
+      "scanner_tools": ["scan_security", "scan_project"],
+      "evidence_requirements": [
+        "Information exposure scan results (secrets, PII patterns, logging of sensitive data)",
+        "No critical sensitive data exposure findings"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "scan.by_category_severity.info-exposure.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical sensitive data exposure findings detected", "default": 0 },
+          { "path": "scan.by_category_severity.info-exposure.HIGH", "operator": "lte", "value": 3, "on_fail": "partial", "reason": "High-severity data exposure findings exceed threshold", "default": 0 },
+          { "path": "scan.by_category_severity.secrets.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical hardcoded secrets detected", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "GDPR-T002",
+      "title": "Data exfiltration findings below threshold",
+      "domain": "privacy",
+      "references": ["Art. 32(1)(b)", "Art. 32(2)"],
+      "scanner_tools": ["scan_security", "scan_project"],
+      "evidence_requirements": [
+        "Exfiltration pattern detection results",
+        "No critical or high exfiltration findings"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "scan.by_category_severity.exfiltration.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical data exfiltration patterns detected", "default": 0 },
+          { "path": "scan.by_category_severity.exfiltration.HIGH", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "High-severity data exfiltration patterns detected", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "GDPR-T003",
+      "title": "Encryption and secure transport controls adequate",
+      "domain": "security",
+      "references": ["Art. 32(1)(a)"],
+      "scanner_tools": ["scan_security", "scan_project"],
+      "evidence_requirements": [
+        "Cryptographic findings scan (weak algorithms, missing encryption, plaintext transport)",
+        "No critical crypto findings"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "scan.by_category_severity.crypto.CRITICAL", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical cryptographic findings (weak encryption, plaintext transport)", "default": 0 },
+          { "path": "scan.by_category_severity.crypto.HIGH", "operator": "lte", "value": 2, "on_fail": "partial", "reason": "High-severity cryptographic findings exceed threshold", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "GDPR-T004",
+      "title": "Third-party dependency inventory exists",
+      "domain": "supply-chain",
+      "references": ["Art. 28(1)", "Art. 32(1)(d)"],
+      "scanner_tools": ["sbom_generate"],
+      "evidence_requirements": [
+        "CycloneDX SBOM generated from project lockfiles",
+        "Inventory of all third-party components processing data"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "sbom.component_count", "operator": "gte", "value": 1, "on_fail": "fail", "reason": "No third-party dependency inventory — SBOM generation found zero components" }
+        ]
+      }
+    },
+    {
+      "id": "GDPR-T005",
+      "title": "No critical vulnerabilities in third-party dependencies",
+      "domain": "supply-chain",
+      "references": ["Art. 32(1)(b)", "Art. 32(1)(d)"],
+      "scanner_tools": ["sbom_generate", "sbom_scan_vulnerabilities"],
+      "evidence_requirements": [
+        "OSV vulnerability scan results for all SBOM components",
+        "Zero critical-severity known vulnerabilities in third-party code"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "supply_chain.vulnerabilities.by_severity.critical", "operator": "lte", "value": 0, "on_fail": "fail", "reason": "Critical vulnerabilities in third-party dependencies", "default": 0 },
+          { "path": "supply_chain.vulnerabilities.by_severity.high", "operator": "lte", "value": 5, "on_fail": "partial", "reason": "High-severity dependency vulnerabilities exceed threshold", "default": 0 }
+        ]
+      }
+    },
+    {
+      "id": "GDPR-T006",
+      "title": "No hallucinated packages in dependency tree",
+      "domain": "supply-chain",
+      "references": ["Art. 32(1)(d)"],
+      "scanner_tools": ["sbom_generate", "sbom_check_hallucinations"],
+      "evidence_requirements": [
+        "Hallucination check results against official package registries",
+        "Zero phantom/hallucinated packages"
+      ],
+      "evaluation": {
+        "evidence_checks": [
+          { "path": "supply_chain.hallucinations.hallucinated_count", "operator": "eq", "value": 0, "on_fail": "fail", "reason": "Hallucinated (phantom) packages detected — supply chain integrity risk" },
+          { "path": "supply_chain.hallucinations.legitimate_count", "operator": "gte", "value": 1, "on_fail": "not_evaluated", "not_evaluated_reason": "No packages could be verified — all ecosystems unsupported by hallucination checker", "default": 0 }
+        ]
+      }
+    }
+  ]
+}

@@ -5,6 +5,131 @@ import { scoreBatch } from './aivss.js';
 const GRADE_ORDER = { A: 4, B: 3, C: 2, D: 1, F: 0 };
 
 /**
+ * Resolve a dot-path like "supply_chain.vulnerabilities.by_severity.critical" against an object.
+ * Returns undefined for any missing intermediate key (never throws).
+ */
+export function resolvePath(obj, path) {
+  if (obj == null || typeof path !== 'string') return undefined;
+  const segments = path.split('.');
+  let current = obj;
+  for (const seg of segments) {
+    if (current == null || typeof current !== 'object') return undefined;
+    current = current[seg];
+  }
+  return current;
+}
+
+/**
+ * Run a single evidence_check against the evidence bundle.
+ * Returns { passed: boolean, status: string|null, reason: string } where:
+ * - passed=true means check succeeded (no status change needed)
+ * - passed=false means on_fail status should be applied, with reason
+ */
+function runEvidenceCheck(check, evidenceBundle) {
+  const value = resolvePath(evidenceBundle, check.path);
+
+  // Missing evidence handling — three tiers:
+  //
+  // 1. Any node along the path is explicitly `null` → source failure → not_evaluated.
+  //    The evidence collector sets sections to null when a data source fails (e.g., OSV down).
+  //
+  // 2. A top-level section key is missing entirely (e.g., bundle has no "supply_chain") →
+  //    evidence was never collected → not_evaluated. Defaults must not mask this.
+  //
+  // 3. A deeper leaf is missing but its parent exists (e.g., scan.by_category_severity.crypto
+  //    is absent because no crypto findings) → safe to apply check.default.
+  //
+  if (value === undefined || value === null) {
+    const segments = check.path.split('.');
+
+    // Walk the path to find where it breaks
+    let current = evidenceBundle;
+    let depth = 0;
+    for (depth = 0; depth < segments.length; depth++) {
+      if (current === null) {
+        // Explicit null — source failure
+        const failedAt = segments.slice(0, depth).join('.') || segments[0];
+        return {
+          passed: false,
+          status: 'not_evaluated',
+          reason: `Evidence source unavailable: ${failedAt} is null (full path: ${check.path})`,
+        };
+      }
+      if (current === undefined || typeof current !== 'object') break;
+      const next = current[segments[depth]];
+      if (next === null) {
+        // Explicit null at this level
+        const failedAt = segments.slice(0, depth + 1).join('.');
+        return {
+          passed: false,
+          status: 'not_evaluated',
+          reason: `Evidence source unavailable: ${failedAt} is null (full path: ${check.path})`,
+        };
+      }
+      if (next === undefined) break; // missing key — check depth below
+      current = next;
+    }
+
+    // If the break happened at depth 0 or 1, the top-level section is missing.
+    // This means evidence was never collected — not_evaluated, no defaults.
+    if (depth <= 1) {
+      return {
+        passed: false,
+        status: 'not_evaluated',
+        reason: `Evidence source unavailable: ${segments[0]} is missing (full path: ${check.path})`,
+      };
+    }
+
+    // Break happened deeper — parent section exists, leaf key absent.
+    // Safe to apply default (e.g., scan ran but no "crypto" category).
+    if (check.default !== undefined) {
+      return evaluateOp(check.operator, check.default, check.value, check);
+    }
+
+    return {
+      passed: false,
+      status: 'not_evaluated',
+      reason: `Missing evidence at path: ${check.path}`,
+    };
+  }
+
+  return evaluateOp(check.operator, value, check.value, check);
+}
+
+function evaluateOp(operator, actual, expected, check) {
+  let passed;
+  switch (operator) {
+    case 'exists':
+      passed = actual !== undefined && actual !== null;
+      break;
+    case 'eq':
+      passed = actual === expected;
+      break;
+    case 'lte':
+      passed = typeof actual === 'number' && actual <= expected;
+      break;
+    case 'gte':
+      passed = typeof actual === 'number' && actual >= expected;
+      break;
+    default:
+      return { passed: false, status: 'not_evaluated', reason: `Unknown operator: ${operator}` };
+  }
+
+  if (passed) {
+    return { passed: true, status: null, reason: '' };
+  }
+
+  const status = check.on_fail || 'fail';
+  // Use distinct reason for not_evaluated vs failure to avoid confusing audit consumers.
+  // "reason" is the failure message; "not_evaluated_reason" explains why evidence was insufficient.
+  const reason = status === 'not_evaluated'
+    ? (check.not_evaluated_reason || `Evidence insufficient: ${check.path} ${operator} ${expected} (actual: ${actual})`)
+    : (check.reason || `Check failed: ${check.path} ${operator} ${expected} (actual: ${actual})`);
+
+  return { passed: false, status, reason };
+}
+
+/**
  * Check if actual grade is worse than threshold.
  * Missing/null grade → treated as F (worst case).
  */
@@ -18,14 +143,11 @@ function gradeIsWorse(actual, threshold) {
  * Evaluate a single control against evidence.
  *
  * @param {object} control - A control from the registry
- * @param {object} evidence
- * @param {object|null} evidence.aivssPosture - Posture from scoreBatch, or null
- * @param {object[]} evidence.findings - Normalized findings from all available tools
- * @param {object} evidence.grades - Map of tool/scope → grade (e.g. { project: 'B' })
- * @param {string[]} evidence.toolsRun - Array of tool names whose output is available
+ * @param {object} evidence - Legacy evidence shape (aivssPosture, findings, grades, toolsRun)
+ * @param {object} [evidenceBundle] - Full evidence bundle for evidence_checks evaluation
  * @returns {{ control_id: string, status: string, reasons: string[] }}
  */
-export function evaluateControl(control, evidence) {
+export function evaluateControl(control, evidence, evidenceBundle) {
   if (!control || !control.id || !control.evaluation) {
     return {
       control_id: control?.id || 'unknown',
@@ -123,6 +245,24 @@ export function evaluateControl(control, evidence) {
     }
   }
 
+  // 7. Run evidence_checks (generic path-based checks, used by SOC2/GDPR controls)
+  if (Array.isArray(ev.evidence_checks) && evidenceBundle) {
+    for (const check of ev.evidence_checks) {
+      const result = runEvidenceCheck(check, evidenceBundle);
+      if (!result.passed) {
+        if (result.status === 'not_evaluated') {
+          // If we haven't already failed/passed via legacy checks, mark not_evaluated
+          if (status === 'pass') status = 'not_evaluated';
+        } else if (result.status === 'fail') {
+          status = 'fail';
+        } else if (result.status === 'partial' && status !== 'fail') {
+          status = 'partial';
+        }
+        if (result.reason) reasons.push(result.reason);
+      }
+    }
+  }
+
   return { control_id: control.id, status, reasons };
 }
 
@@ -130,11 +270,12 @@ export function evaluateControl(control, evidence) {
  * Evaluate all controls against evidence.
  *
  * @param {object[]} controls - Array of controls from registry
- * @param {object} evidence - Same shape as evaluateControl
+ * @param {object} evidence - Legacy evidence shape
+ * @param {object} [evidenceBundle] - Full evidence bundle for evidence_checks
  * @returns {{ controls_evaluated: number, pass: number, partial: number, fail: number, not_evaluated: number, results: object[] }}
  */
-export function evaluateAll(controls, evidence) {
-  const results = controls.map(c => evaluateControl(c, evidence));
+export function evaluateAll(controls, evidence, evidenceBundle) {
+  const results = controls.map(c => evaluateControl(c, evidence, evidenceBundle));
 
   const summary = { pass: 0, partial: 0, fail: 0, not_evaluated: 0 };
   for (const r of results) {

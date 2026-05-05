@@ -7,7 +7,7 @@
   "openclaw": {
     "extensions": ["tools", "skills"],
     "emoji": "shield",
-    "permissions": ["fs:read"]
+    "permissions": ["fs:read", "fs:write"]
   },
   "tools": [
     {
@@ -33,6 +33,26 @@
     {
       "name": "scanner_health",
       "description": "Check plugin health status"
+    },
+    {
+      "name": "sbom_generate",
+      "description": "Generate CycloneDX SBOM for a project"
+    },
+    {
+      "name": "sbom_scan_vulnerabilities",
+      "description": "Scan SBOM against OSV.dev vulnerability database"
+    },
+    {
+      "name": "sbom_check_hallucinations",
+      "description": "Check SBOM packages against official registries"
+    },
+    {
+      "name": "sbom_diff",
+      "description": "Compare current SBOM against stored baseline"
+    },
+    {
+      "name": "sbom_export_report",
+      "description": "Generate HTML/JSON SBOM audit report"
     }
   ],
   "skills": [

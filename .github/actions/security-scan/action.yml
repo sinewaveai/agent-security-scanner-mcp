@@ -125,75 +125,29 @@ runs:
           # Use the merge base so we only see issues introduced in this PR.
           BASE_REF="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
           agent-security-scanner-mcp scan-diff "$BASE_REF" HEAD \
-            --verbosity full > scan-results.json 2>&1
+            --verbosity full > scan-results.json 2> scan-results.stderr
           SCAN_EXIT=$?
           echo "::endgroup::"
         else
           echo "::group::Running full project security scan"
           agent-security-scanner-mcp scan-project . \
-            --verbosity full > scan-results.json 2>&1
+            --verbosity full > scan-results.json 2> scan-results.stderr
           SCAN_EXIT=$?
           echo "::endgroup::"
         fi
 
-        # Parse issue counts from the JSON output.
-        # The scanner outputs JSON with issues_count, or structured issue arrays.
-        if [ -f scan-results.json ] && python3 -c "import json; json.load(open('scan-results.json'))" 2>/dev/null; then
-          ISSUES_COUNT=$(python3 -c "
-        import json, sys
-        try:
-            data = json.load(open('scan-results.json'))
-            total = data.get('issues_count', data.get('total', 0))
-            print(total)
-        except Exception:
-            print(0)
-        ")
-
-          CRITICAL_COUNT=$(python3 -c "
-        import json, sys
-        try:
-            data = json.load(open('scan-results.json'))
-            issues = data.get('issues', data.get('files', []))
-            count = 0
-            if isinstance(issues, list):
-                for item in issues:
-                    if isinstance(item, dict):
-                        sev = item.get('severity', '').upper()
-                        if sev == 'ERROR':
-                            count += 1
-                        # Handle nested issues in project scan
-                        for nested in item.get('issues', []):
-                            if isinstance(nested, dict) and nested.get('severity', '').upper() == 'ERROR':
-                                count += 1
-            print(count)
-        except Exception:
-            print(0)
-        ")
-
-          WARNING_COUNT=$(python3 -c "
-        import json, sys
-        try:
-            data = json.load(open('scan-results.json'))
-            issues = data.get('issues', data.get('files', []))
-            count = 0
-            if isinstance(issues, list):
-                for item in issues:
-                    if isinstance(item, dict):
-                        sev = item.get('severity', '').upper()
-                        if sev == 'WARNING':
-                            count += 1
-                        for nested in item.get('issues', []):
-                            if isinstance(nested, dict) and nested.get('severity', '').upper() == 'WARNING':
-                                count += 1
-            print(count)
-        except Exception:
-            print(0)
-        ")
-        else
-          ISSUES_COUNT=0
-          CRITICAL_COUNT=0
-          WARNING_COUNT=0
+        # Parse issue counts from JSON output.
+        # Fail closed on malformed/invalid schema output instead of silently reporting 0 issues.
+        COUNTS=$(python3 "${{ github.action_path }}/../../../scripts/parse_scan_results.py" scan-results.json 2>&1)
+        PARSE_EXIT=$?
+        if [ "$PARSE_EXIT" -ne 0 ]; then
+          echo "::error::Failed to parse security scan output safely (fail-closed)."
+          echo "$COUNTS"
+          [ -s scan-results.stderr ] && cat scan-results.stderr
+          exit 1
         fi
+
+        IFS=$'\t' read -r ISSUES_COUNT CRITICAL_COUNT WARNING_COUNT <<< "$COUNTS"
 
         echo "issues_count=$ISSUES_COUNT" >> "$GITHUB_OUTPUT"
         echo "critical_count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
@@ -334,46 +288,8 @@ runs:
           done
         else
           # Full project mode: scan entire project
-          # We need to scan individual files since scan-project does not output SARIF
-          agent-security-scanner-mcp scan-project . --verbosity full > /tmp/project-scan.json 2>&1 || true
-
-          python3 -c "
-        import json
-        sarif = {
-            '\$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
-            'version': '2.1.0',
-            'runs': [{
-                'tool': {
-                    'driver': {
-                        'name': 'agent-security-scanner-mcp',
-                        'version': '3.3.0',
-                        'informationUri': 'https://github.com/sinewaveai/agent-security-scanner-mcp',
-                        'rules': []
-                    }
-                },
-                'results': []
-            }]
-        }
-        try:
-            data = json.load(open('/tmp/project-scan.json'))
-            for f in data.get('files', []):
-                filepath = f.get('file', '')
-                for issue in f.get('issues', []):
-                    sarif['runs'][0]['results'].append({
-                        'ruleId': issue.get('ruleId', 'unknown'),
-                        'level': 'error' if issue.get('severity') == 'ERROR' else 'warning',
-                        'message': {'text': issue.get('message', 'Security issue detected')},
-                        'locations': [{
-                            'physicalLocation': {
-                                'artifactLocation': {'uri': filepath},
-                                'region': {'startLine': issue.get('line', 1)}
-                            }
-                        }]
-                    })
-        except Exception:
-            pass
-        json.dump(sarif, open('results.sarif', 'w'), indent=2)
-        "
+          agent-security-scanner-mcp scan-project . --verbosity full > /tmp/project-scan.json 2> /tmp/project-scan.stderr || true
+          python3 "${{ github.action_path }}/../../../scripts/project_scan_to_sarif.py" /tmp/project-scan.json results.sarif || true
         fi
 
         echo "::endgroup::"

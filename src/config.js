@@ -172,8 +172,9 @@ export function meetsSeverityThreshold(severity, config) {
 }
 
 export function meetsConfidenceThreshold(confidence, config) {
-  const threshold = config.confidence_threshold || 'LOW';
-  const confidenceLevel = CONFIDENCE_ORDER[confidence] ?? 0;
+  const threshold = String(config.confidence_threshold || 'LOW').toUpperCase();
+  const normalizedConfidence = String(confidence || 'LOW').toUpperCase();
+  const confidenceLevel = CONFIDENCE_ORDER[normalizedConfidence] ?? 0;
   const thresholdLevel = CONFIDENCE_ORDER[threshold] ?? 0;
   return confidenceLevel >= thresholdLevel;
 }

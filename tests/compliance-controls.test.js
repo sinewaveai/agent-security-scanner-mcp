@@ -43,6 +43,7 @@ describe('compliance-controls loader', () => {
 describe('validateRegistry', () => {
   it('catches duplicate IDs', () => {
     const data = {
+      domains: ['security'],
       controls: [
         { id: 'B001', title: 'T', domain: 'security', evaluation: {} },
         { id: 'B001', title: 'T2', domain: 'security', evaluation: {} },
@@ -54,6 +55,7 @@ describe('validateRegistry', () => {
 
   it('catches unknown domains', () => {
     const data = {
+      domains: ['security'],
       controls: [
         { id: 'X001', title: 'T', domain: 'unknown_domain', evaluation: {} },
       ],
@@ -64,6 +66,7 @@ describe('validateRegistry', () => {
 
   it('catches unknown tool names', () => {
     const data = {
+      domains: ['security'],
       controls: [
         { id: 'X001', title: 'T', domain: 'security', scanner_tools: ['nonexistent_tool'], evaluation: {} },
       ],
@@ -74,6 +77,7 @@ describe('validateRegistry', () => {
 
   it('catches missing fields', () => {
     const data = {
+      domains: ['security'],
       controls: [
         { title: 'T' }, // missing id, domain, evaluation
       ],
@@ -86,6 +90,7 @@ describe('validateRegistry', () => {
 
   it('catches unknown tool in evaluation.required_tools', () => {
     const data = {
+      domains: ['security'],
       controls: [
         {
           id: 'X001', title: 'T', domain: 'security',
@@ -99,12 +104,23 @@ describe('validateRegistry', () => {
 
   it('catches invalid OWASP tags', () => {
     const data = {
+      domains: ['security'],
       controls: [
         { id: 'X001', title: 'T', domain: 'security', owasp_llm: ['BADTAG'], evaluation: {} },
       ],
     };
     const errors = validateRegistry(data);
     expect(errors.some(e => e.includes('invalid OWASP tag'))).toBe(true);
+  });
+
+  it('rejects registry without domains array', () => {
+    const data = {
+      controls: [
+        { id: 'X001', title: 'T', domain: 'security', evaluation: {} },
+      ],
+    };
+    const errors = validateRegistry(data);
+    expect(errors.some(e => e.includes('non-empty "domains"'))).toBe(true);
   });
 });
 

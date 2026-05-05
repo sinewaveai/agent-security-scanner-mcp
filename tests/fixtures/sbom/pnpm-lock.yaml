@@ -1,0 +1,34 @@
+lockfileVersion: '6.0'
+
+settings:
+  autoInstallPeers: true
+
+dependencies:
+  express:
+    specifier: ^4.18.2
+    version: 4.18.2
+  lodash:
+    specifier: ^4.17.21
+    version: 4.17.21
+
+devDependencies:
+  vitest:
+    specifier: ^1.0.0
+    version: 1.0.4
+
+packages:
+
+  /express@4.18.2:
+    resolution: {integrity: sha512-abc}
+    engines: {node: '>= 0.10.0'}
+
+  /lodash@4.17.21:
+    resolution: {integrity: sha512-def}
+
+  /vitest@1.0.4:
+    resolution: {integrity: sha512-ghi}
+    dev: true
+
+  /@types/node@20.10.0:
+    resolution: {integrity: sha512-jkl}
+    dev: true

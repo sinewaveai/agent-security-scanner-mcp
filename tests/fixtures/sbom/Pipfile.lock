@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "hash": { "sha256": "abc123" },
+    "pipfile-spec": 6,
+    "requires": { "python_version": "3.11" }
+  },
+  "default": {
+    "django": {
+      "hashes": ["sha256:abc"],
+      "version": "==4.2.7"
+    },
+    "psycopg2": {
+      "hashes": ["sha256:def"],
+      "version": "==2.9.9"
+    },
+    "celery": {
+      "hashes": ["sha256:ghi"],
+      "version": "==5.3.4"
+    }
+  },
+  "develop": {
+    "black": {
+      "hashes": ["sha256:jkl"],
+      "version": "==23.11.0"
+    },
+    "flake8": {
+      "hashes": ["sha256:mno"],
+      "version": "==6.1.0"
+    }
+  }
+}

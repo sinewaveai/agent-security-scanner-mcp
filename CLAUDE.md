@@ -96,7 +96,7 @@ agent-security-scanner-mcp/
 └── scripts/                    # Build/install scripts
 ```
 
-### MCP Tools (11 total)
+### MCP Tools (13 total)
 
 | Tool | File | Description |
 |------|------|-------------|
@@ -111,6 +111,8 @@ agent-security-scanner-mcp/
 | `scan_mcp_server` | `src/tools/scan-mcp.js` | MCP server audit |
 | `scan_skill` | `src/tools/scan-skill.js` | OpenClaw skill scanning |
 | `scanner_health` | `src/plugin-health.js` | Plugin health check |
+| `get_compliance_controls` | `src/tools/compliance-controls.js` | Look up compliance controls (AIUC-1, SOC2, GDPR) |
+| `evaluate_compliance` | `src/tools/evaluate-compliance.js` | Evaluate project against compliance frameworks |
 
 ### CLI Commands
 

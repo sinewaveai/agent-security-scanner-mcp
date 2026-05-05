@@ -28,6 +28,12 @@ import { runInitHooks } from './src/cli/init-hooks.js';
 import { runReport } from './src/cli/report.js';
 import { scoreAivssSchema, scoreAivssTool } from './src/tools/score-aivss.js';
 import { complianceControlsSchema, getComplianceControls } from './src/tools/compliance-controls.js';
+import { sbomGenerateSchema, sbomGenerate } from './src/tools/sbom-generate.js';
+import { sbomVulnerabilitiesSchema, sbomScanVulnerabilities } from './src/tools/sbom-vulnerabilities.js';
+import { sbomHallucinationsSchema, sbomCheckHallucinations } from './src/tools/sbom-hallucinations.js';
+import { sbomDiffSchema, sbomDiff } from './src/tools/sbom-diff.js';
+import { sbomReportSchema, sbomExportReport } from './src/tools/sbom-report.js';
+import { evaluateComplianceSchema, evaluateCompliance } from './src/tools/evaluate-compliance.js';
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -247,9 +253,55 @@ server.tool(
 
 server.tool(
   "get_compliance_controls",
-  "Look up AIUC-1 compliance controls with evaluation criteria. Filter by domain (security/safety), control IDs, or OWASP LLM tags. Returns structured evaluation rules for pass/partial/fail assessment.",
+  "Look up compliance controls with evaluation criteria. Supports multiple frameworks: aiuc-1 (default), soc2-technical, gdpr-technical. Filter by domain, control IDs, or OWASP LLM tags.",
   complianceControlsSchema,
   getComplianceControls
+);
+
+server.tool(
+  "evaluate_compliance",
+  "Evaluate a project against compliance frameworks (SOC2-technical, GDPR-technical, AIUC-1). Collects evidence from code scans, SBOM, vulnerability checks, and hallucination detection, then evaluates controls. Optionally saves timestamped evidence bundle.",
+  evaluateComplianceSchema,
+  evaluateCompliance
+);
+
+// ===========================================
+// SBOM / SUPPLY CHAIN ANALYSIS
+// ===========================================
+
+server.tool(
+  "sbom_generate",
+  "Generate a CycloneDX v1.5 SBOM for a project. Discovers all dependencies (direct + transitive) from lock files and manifests across Node.js, Python, Go, Rust, Ruby, Java. Use verbosity='minimal' for counts, 'compact' (default) for component list, 'full' for complete CycloneDX JSON.",
+  sbomGenerateSchema,
+  sbomGenerate
+);
+
+server.tool(
+  "sbom_scan_vulnerabilities",
+  "Cross-reference SBOM components against OSV.dev vulnerability database. Returns CVE IDs, CVSS scores, severity, and fix recommendations. Accepts directory_path (generates fresh) or sbom_path (loads saved artifact).",
+  sbomVulnerabilitiesSchema,
+  sbomScanVulnerabilities
+);
+
+server.tool(
+  "sbom_check_hallucinations",
+  "Check all packages in an SBOM against official registries to detect hallucinated (AI-invented) package names. Supports npm, pypi, rubygems, dart, perl, raku, crates. Go/Java marked as unsupported.",
+  sbomHallucinationsSchema,
+  sbomCheckHallucinations
+);
+
+server.tool(
+  "sbom_diff",
+  "Compare current project SBOM against a stored baseline. Reports added, removed, and version-changed packages. Use save_baseline=true to create initial baseline.",
+  sbomDiffSchema,
+  sbomDiff
+);
+
+server.tool(
+  "sbom_export_report",
+  "Generate an HTML or JSON audit report from SBOM data, optionally enriched with vulnerability scan results. Suitable for PCI-DSS and compliance audits.",
+  sbomReportSchema,
+  sbomExportReport
 );
 
 // ===========================================
@@ -524,6 +576,95 @@ const cliArgs = process.argv.slice(2);
     console.error(`  Error: ${err.message}\n`);
     process.exit(1);
   });
+} else if (cliArgs[0] === 'sbom-generate') {
+  const dirPath = cliArgs[1] || '.';
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const save = cliArgs.includes('--save');
+  const outIdx = cliArgs.indexOf('--output');
+  const outputPath = outIdx !== -1 ? cliArgs[outIdx + 1] : (save ? join(dirPath, '.scanner', 'sbom.json') : undefined);
+
+  sbomGenerate({ directory_path: dirPath, output_path: outputPath, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'sbom-vulnerabilities') {
+  const dirPath = cliArgs[1] || '.';
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const sbomIdx = cliArgs.indexOf('--sbom-path');
+  const sbomPath = sbomIdx !== -1 ? cliArgs[sbomIdx + 1] : undefined;
+
+  sbomScanVulnerabilities({
+    directory_path: sbomPath ? undefined : dirPath,
+    sbom_path: sbomPath,
+    verbosity,
+  }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.total_vulnerabilities > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'sbom-check-hallucinations') {
+  const dirPath = cliArgs[1] || '.';
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+
+  loadPackageLists();
+  sbomCheckHallucinations({ directory_path: dirPath, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(output.hallucinated_count > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'sbom-diff') {
+  const dirPath = cliArgs[1] || '.';
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const saveBaseline = cliArgs.includes('--save-baseline');
+  const baselineIdx = cliArgs.indexOf('--baseline-path');
+  const baselinePath = baselineIdx !== -1 ? cliArgs[baselineIdx + 1] : undefined;
+
+  sbomDiff({ directory_path: dirPath, baseline_path: baselinePath, save_baseline: saveBaseline, verbosity }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
+} else if (cliArgs[0] === 'sbom-report') {
+  const dirPath = cliArgs[1] || '.';
+  const verbosityIdx = cliArgs.indexOf('--verbosity');
+  const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const formatIdx = cliArgs.indexOf('--format');
+  const format = formatIdx !== -1 ? cliArgs[formatIdx + 1] : 'html';
+  const outIdx = cliArgs.indexOf('--output');
+  const outputPath = outIdx !== -1 ? cliArgs[outIdx + 1] : join(dirPath, '.scanner', 'sbom-report.html');
+  const noVulns = cliArgs.includes('--no-vulnerabilities');
+
+  sbomExportReport({
+    directory_path: dirPath,
+    format,
+    include_vulnerabilities: !noVulns,
+    output_path: outputPath,
+    verbosity,
+  }).then(result => {
+    const output = JSON.parse(result.content[0].text);
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(0);
+  }).catch(err => {
+    console.error(JSON.stringify({ error: err.message }));
+    process.exit(1);
+  });
 } else if (cliArgs[0] === 'scan-clawhub') {
   // Import and run SAFE ClawHub scanner (no code execution)
   await import('./src/cli/scan-clawhub-safe.js');
@@ -550,6 +691,12 @@ const cliArgs = process.argv.slice(2);
   console.log('    scan-action <t> <v>  Check agent action before execution');
   console.log('    audit [--config-path] Audit OpenClaw config for security issues [experimental]');
   console.log('    harden [--fix]       Auto-harden OpenClaw configuration [experimental]\n');
+  console.log('  SBOM / Supply Chain:');
+  console.log('    sbom-generate <dir>  Generate CycloneDX SBOM [--save] [--output <path>]');
+  console.log('    sbom-vulnerabilities <dir> Scan SBOM against OSV.dev [--sbom-path <path>]');
+  console.log('    sbom-check-hallucinations <dir> Check SBOM packages against registries');
+  console.log('    sbom-diff <dir>      Compare SBOM against baseline [--save-baseline]');
+  console.log('    sbom-report <dir>    Generate SBOM audit report [--format html|json]\n');
   console.log('    (no args)            Start MCP server on stdio\n');
   console.log('  Options:');
   console.log('    --verbosity <level>  minimal|compact|full (default: compact)');
