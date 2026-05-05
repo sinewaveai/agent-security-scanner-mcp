@@ -46,7 +46,7 @@ export async function runSemanticAnalysis(filePath, options = {}) {
       column: 0,
       length: 0,
       severity: mapSeverity(f.severity),
-      confidence: f.confidence || 'medium',
+      confidence: (f.confidence ? String(f.confidence) : 'MEDIUM').toUpperCase(),
       metadata: {
         category: f.category,
         engine: 'semantic',

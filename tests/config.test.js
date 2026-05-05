@@ -138,6 +138,17 @@ describe('meetsConfidenceThreshold', () => {
   it('should pass MEDIUM when threshold is MEDIUM', () => {
     expect(meetsConfidenceThreshold('MEDIUM', { confidence_threshold: 'MEDIUM' })).toBe(true);
   });
+
+  it('should treat lowercase confidence as valid values', () => {
+    expect(meetsConfidenceThreshold('medium', { confidence_threshold: 'MEDIUM' })).toBe(true);
+    expect(meetsConfidenceThreshold('high', { confidence_threshold: 'MEDIUM' })).toBe(true);
+    expect(meetsConfidenceThreshold('low', { confidence_threshold: 'MEDIUM' })).toBe(false);
+  });
+
+  it('should treat lowercase threshold as valid', () => {
+    expect(meetsConfidenceThreshold('MEDIUM', { confidence_threshold: 'medium' })).toBe(true);
+    expect(meetsConfidenceThreshold('LOW', { confidence_threshold: 'medium' })).toBe(false);
+  });
 });
 
 describe('applyConfig', () => {
@@ -172,6 +183,17 @@ describe('applyConfig', () => {
     const result = applyConfig(findings, 'test.js', config);
     expect(result).toHaveLength(1);
     expect(result[0].ruleId).toBe('sql-injection');
+  });
+
+  it('should preserve semantic findings with lowercase confidence when threshold is MEDIUM', () => {
+    const config = { suppress: [], severity_threshold: 'info', confidence_threshold: 'MEDIUM' };
+    const findings = [
+      { ruleId: 'semantic-rule', severity: 'warning', confidence: 'medium' },
+      { ruleId: 'low-confidence', severity: 'warning', confidence: 'low' },
+    ];
+    const result = applyConfig(findings, 'test.js', config);
+    expect(result).toHaveLength(1);
+    expect(result[0].ruleId).toBe('semantic-rule');
   });
 
   it('should handle null config', () => {
