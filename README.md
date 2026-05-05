@@ -63,6 +63,8 @@ Continue reading below for full version documentation →
 
 ---
 
+> **New in v4.3.0 (2026-05-05):** Critical security and reliability fixes — GitHub Actions now **fail closed** instead of fail-open when scanner output is invalid (preventing security gate bypass), patched **8 Hono CVEs** (XSS, path traversal, authentication bypass), fixed confidence threshold filtering case sensitivity, and corrected SARIF generation for GitHub Code Scanning. All fixes include comprehensive regression tests. **Upgrade recommended for production use.** [See Full Changelog](CHANGELOG.md#430---2026-05-05).
+>
 > **New in v4.2.0:** Compliance evidence collection — evaluate projects against SOC2-Technical (8 controls) and GDPR-Technical (6 controls) frameworks. Collects evidence from code scans, SBOM, vulnerability checks, and hallucination detection, then evaluates controls with pass/partial/fail/not_evaluated status. Supports evidence persistence for audit trails. [See Compliance Evaluation](#-compliance-evaluation-new-in-v420).
 >
 > **New in v4.1.0:** SBOM generation and dependency vulnerability analysis — generates CycloneDX v1.5 SBOMs, scans against OSV.dev for CVEs, detects hallucinated packages, compares baselines, and generates HTML audit reports. Supports 8 lock file formats and 7 manifest formats across npm, Python, Go, Rust, Ruby, and Java ecosystems. [See SBOM Tools](#-sbom--supply-chain-analysis-new-in-v410).

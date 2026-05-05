@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-05-05
+
+### 🔒 Critical Security Fixes
+
+#### GitHub Action Security Hardening
+- **CRITICAL FIX:** GitHub composite action now **fails closed** instead of fail-open when scanner output is invalid (PR #71, fixes #67)
+  - Previously: Mixed stderr/stdout could corrupt JSON → parser silently defaulted to 0 issues → security gate incorrectly passed
+  - Now: Separates stdout (JSON) from stderr (logs), validates output strictly, exits with code 1 on any validation error
+  - Added `scripts/parse_scan_results.py` with comprehensive validation (file exists, valid JSON, correct schema, numeric counts, error detection)
+  - Added 9 regression tests covering all edge cases (malformed JSON, empty output, scanner errors, unrecognized schemas)
+  - **Impact:** Prevents security gates from being bypassed due to corrupted scanner output
+
+#### Hono Framework Security Updates (8 CVEs Fixed)
+- **CRITICAL:** Updated Hono from 4.12.7 → 4.12.16 across all packages (PRs #66, #65, #64, #62, #75)
+  - **GHSA-69xw-7hcm-h432:** HTML injection via unvalidated JSX tag names in hono/jsx
+  - **GHSA-9vqf-7f2p-gf9v:** bodyLimit() bypass for chunked/unknown-length requests
+  - **GHSA-458j-xx4x-4375:** Improper JSX attribute name handling during SSR
+  - **GHSA-wmmm-f939-6g9c:** Middleware bypass via repeated slashes in serveStatic
+  - **GHSA-xf4j-xp2r-rqqx:** Path traversal in toSSG() allowing writes outside output directory
+  - **GHSA-xpcf-pg52-r92g:** IPv4-mapped IPv6 address bypass in ipRestriction()
+  - **GHSA-26pp-8wgv-hjvm:** Missing cookie name validation in setCookie()
+  - **GHSA-r5rp-j6wh-rvv4:** Cookie prefix bypass via non-breaking space in getCookie()
+
+### 🐛 Bug Fixes
+
+- **Confidence Filtering:** Fixed case-insensitive confidence threshold filtering (PR #73, fixes #70)
+  - Semantic integration was emitting lowercase `confidence: "medium"` while config expected uppercase `"MEDIUM"`
+  - Now normalizes both confidence values and thresholds to uppercase before comparison
+  - Prevents security findings from being incorrectly filtered due to case mismatch
+  - Added 3 regression tests for lowercase/mixed-case scenarios
+
+- **SARIF Conversion:** Fixed full-project SARIF generation for GitHub Code Scanning (PR #72, fixes #69)
+  - Action's inline Python expected nested `files[].issues[]` but scan-project returns flat `issues[]`
+  - Added `scripts/project_scan_to_sarif.py` supporting both flat and nested schemas
+  - Separates stdout (JSON) from stderr (logs) to prevent parse failures
+  - Added 6 regression tests covering all schema variants and edge cases
+  - **Impact:** GitHub Security tab now correctly displays findings from full-project scans
+
+### 📦 Dependency Updates
+
+- **@hono/node-server:** Updated to 1.19.13 across all packages (PRs #59, #58, #57, #56)
+- **Vite:** Updated to 7.3.2 for dev dependencies (PRs #55, #54, #53)
+- **Lodash:** Updated from 4.17.23 → 4.18.1 (PRs #52, #51)
+- **PostCSS:** Updated from 8.5.6 → 8.5.14 in scanner-lite (PR #74)
+- **path-to-regexp:** Updated from 8.3.0 → 8.4.0 in mcp-server-full (PR #49)
+- **picomatch:** Updated from 4.0.3 → 4.0.4 (PRs #47, #46)
+
+### 🧪 Testing
+
+- **Added:** 9 new tests for parse_scan_results.py (fail-closed behavior)
+- **Added:** 6 new tests for project_scan_to_sarif.py (SARIF conversion)
+- **Added:** 3 new tests for confidence normalization
+- **Total:** 18 new regression tests ensuring critical bugs stay fixed
+- **All tests passing:** 420+ tests across 30+ test files
+
+### 📊 Impact Summary
+
+- **18 PRs merged:** 3 critical bug fixes + 15 security dependency updates
+- **8 Hono CVEs patched:** Preventing XSS, path traversal, authentication bypass, and injection attacks
+- **Fail-closed security:** GitHub Actions no longer bypass security gates on malformed output
+- **100% backward compatible:** No breaking changes, safe to upgrade
+
+---
+
 ## [3.18.0] - 2026-03-06
 
 ### 🎯 Major Features
