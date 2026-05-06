@@ -8,6 +8,8 @@
 
 Scans code for vulnerabilities, detects hallucinated packages, blocks prompt injection, and provides LLM-powered semantic code review — via MCP (Claude Code, Cursor, Windsurf, Cline) or CLI (OpenClaw, CI/CD).
 
+> Part of the [**ProofLayer**](https://www.proof-layer.com) open-core security platform. This scanner is the pre-deployment / static-analysis surface; for runtime protection of MCP servers in production, see [`prooflayer-runtime`](https://github.com/sinewaveai/prooflayer-runtime).
+
 [![npm downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

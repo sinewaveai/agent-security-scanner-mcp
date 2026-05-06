@@ -2,7 +2,7 @@
   "name": "agent-security-scanner-mcp",
   "version": "4.3.0",
   "mcpName": "io.github.sinewaveai/agent-security-scanner-mcp",
-  "description": "Security scanner MCP server for AI coding agents. Prompt injection firewall, package hallucination detection (4.3M+ packages), 1700+ vulnerability rules with AST & taint analysis, LLM-powered semantic code review, auto-fix. For Claude Code, Cursor, Windsurf, Cline, OpenClaw.",
+  "description": "Security scanner MCP server for AI coding agents — part of the ProofLayer open-core security platform. Prompt injection firewall, package hallucination detection (4.3M+ packages), 1700+ vulnerability rules with AST & taint analysis, LLM-powered semantic code review, auto-fix. For Claude Code, Cursor, Windsurf, Cline, OpenClaw.",
   "main": "index.js",
   "type": "module",
   "bin": {
