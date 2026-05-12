@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-05-12
+
+### Fixed
+
+- **Packaging:** `src/semantic-integration.js`, `src/semantic-analyzer.js`, `src/utils/github-clone.js`, and `src/utils/npm-download.js` are now included in the published tarball. Prior versions imported these files at runtime (from `src/tools/scan-security.js` and `src/cli/scan-clawhub-full.js`) but did not ship them, causing `ERR_MODULE_NOT_FOUND` when the package was installed globally and used via the composite GitHub Action.
+
+### Dependencies
+
+- chore(deps): bump fast-uri 3.1.0 → 3.1.2 (root, scanner-lite, mcp-server-full, prooflayer-scanner) (#82, #84, #83, #86)
+- chore(deps): bump hono 4.12.16 → 4.12.18 (root) and 4.12.14 → 4.12.18 (scanner-lite, mcp-server-full, prooflayer-scanner) (#85, #80, #79, #81)
+- chore(deps): bump ip-address 10.1.0 → 10.2.0 and express-rate-limit 8.3.0 → 8.5.1 (mcp-server-full, prooflayer-scanner) (#77, #78)
+
 ## [4.3.0] - 2026-05-05
 
 ### 🔒 Critical Security Fixes
