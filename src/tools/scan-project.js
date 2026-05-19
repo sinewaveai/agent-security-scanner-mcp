@@ -24,6 +24,30 @@ const SCANNABLE_EXTENSIONS = new Set([
   '.tf', '.hcl', '.sql',
 ]);
 
+// Directories pruned during the walk: VCS metadata, dependency trees, build
+// artifacts, language/tool caches, and editor state. Hidden entries are NOT
+// blanket-skipped — only names in this denylist are pruned — so that
+// security-relevant dotpaths (e.g. .github/workflows) are still traversed.
+const SKIP_DIRECTORIES = new Set([
+  // VCS metadata
+  '.git', '.svn', '.hg', '.bzr',
+  // Dependencies / package trees
+  'node_modules', 'vendor', 'bower_components',
+  // Build / output artifacts
+  'dist', 'build', 'out', 'target', 'coverage',
+  // Python environments and caches
+  '__pycache__', 'venv', 'env', '.venv',
+  '.tox', '.nox', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.hypothesis',
+  // JS/TS framework and tooling caches
+  '.next', '.nuxt', '.svelte-kit', '.turbo', '.parcel-cache', '.cache',
+  // Package-manager caches
+  '.yarn', '.pnpm-store', '.bundle', '.cargo', '.gradle',
+  // Editor / IDE state
+  '.idea', '.vscode', '.vs',
+  // IaC state
+  '.terraform',
+]);
+
 // Parse .gitignore into patterns
 function parseGitignore(dirPath) {
   const gitignorePath = join(dirPath, '.gitignore');
@@ -64,9 +88,6 @@ function walkDirectory(dirPath, options = {}) {
     }
 
     for (const entry of entries) {
-      // Skip hidden directories/files
-      if (entry.startsWith('.')) continue;
-
       const fullPath = join(currentDir, entry);
       const relativePath = relative(dirPath, fullPath);
 
@@ -78,9 +99,10 @@ function walkDirectory(dirPath, options = {}) {
       }
 
       if (stat.isDirectory()) {
-        // Skip common non-source directories
-        if (['node_modules', 'vendor', 'dist', 'build', '__pycache__', '.git',
-             'venv', 'env', '.venv', 'target', 'coverage'].includes(entry)) continue;
+        // Prune known heavy/internal dirs (incl. hidden ones like .git), but
+        // do not blanket-skip every dotdir — security-relevant paths such as
+        // .github/workflows must still be walked.
+        if (SKIP_DIRECTORIES.has(entry)) continue;
 
         // Skip gitignored directories
         if (isGitignored(relativePath, gitignorePatterns)) continue;
