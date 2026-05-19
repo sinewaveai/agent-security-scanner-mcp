@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.1] - 2026-05-19
+
+### Fixed
+
+- **`scan-project` dotpath blind spot:** the directory walk skipped every entry beginning with `.`, so security-relevant dotpaths (e.g. `.github/workflows`, `.github/scripts`) and their scannable source files were never analyzed. The blanket hidden-entry skip is replaced with an explicit `SKIP_DIRECTORIES` denylist. Scannable files inside dotpaths are now traversed, while VCS metadata (`.git`), dependency trees, build artifacts, language/tool caches, and editor state remain pruned. (#90, fixes #68)
+
 ## [4.4.0] - 2026-05-12
 
 ### Fixed
