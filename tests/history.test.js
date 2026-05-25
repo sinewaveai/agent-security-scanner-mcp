@@ -178,10 +178,11 @@ describe('loadHistory', () => {
     saveResult(tempDir, mockScanResult({ grade: 'A' }));
 
     // Corrupt file with different timestamp to avoid collision
+    // Use a timestamp 5 seconds in the past to avoid any collision
     const pad = (n) => String(n).padStart(2, '0');
     const now = new Date();
-    now.setSeconds(10);  // Set to :10 to avoid collision with :00-:05
-    const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    const pastTime = new Date(now.getTime() - 5000); // 5 seconds ago
+    const ts = `${pastTime.getFullYear()}-${pad(pastTime.getMonth() + 1)}-${pad(pastTime.getDate())}T${pad(pastTime.getHours())}-${pad(pastTime.getMinutes())}-${pad(pastTime.getSeconds())}`;
     writeFileSync(join(resultsDir, `${ts}.json`), 'this is not json{{{');
 
     const results = loadHistory(tempDir, 90);
