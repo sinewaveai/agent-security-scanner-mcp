@@ -75,7 +75,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
     "bloom-filters": "^3.0.4",
-    "tar": "^7.5.9",
+    "tar": "^7.5.16",
     "zod": "^4.3.6"
   },
   "files": [
