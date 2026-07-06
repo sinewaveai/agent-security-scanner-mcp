@@ -4,9 +4,9 @@
 
 # agent-security-scanner-mcp
 
-**Security scanner for AI coding agents and autonomous assistants**
+**npm audit for AI agents and MCP servers**
 
-Scans code for vulnerabilities, detects hallucinated packages, blocks prompt injection, and provides LLM-powered semantic code review — via MCP (Claude Code, Cursor, Windsurf, Cline) or CLI (OpenClaw, CI/CD).
+Scan code, MCP tools, prompts, skills, and AI-suggested dependencies before your agent trusts them. Built for Claude Code, Cursor, Windsurf, Cline, OpenClaw, and CI/CD.
 
 [![npm downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
@@ -17,6 +17,41 @@ Scans code for vulnerabilities, detects hallucinated packages, blocks prompt inj
 </div>
 
 ---
+
+## Start Here
+
+Run the agent security smoke test on any repo:
+
+```bash
+npx agent-security-scanner-mcp scan-project . --verbosity compact
+```
+
+Install it into your AI coding client:
+
+```bash
+npx agent-security-scanner-mcp init claude-code
+```
+
+Replace `claude-code` with `cursor`, `claude-desktop`, `windsurf`, `cline`, `kilo-code`, `opencode`, or `cody`.
+
+### What To Run Before You Trust An Agent
+
+```bash
+# Check the whole project and get an A-F security grade
+npx agent-security-scanner-mcp scan-project . --verbosity compact
+
+# Audit an MCP server before adding it to Claude/Cursor/Windsurf
+npx agent-security-scanner-mcp scan-mcp ./path/to/mcp-server --verbosity compact
+
+# Verify AI-suggested imports are real packages, not hallucinations
+npx agent-security-scanner-mcp scan-packages ./src/app.ts npm --verbosity compact
+
+# Add a local environment health check
+npx agent-security-scanner-mcp doctor
+
+# Add the scanner to your AI client
+npx agent-security-scanner-mcp init claude-code
+```
 
 ## 🎯 Two Versions Available
 

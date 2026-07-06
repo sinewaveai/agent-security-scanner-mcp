@@ -38,6 +38,7 @@ docs/
 vuln-demo.*
 .smithery/
 .worktrees/
+.codex/
 
 # Generated ClawHub scan data (large directories)
 clawhub-skills/

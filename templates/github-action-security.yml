@@ -1,0 +1,31 @@
+name: Agent Security Scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 9 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  agent-security:
+    name: Scan AI agent, MCP, and supply-chain risk
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: sinewaveai/agent-security-scanner-mcp/.github/actions/security-scan@main
+        with:
+          severity_threshold: warning
+          scan_packages: "true"
+          scan_diff_only: "true"
+          upload_sarif: "true"
+
