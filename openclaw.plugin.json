@@ -1,6 +1,6 @@
 {
   "name": "agent-security-scanner-mcp",
-  "version": "4.4.7",
+  "version": "4.4.6",
   "description": "npm audit for AI agents and OpenClaw skills: prompt injection firewall, package hallucination detection, MCP/security scanning, and auto-fix",
   "author": "Sinewave AI",
   "license": "MIT",
