@@ -29,3 +29,12 @@ jobs:
           scan_diff_only: "true"
           upload_sarif: "true"
 
+# Pull requests with findings receive an updated comment like:
+#
+#   Security Scan Results
+#   | Metric | Count |
+#   | Total issues | 2 |
+#   | Errors | 0 |
+#   | Warnings | 2 |
+#
+# Findings are also uploaded as SARIF when `upload_sarif` is true.
