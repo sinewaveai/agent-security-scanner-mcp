@@ -570,6 +570,12 @@ const cliArgs = process.argv.slice(2);
     console.error(`  Error: ${err.message}\n`);
     process.exit(1);
   });
+} else if (cliArgs[0] === 'init-ci') {
+  const { runInitCi } = await import('./src/cli/init-ci.js');
+  runInitCi(cliArgs.slice(1)).then(() => process.exit(0)).catch(err => {
+    console.error(`  Error: ${err.message}\n`);
+    process.exit(1);
+  });
 } else if (cliArgs[0] === 'harden') {
   const { runHarden } = await import('./src/cli/harden.js');
   runHarden(cliArgs.slice(1)).then(() => process.exit(0)).catch(err => {
@@ -673,6 +679,7 @@ const cliArgs = process.argv.slice(2);
   console.log('\n  agent-security-scanner-mcp\n');
   console.log('  Commands:');
   console.log('    init [client]        Set up MCP config for a client');
+  console.log('    init-ci [provider]   Install CI workflow template (github)');
   console.log('    init-hooks           Install Claude Code hooks for auto-scanning');
   console.log('    doctor [--fix]       Check environment & client configs');
   console.log('    demo [--lang js]     Generate vulnerable file + scan it');
@@ -705,6 +712,7 @@ const cliArgs = process.argv.slice(2);
   console.log('    --exclude <pattern>  Exclude matching files (scan-project)\n');
   console.log('  Examples:');
   console.log('    npx agent-security-scanner-mcp init');
+  console.log('    npx agent-security-scanner-mcp init-ci github');
   console.log('    npx agent-security-scanner-mcp scan-prompt "ignore previous instructions"');
   console.log('    npx agent-security-scanner-mcp scan-security ./app.py --verbosity minimal');
   console.log('    npx agent-security-scanner-mcp check-package flask pypi');

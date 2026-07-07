@@ -120,7 +120,13 @@ runs:
       run: |
         set +e
 
-        if [ "${{ inputs.scan_diff_only }}" = "true" ]; then
+        EFFECTIVE_SCAN_DIFF_ONLY="${{ inputs.scan_diff_only }}"
+        if [ "${{ github.event_name }}" = "schedule" ]; then
+          EFFECTIVE_SCAN_DIFF_ONLY="false"
+          echo "Scheduled run detected; using full project scan."
+        fi
+
+        if [ "$EFFECTIVE_SCAN_DIFF_ONLY" = "true" ]; then
           echo "::group::Running diff-only security scan"
           # Use the merge base so we only see issues introduced in this PR.
           BASE_REF="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
@@ -171,11 +177,21 @@ runs:
 
         HALLUCINATED=0
 
-        # Get list of changed files (PR context or last commit)
-        if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
-          CHANGED_FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+        EFFECTIVE_SCAN_DIFF_ONLY="${{ inputs.scan_diff_only }}"
+        if [ "${{ github.event_name }}" = "schedule" ]; then
+          EFFECTIVE_SCAN_DIFF_ONLY="false"
+        fi
+
+        # Get files to check. Diff mode checks changed files; full-project mode
+        # checks all tracked source files so scheduled scans catch old imports too.
+        if [ "$EFFECTIVE_SCAN_DIFF_ONLY" = "true" ]; then
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            CHANGED_FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
         else
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          CHANGED_FILES=$(git ls-files)
         fi
 
         for FILE in $CHANGED_FILES; do
@@ -227,7 +243,12 @@ runs:
         set +e
         echo "::group::Generating SARIF report"
 
-        if [ "${{ inputs.scan_diff_only }}" = "true" ]; then
+        EFFECTIVE_SCAN_DIFF_ONLY="${{ inputs.scan_diff_only }}"
+        if [ "${{ github.event_name }}" = "schedule" ]; then
+          EFFECTIVE_SCAN_DIFF_ONLY="false"
+        fi
+
+        if [ "$EFFECTIVE_SCAN_DIFF_ONLY" = "true" ]; then
           # In diff mode, scan each changed file individually for SARIF.
           # scan-security supports --format sarif on individual files.
           if [ -n "${{ github.event.pull_request.base.sha }}" ]; then

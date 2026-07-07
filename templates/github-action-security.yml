@@ -5,6 +5,8 @@ on:
   push:
     branches: [main]
   schedule:
+    # Weekly full-project scan. The composite action automatically switches
+    # scheduled runs to full-project mode even when PRs use diff-only mode.
     - cron: "0 9 * * 1"
 
 permissions:

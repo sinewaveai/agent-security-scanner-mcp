@@ -34,6 +34,12 @@ npx agent-security-scanner-mcp init claude-code
 
 Replace `claude-code` with `cursor`, `claude-desktop`, `windsurf`, `cline`, `kilo-code`, `opencode`, or `cody`.
 
+Add the GitHub Actions workflow:
+
+```bash
+npx agent-security-scanner-mcp init-ci github
+```
+
 ### What To Run Before You Trust An Agent
 
 ```bash
@@ -98,6 +104,8 @@ Continue reading below for full version documentation →
 
 ---
 
+> **New in v4.4.7 (2026-07-07):** CI adoption improvements — added `init-ci github` to install the GitHub Actions workflow from the CLI, and scheduled GitHub Action runs now automatically scan the full project instead of only the latest diff. Package hallucination checks also use all tracked source files during full-project runs.
+>
 > **New in v4.3.0 (2026-05-05):** Critical security and reliability fixes — GitHub Actions now **fail closed** instead of fail-open when scanner output is invalid (preventing security gate bypass), patched **8 Hono CVEs** (XSS, path traversal, authentication bypass), fixed confidence threshold filtering case sensitivity, and corrected SARIF generation for GitHub Code Scanning. All fixes include comprehensive regression tests. **Upgrade recommended for production use.** [See Full Changelog](CHANGELOG.md#430---2026-05-05).
 >
 > **New in v4.2.0:** Compliance evidence collection — evaluate projects against SOC2-Technical (8 controls) and GDPR-Technical (6 controls) frameworks. Collects evidence from code scans, SBOM, vulnerability checks, and hallucination detection, then evaluates controls with pass/partial/fail/not_evaluated status. Supports evidence persistence for audit trails. [See Compliance Evaluation](#-compliance-evaluation-new-in-v420).
@@ -1346,6 +1354,9 @@ npx agent-security-scanner-mcp check-package flask pypi
 # Scan file imports for hallucinated packages
 npx agent-security-scanner-mcp scan-packages ./requirements.txt pypi
 
+# Install the GitHub Actions workflow
+npx agent-security-scanner-mcp init-ci github
+
 # Install Claude Code hooks for automatic scanning
 npx agent-security-scanner-mcp init-hooks
 
@@ -1632,6 +1643,13 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ---
 
 ## Changelog
+
+### v4.4.7 (2026-07-07) - CI Adoption
+
+- **New CLI command:** `init-ci github` installs the public GitHub Actions workflow template into `.github/workflows/agent-security.yml`.
+- **Safer scheduled scans:** Scheduled GitHub Action runs now force full-project scanning even when pull requests use diff-only mode.
+- **Better package checks in CI:** Full-project runs verify imports from all tracked source files instead of only changed files.
+- **Regression coverage:** Added tests for the CI installer and scheduled full-project action behavior.
 
 ### v4.2.0 (2026-04-02) - Compliance Evidence Collection
 
