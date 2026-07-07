@@ -52,6 +52,9 @@ npx agent-security-scanner-mcp scan-mcp ./path/to/mcp-server --verbosity compact
 # Verify AI-suggested imports are real packages, not hallucinations
 npx agent-security-scanner-mcp scan-packages ./src/app.ts npm --verbosity compact
 
+# Check one package before installing it
+npx agent-security-scanner-mcp check-package express npm
+
 # Add a local environment health check
 npx agent-security-scanner-mcp doctor
 
@@ -104,6 +107,8 @@ Continue reading below for full version documentation →
 
 ---
 
+> **New in v4.4.8 (2026-07-07):** Package hallucination demo — run `npx agent-security-scanner-mcp demo --type packages --no-prompt` to create and scan a tiny import file with real and fake npm packages. README examples now show both single-package verification and import scanning.
+>
 > **New in v4.4.7 (2026-07-07):** CI adoption improvements — added `init-ci github` to install the GitHub Actions workflow from the CLI, and scheduled GitHub Action runs now automatically scan the full project instead of only the latest diff. Package hallucination checks also use all tracked source files during full-project runs.
 >
 > **New in v4.3.0 (2026-05-05):** Critical security and reliability fixes — GitHub Actions now **fail closed** instead of fail-open when scanner output is invalid (preventing security gate bypass), patched **8 Hono CVEs** (XSS, path traversal, authentication bypass), fixed confidence threshold filtering case sensitivity, and corrected SARIF generation for GitHub Code Scanning. All fixes include comprehensive regression tests. **Upgrade recommended for production use.** [See Full Changelog](CHANGELOG.md#430---2026-05-05).
@@ -1323,9 +1328,12 @@ Checks Node.js version, Python availability, analyzer engine status, and scans a
 
 ```bash
 npx agent-security-scanner-mcp demo --lang js
+npx agent-security-scanner-mcp demo --type packages --no-prompt
 ```
 
-Creates a small file with 3 intentional vulnerabilities, runs the scanner, shows findings with CWE/OWASP references, and asks if you want to keep the file for testing.
+The security demo creates a small file with 3 intentional vulnerabilities, runs the scanner, shows findings with CWE/OWASP references, and asks if you want to keep the file for testing.
+
+The package demo creates a tiny JavaScript import file with real and hallucinated npm packages, runs `scan-packages`, and deletes the file unless you pass `--keep`.
 
 Available languages: `js` (default), `py`, `go`, `java`.
 
@@ -1350,9 +1358,14 @@ npx agent-security-scanner-mcp scan-project ./src
 
 # Check if a package is legitimate
 npx agent-security-scanner-mcp check-package flask pypi
+npx agent-security-scanner-mcp check-package express npm
 
 # Scan file imports for hallucinated packages
 npx agent-security-scanner-mcp scan-packages ./requirements.txt pypi
+npx agent-security-scanner-mcp scan-packages ./src/app.ts npm --verbosity compact
+
+# Try the package hallucination demo
+npx agent-security-scanner-mcp demo --type packages --no-prompt
 
 # Install the GitHub Actions workflow
 npx agent-security-scanner-mcp init-ci github
@@ -1643,6 +1656,13 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ---
 
 ## Changelog
+
+### v4.4.8 (2026-07-07) - Package Hallucination Demo
+
+- **New demo mode:** `demo --type packages` creates a small JavaScript file with real and hallucinated npm imports, then runs `scan-packages`.
+- **Automation-friendly demo:** `--no-prompt` cleans up the generated file without waiting for input, and `--keep` preserves it for local testing.
+- **README examples:** Added clearer single-package and import-scan examples for `check-package` and `scan-packages`.
+- **Regression coverage:** Added tests for package demo cleanup and `--keep` behavior.
 
 ### v4.4.7 (2026-07-07) - CI Adoption
 

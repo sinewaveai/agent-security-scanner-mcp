@@ -5,6 +5,8 @@ import { createInterface } from "readline";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { resolvePythonCommand, pythonArgs } from "../python.js";
+import { loadPackageLists } from "../tools/check-package.js";
+import { scanPackages } from "../tools/scan-packages.js";
 
 // Handle both ESM and CJS bundling (Smithery bundles to CJS)
 let __dirname;
@@ -135,13 +137,41 @@ public class VulnDemo {
   }
 };
 
+const PACKAGE_DEMO = {
+  ecosystem: 'npm',
+  filename: 'hallucination-demo.js',
+  code: `import express from "express";
+import chalk from "chalk";
+import agentMemoryGraph from "agent-memory-graph-cache";
+
+const bridge = require("secure-mcp-session-bridge");
+
+console.log(express, chalk, agentMemoryGraph, bridge);
+`
+};
+
 function parseDemoFlags(args) {
-  const flags = { lang: 'js' };
+  const flags = {
+    lang: 'js',
+    type: 'security',
+    keep: false,
+    noPrompt: false,
+  };
   let i = 0;
   while (i < args.length) {
     const arg = args[i];
     if ((arg === '--lang' || arg === '-l') && i + 1 < args.length) {
       flags.lang = args[++i].toLowerCase();
+    } else if ((arg === '--type' || arg === '-t') && i + 1 < args.length) {
+      flags.type = args[++i].toLowerCase();
+    } else if (arg === '--packages') {
+      flags.type = 'packages';
+    } else if (arg === '--security') {
+      flags.type = 'security';
+    } else if (arg === '--keep') {
+      flags.keep = true;
+    } else if (arg === '--no-prompt' || arg === '--yes') {
+      flags.noPrompt = true;
     } else if (!arg.startsWith('-')) {
       flags.lang = arg.toLowerCase();
     }
@@ -159,8 +189,58 @@ function checkCommand(cmd, args) {
   }
 }
 
-export async function runDemo(args) {
+async function askKeep(filename) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(`  Keep ${filename} for testing? (y/N): `, (a) => { rl.close(); resolve(a); });
+  });
+}
+
+async function runPackageDemo(flags, options) {
+  const cwd = options.cwd || process.cwd();
+  const filepath = join(cwd, PACKAGE_DEMO.filename);
+
+  console.log(`\n  agent-security-scanner-mcp package demo\n`);
+  console.log(`  Creating ${PACKAGE_DEMO.filename} with real and hallucinated imports...\n`);
+
+  writeFileSync(filepath, PACKAGE_DEMO.code);
+  loadPackageLists();
+
+  console.log(`  Scanning imports with scan-packages (${PACKAGE_DEMO.ecosystem})...\n`);
+
+  const scanResult = await scanPackages({
+    file_path: filepath,
+    ecosystem: PACKAGE_DEMO.ecosystem,
+    verbosity: 'compact'
+  });
+  const output = JSON.parse(scanResult.content[0].text);
+
+  console.log(JSON.stringify(output, null, 2));
+
+  const shouldKeep = flags.keep || (!flags.noPrompt && (await askKeep(PACKAGE_DEMO.filename)).toLowerCase() === 'y');
+  if (shouldKeep) {
+    console.log(`\n  Kept: ${filepath}`);
+  } else {
+    unlinkSync(filepath);
+    console.log(`\n  Deleted: ${PACKAGE_DEMO.filename}`);
+  }
+
+  console.log(`\n  Next: ask your coding agent to add a dependency, then run`);
+  console.log(`  npx agent-security-scanner-mcp scan-packages <file> npm --verbosity compact\n`);
+
+  return output;
+}
+
+export async function runDemo(args, options = {}) {
   const flags = parseDemoFlags(args);
+  if (flags.type === 'packages' || flags.type === 'package') {
+    return runPackageDemo(flags, options);
+  }
+
+  if (flags.type !== 'security') {
+    throw new Error(`unknown demo type: ${flags.type}. Available: security, packages`);
+  }
+
   const template = DEMO_TEMPLATES[flags.lang];
   if (!template) {
     console.log(`\n  Unknown language: "${flags.lang}"`);
@@ -169,7 +249,7 @@ export async function runDemo(args) {
   }
 
   const filename = `vuln-demo.${template.ext}`;
-  const filepath = join(process.cwd(), filename);
+  const filepath = join(options.cwd || process.cwd(), filename);
 
   console.log(`\n  agent-security-scanner-mcp demo\n`);
   console.log(`  Creating ${filename} with 3 intentional vulnerabilities...\n`);
@@ -211,10 +291,7 @@ export async function runDemo(args) {
   }
 
   // Ask to keep or delete
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise((resolve) => {
-    rl.question(`  Keep ${filename} for testing? (y/N): `, (a) => { rl.close(); resolve(a); });
-  });
+  const answer = flags.keep ? 'y' : flags.noPrompt ? 'n' : await askKeep(filename);
 
   if (answer.toLowerCase() === 'y') {
     console.log(`\n  Kept: ${filepath}`);
@@ -225,4 +302,6 @@ export async function runDemo(args) {
 
   console.log(`\n  Next: Connect to your AI coding tool and ask it to`);
   console.log(`  "scan ${filename} for security issues"\n`);
+
+  return results;
 }
