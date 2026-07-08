@@ -36,4 +36,26 @@ describe('demo CLI', () => {
       expect(existsSync(join(dir, 'hallucination-demo.js'))).toBe(true);
     });
   });
+
+  it('runs the MCP audit demo and removes the fixture by default', async () => {
+    await withTempDir(async (dir) => {
+      const result = await runDemo(['--type', 'mcp', '--no-prompt'], { cwd: dir });
+      const rules = result.findings.map((finding) => finding.rule);
+
+      expect(result.grade).toBe('F');
+      expect(result.findings_count).toBeGreaterThanOrEqual(5);
+      expect(rules).toContain('mcp.shell-exec-no-validation');
+      expect(rules).toContain('mcp.description-injection');
+      expect(rules).toContain('mcp.tool-name-spoofing');
+      expect(existsSync(join(dir, 'mcp-audit-demo'))).toBe(false);
+    });
+  });
+
+  it('keeps the MCP audit fixture when requested', async () => {
+    await withTempDir(async (dir) => {
+      await runDemo(['--type', 'mcp', '--keep'], { cwd: dir });
+
+      expect(existsSync(join(dir, 'mcp-audit-demo', 'server.js'))).toBe(true);
+    });
+  });
 });

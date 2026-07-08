@@ -1,6 +1,6 @@
 {
   "name": "agent-security-scanner-mcp",
-  "version": "4.4.8",
+  "version": "4.4.9",
   "mcpName": "io.github.sinewaveai/agent-security-scanner-mcp",
   "description": "npm audit for AI agents and MCP servers. Scan code, MCP tools, prompts, and hallucinated packages for Claude Code, Cursor, Windsurf, Cline, OpenClaw, and CI.",
   "main": "index.js",

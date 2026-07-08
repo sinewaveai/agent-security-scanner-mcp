@@ -49,6 +49,9 @@ npx agent-security-scanner-mcp scan-project . --verbosity compact
 # Audit an MCP server before adding it to Claude/Cursor/Windsurf
 npx agent-security-scanner-mcp scan-mcp ./path/to/mcp-server --verbosity compact
 
+# Try an MCP audit demo with tool poisoning and command-exec findings
+npx agent-security-scanner-mcp demo --type mcp --no-prompt
+
 # Verify AI-suggested imports are real packages, not hallucinations
 npx agent-security-scanner-mcp scan-packages ./src/app.ts npm --verbosity compact
 
@@ -107,6 +110,8 @@ Continue reading below for full version documentation →
 
 ---
 
+> **New in v4.4.9 (2026-07-08):** MCP audit demo — run `npx agent-security-scanner-mcp demo --type mcp --no-prompt` to create and scan a tiny MCP server with tool poisoning, tool-name spoofing, command execution, secret exposure, and missing-validation findings.
+>
 > **New in v4.4.8 (2026-07-07):** Package hallucination demo — run `npx agent-security-scanner-mcp demo --type packages --no-prompt` to create and scan a tiny import file with real and fake npm packages. README examples now show both single-package verification and import scanning.
 >
 > **New in v4.4.7 (2026-07-07):** CI adoption improvements — added `init-ci github` to install the GitHub Actions workflow from the CLI, and scheduled GitHub Action runs now automatically scan the full project instead of only the latest diff. Package hallucination checks also use all tracked source files during full-project runs.
@@ -973,6 +978,20 @@ Scan an MCP server's source code for security vulnerabilities including overly b
 }
 ```
 
+**CLI quick check:**
+
+```bash
+npx agent-security-scanner-mcp scan-mcp ./path/to/mcp-server --verbosity compact
+```
+
+**Try the demo:**
+
+```bash
+npx agent-security-scanner-mcp demo --type mcp --no-prompt
+```
+
+The demo creates `mcp-audit-demo/server.js`, scans it, and then deletes it. Expected findings include command execution without validation, tool description injection, tool-name spoofing, environment variable exposure, and missing input validation.
+
 **Detection capabilities:**
 
 | Category | Rules | Threat |
@@ -1329,11 +1348,14 @@ Checks Node.js version, Python availability, analyzer engine status, and scans a
 ```bash
 npx agent-security-scanner-mcp demo --lang js
 npx agent-security-scanner-mcp demo --type packages --no-prompt
+npx agent-security-scanner-mcp demo --type mcp --no-prompt
 ```
 
 The security demo creates a small file with 3 intentional vulnerabilities, runs the scanner, shows findings with CWE/OWASP references, and asks if you want to keep the file for testing.
 
 The package demo creates a tiny JavaScript import file with real and hallucinated npm packages, runs `scan-packages`, and deletes the file unless you pass `--keep`.
+
+The MCP demo creates a tiny MCP server with intentional tool poisoning, command execution, and spoofed tool-name risks, runs `scan-mcp`, and deletes the directory unless you pass `--keep`.
 
 Available languages: `js` (default), `py`, `go`, `java`.
 
@@ -1364,8 +1386,14 @@ npx agent-security-scanner-mcp check-package express npm
 npx agent-security-scanner-mcp scan-packages ./requirements.txt pypi
 npx agent-security-scanner-mcp scan-packages ./src/app.ts npm --verbosity compact
 
+# Audit an MCP server before installing it
+npx agent-security-scanner-mcp scan-mcp ./path/to/mcp-server --verbosity compact
+
 # Try the package hallucination demo
 npx agent-security-scanner-mcp demo --type packages --no-prompt
+
+# Try the MCP server audit demo
+npx agent-security-scanner-mcp demo --type mcp --no-prompt
 
 # Install the GitHub Actions workflow
 npx agent-security-scanner-mcp init-ci github
@@ -1656,6 +1684,13 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ---
 
 ## Changelog
+
+### v4.4.9 (2026-07-08) - MCP Audit Demo
+
+- **New demo mode:** `demo --type mcp` creates a small MCP server with intentional command execution, tool poisoning, tool-name spoofing, secret exposure, and missing-validation risks, then runs `scan-mcp`.
+- **Automation-friendly demo:** `--no-prompt` cleans up the generated MCP demo directory without waiting for input, and `--keep` preserves it for local testing.
+- **README examples:** Added clearer `scan-mcp` CLI examples and expected demo findings for MCP server audits.
+- **Regression coverage:** Added tests for MCP demo cleanup and `--keep` behavior.
 
 ### v4.4.8 (2026-07-07) - Package Hallucination Demo
 

@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sinewaveai/agent-security-scanner-mcp",
   "description": "npm audit for AI agents and MCP servers: scan code, MCP tools, prompts, and hallucinated packages before agents trust them.",
-  "version": "4.4.8",
+  "version": "4.4.9",
   "transport": "stdio",
   "registry": "npm"
 }
