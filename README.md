@@ -26,6 +26,12 @@ Run the agent security smoke test on any repo:
 npx agent-security-scanner-mcp scan-project . --verbosity compact
 ```
 
+Or get repo-specific next steps first:
+
+```bash
+npx agent-security-scanner-mcp quickstart --client claude-code
+```
+
 Install it into your AI coding client:
 
 ```bash
@@ -110,6 +116,8 @@ Continue reading below for full version documentation →
 
 ---
 
+> **New in v4.4.10 (2026-07-10):** Quickstart planner — run `npx agent-security-scanner-mcp quickstart --client cursor` to get repo-specific scan, MCP audit, SBOM, CI, and AI-client setup commands before choosing what to run.
+>
 > **New in v4.4.9 (2026-07-08):** MCP audit demo — run `npx agent-security-scanner-mcp demo --type mcp --no-prompt` to create and scan a tiny MCP server with tool poisoning, tool-name spoofing, command execution, secret exposure, and missing-validation findings.
 >
 > **New in v4.4.8 (2026-07-07):** Package hallucination demo — run `npx agent-security-scanner-mcp demo --type packages --no-prompt` to create and scan a tiny import file with real and fake npm packages. README examples now show both single-package verification and import scanning.
@@ -1684,6 +1692,13 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ---
 
 ## Changelog
+
+### v4.4.10 (2026-07-10) - Quickstart Planner
+
+- **New CLI command:** `quickstart` recommends repo-specific first commands for project scans, MCP audits, skill scans, package hallucination checks, SBOM reports, AI-client setup, and GitHub Actions.
+- **Script-friendly output:** `quickstart --json` emits structured recommendations for onboarding scripts, docs generators, or CI bootstrap flows.
+- **Client-aware setup:** `quickstart --client cursor` customizes the AI-client install command for Cursor, Claude Code, Windsurf, Cline, Kilo Code, OpenCode, Cody, or Claude Desktop.
+- **Regression coverage:** Added tests for detection logic, JSON output, and CLI help wiring.
 
 ### v4.4.9 (2026-07-08) - MCP Audit Demo
 

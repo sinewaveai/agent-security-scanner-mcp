@@ -24,6 +24,7 @@ import { scanMcpServerSchema, scanMcpServer } from './src/tools/scan-mcp.js';
 import { runInit } from './src/cli/init.js';
 import { runDoctor } from './src/cli/doctor.js';
 import { runDemo } from './src/cli/demo.js';
+import { runQuickstart } from './src/cli/quickstart.js';
 import { runInitHooks } from './src/cli/init-hooks.js';
 import { runReport } from './src/cli/report.js';
 import { scoreAivssSchema, scoreAivssTool } from './src/tools/score-aivss.js';
@@ -333,6 +334,14 @@ const cliArgs = process.argv.slice(2);
   } else if (cliArgs[0] === 'demo') {
     try {
       await runDemo(cliArgs.slice(1));
+      process.exit(0);
+    } catch (err) {
+      console.error(`  Error: ${err.message}\n`);
+      process.exit(1);
+    }
+  } else if (cliArgs[0] === 'quickstart') {
+    try {
+      await runQuickstart(cliArgs.slice(1));
       process.exit(0);
     } catch (err) {
       console.error(`  Error: ${err.message}\n`);
@@ -682,6 +691,7 @@ const cliArgs = process.argv.slice(2);
   console.log('    init-ci [provider]   Install CI workflow template (github)');
   console.log('    init-hooks           Install Claude Code hooks for auto-scanning');
   console.log('    doctor [--fix]       Check environment & client configs');
+  console.log('    quickstart [--client claude-code] [--json] Recommend repo-specific first commands');
   console.log('    demo [--lang js]     Generate vulnerable file + scan it');
   console.log('    demo --type packages Generate package hallucination demo + scan it');
   console.log('    demo --type mcp      Generate MCP audit demo + scan it');
@@ -714,6 +724,7 @@ const cliArgs = process.argv.slice(2);
   console.log('    --exclude <pattern>  Exclude matching files (scan-project)\n');
   console.log('  Examples:');
   console.log('    npx agent-security-scanner-mcp init');
+  console.log('    npx agent-security-scanner-mcp quickstart --client cursor');
   console.log('    npx agent-security-scanner-mcp init-ci github');
   console.log('    npx agent-security-scanner-mcp demo --type packages --no-prompt');
   console.log('    npx agent-security-scanner-mcp demo --type mcp --no-prompt');

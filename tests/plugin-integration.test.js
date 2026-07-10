@@ -24,6 +24,18 @@ describe('CLI commands', () => {
     expect(output).toContain('harden');
   });
 
+  it('--help includes quickstart command', () => {
+    const output = execFileSync('node', [CLI, '--help'], { encoding: 'utf-8' });
+    expect(output).toContain('quickstart');
+  });
+
+  it('quickstart emits JSON recommendations', () => {
+    const output = execFileSync('node', [CLI, 'quickstart', '--json', '--client', 'cursor'], { encoding: 'utf-8' });
+    const result = JSON.parse(output);
+    expect(result.recommended_first_command).toContain('scan-project');
+    expect(result.commands.some((command) => command.command.includes('init cursor'))).toBe(true);
+  });
+
   it('audit command runs without error', () => {
     const output = execFileSync('node', [CLI, 'audit', '--allow-stub'], { encoding: 'utf-8' });
     expect(output).toContain('Security Audit');
