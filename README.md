@@ -32,6 +32,12 @@ Or get repo-specific next steps first:
 npx agent-security-scanner-mcp quickstart --client claude-code
 ```
 
+Generate public-safe copy for a launch post, GitHub issue, or directory listing:
+
+```bash
+npx agent-security-scanner-mcp share-kit --client claude-code
+```
+
 Install it into your AI coding client:
 
 ```bash
@@ -116,6 +122,8 @@ Continue reading below for full version documentation →
 
 ---
 
+> **New in v4.4.11 (2026-07-11):** Share kit generator — run `npx agent-security-scanner-mcp share-kit --client cursor` to generate public-safe launch copy, a GitHub issue template, directory listing text, and repo-specific commands for sharing an agent-security smoke test.
+>
 > **New in v4.4.10 (2026-07-10):** Quickstart planner — run `npx agent-security-scanner-mcp quickstart --client cursor` to get repo-specific scan, MCP audit, SBOM, CI, and AI-client setup commands before choosing what to run.
 >
 > **New in v4.4.9 (2026-07-08):** MCP audit demo — run `npx agent-security-scanner-mcp demo --type mcp --no-prompt` to create and scan a tiny MCP server with tool poisoning, tool-name spoofing, command execution, secret exposure, and missing-validation findings.
@@ -1692,6 +1700,13 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ---
 
 ## Changelog
+
+### v4.4.11 (2026-07-11) - Share Kit Generator
+
+- **New CLI command:** `share-kit` generates public-safe launch copy for social posts, GitHub issues, and directory listings.
+- **Repo-aware recommendations:** Uses the quickstart detector to include relevant commands for project scans, MCP audits, skill scans, package checks, AI-client setup, and CI setup.
+- **Script-friendly output:** `share-kit --json` returns structured launch copy, and `share-kit --output share-kit.md` writes a markdown artifact.
+- **Regression coverage:** Added tests for copy generation, markdown rendering, JSON output, file output, and CLI help wiring.
 
 ### v4.4.10 (2026-07-10) - Quickstart Planner
 

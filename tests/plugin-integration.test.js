@@ -36,6 +36,18 @@ describe('CLI commands', () => {
     expect(result.commands.some((command) => command.command.includes('init cursor'))).toBe(true);
   });
 
+  it('--help includes share-kit command', () => {
+    const output = execFileSync('node', [CLI, '--help'], { encoding: 'utf-8' });
+    expect(output).toContain('share-kit');
+  });
+
+  it('share-kit emits JSON launch copy', () => {
+    const output = execFileSync('node', [CLI, 'share-kit', '--json', '--client', 'cursor'], { encoding: 'utf-8' });
+    const result = JSON.parse(output);
+    expect(result.short_post).toContain('agent-security-scanner-mcp');
+    expect(result.commands.some((command) => command.includes('init cursor'))).toBe(true);
+  });
+
   it('audit command runs without error', () => {
     const output = execFileSync('node', [CLI, 'audit', '--allow-stub'], { encoding: 'utf-8' });
     expect(output).toContain('Security Audit');
