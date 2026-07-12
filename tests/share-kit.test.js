@@ -38,13 +38,47 @@ describe('share-kit CLI', () => {
     await withTempDir(async (dir) => {
       writeFileSync(join(dir, 'SKILL.md'), '# Demo\n');
 
-      const kit = buildShareKit(dir);
+      const kit = buildShareKit(dir, {
+        grade: 'B',
+        finding: 'MCP server missing input validation',
+      });
       const markdown = renderShareKitMarkdown(kit);
 
       expect(markdown).toContain('# agent-security-scanner-mcp Share Kit');
       expect(markdown).toContain('scan-skill');
+      expect(markdown).toContain('Current scan grade: B');
+      expect(markdown).toContain('Top finding: MCP server missing input validation');
       expect(markdown).toContain('## GitHub Issue');
+      expect(markdown).toContain('- Grade: B');
       expect(markdown).toContain('## Directory Listing');
+    });
+  });
+
+  it('loads scan context from --scan-result JSON', async () => {
+    await withTempDir(async (dir) => {
+      const scanPath = join(dir, 'scan-result.json');
+      writeFileSync(scanPath, JSON.stringify({
+        grade: 'D',
+        findings_count: 2,
+        findings: [
+          { message: 'Command execution without input validation' },
+        ],
+      }));
+
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      try {
+        const kit = await runShareKit(['--json', '--scan-result', scanPath], { cwd: dir });
+        const output = log.mock.calls.map(([line]) => line).join('\n');
+        const parsed = JSON.parse(output);
+
+        expect(parsed.scan_summary.grade).toBe('D');
+        expect(parsed.scan_summary.findings_count).toBe(2);
+        expect(parsed.scan_summary.top_finding).toBe('Command execution without input validation');
+        expect(kit.short_post).toContain('Current scan grade: D');
+      } finally {
+        log.mockRestore();
+      }
     });
   });
 

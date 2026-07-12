@@ -38,6 +38,13 @@ Generate public-safe copy for a launch post, GitHub issue, or directory listing:
 npx agent-security-scanner-mcp share-kit --client claude-code
 ```
 
+Include a real scan result in the copy:
+
+```bash
+npx agent-security-scanner-mcp scan-project . --verbosity compact > scan-result.json
+npx agent-security-scanner-mcp share-kit --scan-result scan-result.json --output share-kit.md
+```
+
 Install it into your AI coding client:
 
 ```bash
@@ -122,6 +129,8 @@ Continue reading below for full version documentation →
 
 ---
 
+> **New in v4.4.12 (2026-07-12):** Scan-backed share kits — `share-kit` now accepts `--scan-result`, `--grade`, and `--finding` so launch posts and GitHub issue templates can include a real scan grade and top finding.
+>
 > **New in v4.4.11 (2026-07-11):** Share kit generator — run `npx agent-security-scanner-mcp share-kit --client cursor` to generate public-safe launch copy, a GitHub issue template, directory listing text, and repo-specific commands for sharing an agent-security smoke test.
 >
 > **New in v4.4.10 (2026-07-10):** Quickstart planner — run `npx agent-security-scanner-mcp quickstart --client cursor` to get repo-specific scan, MCP audit, SBOM, CI, and AI-client setup commands before choosing what to run.
@@ -1700,6 +1709,13 @@ All MCP tools support a `verbosity` parameter to minimize context window consump
 ---
 
 ## Changelog
+
+### v4.4.12 (2026-07-12) - Scan-Backed Share Kits
+
+- **Scan result support:** `share-kit --scan-result scan-result.json` reads `scan-project` JSON and includes the grade, finding count, and top finding in public copy.
+- **Manual result support:** `share-kit --grade B --finding "Missing MCP input validation"` adds scan context without requiring a saved JSON file.
+- **Better issue templates:** Generated GitHub issue copy now includes a current result section with grade, finding count, and top finding fields.
+- **Regression coverage:** Added tests for scan-result loading, markdown rendering with real grades, and CLI JSON output.
 
 ### v4.4.11 (2026-07-11) - Share Kit Generator
 

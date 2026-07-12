@@ -42,9 +42,21 @@ describe('CLI commands', () => {
   });
 
   it('share-kit emits JSON launch copy', () => {
-    const output = execFileSync('node', [CLI, 'share-kit', '--json', '--client', 'cursor'], { encoding: 'utf-8' });
+    const output = execFileSync('node', [
+      CLI,
+      'share-kit',
+      '--json',
+      '--client',
+      'cursor',
+      '--grade',
+      'C',
+      '--finding',
+      'Missing MCP input validation',
+    ], { encoding: 'utf-8' });
     const result = JSON.parse(output);
     expect(result.short_post).toContain('agent-security-scanner-mcp');
+    expect(result.scan_summary.grade).toBe('C');
+    expect(result.scan_summary.top_finding).toBe('Missing MCP input validation');
     expect(result.commands.some((command) => command.includes('init cursor'))).toBe(true);
   });
 

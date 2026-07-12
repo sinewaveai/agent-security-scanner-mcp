@@ -701,7 +701,7 @@ const cliArgs = process.argv.slice(2);
   console.log('    init-hooks           Install Claude Code hooks for auto-scanning');
   console.log('    doctor [--fix]       Check environment & client configs');
   console.log('    quickstart [--client claude-code] [--json] Recommend repo-specific first commands');
-  console.log('    share-kit [--client claude-code] [--json] [--output file] Generate public launch copy');
+  console.log('    share-kit [--client claude-code] [--json] [--scan-result file] [--output file] Generate public launch copy');
   console.log('    demo [--lang js]     Generate vulnerable file + scan it');
   console.log('    demo --type packages Generate package hallucination demo + scan it');
   console.log('    demo --type mcp      Generate MCP audit demo + scan it');
