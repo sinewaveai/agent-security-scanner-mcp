@@ -139,4 +139,43 @@ describe('zodToOpenAIResponseFormat', () => {
       },
     });
   });
+
+  // Regression test: OpenAI's strict structured-output mode rejects any schema
+  // where an object has properties absent from `required` (400 Invalid schema
+  // for response_format). Optional fields must instead appear in `required`
+  // with a nullable type. Anthropic's tool schemas don't have this constraint,
+  // which is why this only needs to apply to the OpenAI path.
+  it('marks optional fields as required-but-nullable, per OpenAI strict mode', () => {
+    const schema = z.object({
+      title: z.string(),
+      note: z.string().optional(),
+    });
+    const result = zodToOpenAIResponseFormat(schema, 'test_format');
+    expect(result.json_schema.schema).toEqual({
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        note: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+      },
+      required: ['title', 'note'],
+      additionalProperties: false,
+    });
+  });
+
+  it('does not apply OpenAI strict-mode nullability to zodToAnthropicTool', () => {
+    const schema = z.object({
+      title: z.string(),
+      note: z.string().optional(),
+    });
+    const result = zodToAnthropicTool(schema, 'test_tool', 'A test tool');
+    expect(result.input_schema).toEqual({
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        note: { type: 'string' },
+      },
+      required: ['title'],
+      additionalProperties: false,
+    });
+  });
 });
