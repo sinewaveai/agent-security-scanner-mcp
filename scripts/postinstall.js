@@ -80,8 +80,8 @@ if (existsSync(codeReviewAgentDir)) {
     console.log("[postinstall] Setting up code-review-agent (LLM-powered code review)...");
     try {
       if (!nodeModulesExists) {
-        // Install dependencies
-        execSync("npm install --omit=dev", {
+        const installCommand = distExists ? "npm install --omit=dev" : "npm install";
+        execSync(installCommand, {
           cwd: codeReviewAgentDir,
           timeout: 180000,
           stdio: ["pipe", "pipe", "pipe"]
@@ -89,8 +89,13 @@ if (existsSync(codeReviewAgentDir)) {
       }
 
       if (!distExists) {
-        // Build TypeScript
         execSync("npm run build", {
+          cwd: codeReviewAgentDir,
+          timeout: 60000,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+
+        execSync("npm prune --omit=dev", {
           cwd: codeReviewAgentDir,
           timeout: 60000,
           stdio: ["pipe", "pipe", "pipe"]

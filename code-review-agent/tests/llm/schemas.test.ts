@@ -178,4 +178,46 @@ describe('zodToOpenAIResponseFormat', () => {
       additionalProperties: false,
     });
   });
+
+  it('applies OpenAI strict-mode nullability recursively to nested objects', () => {
+    const schema = z.object({
+      finding: z.object({
+        title: z.string(),
+        metadata: z.object({
+          cwe: z.string().nullable().optional(),
+        }).optional(),
+      }),
+    });
+
+    const result = zodToOpenAIResponseFormat(schema, 'nested_format');
+
+    expect(result.json_schema.schema).toEqual({
+      type: 'object',
+      properties: {
+        finding: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            metadata: {
+              anyOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    cwe: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+                  },
+                  required: ['cwe'],
+                  additionalProperties: false,
+                },
+                { type: 'null' },
+              ],
+            },
+          },
+          required: ['title', 'metadata'],
+          additionalProperties: false,
+        },
+      },
+      required: ['finding'],
+      additionalProperties: false,
+    });
+  });
 });

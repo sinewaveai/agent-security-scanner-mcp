@@ -51,9 +51,7 @@ function convertType(schema: z.ZodTypeAny, openaiStrict: boolean): JsonSchema {
         // optional field is rejected outright by OpenAI's API (400 Invalid schema),
         // while Anthropic's looser tool-schema rules tolerate the omission.
         if (openaiStrict && isOptional) {
-          propSchema = propSchema.anyOf
-            ? { anyOf: [...(propSchema.anyOf as JsonSchema[]), { type: 'null' }] }
-            : { anyOf: [propSchema, { type: 'null' }] };
+          propSchema = withNull(propSchema);
         }
 
         properties[key] = propSchema;
@@ -78,7 +76,7 @@ function convertType(schema: z.ZodTypeAny, openaiStrict: boolean): JsonSchema {
 
     case 'ZodNullable': {
       const inner = convertType(def.innerType, openaiStrict);
-      return { anyOf: [inner, { type: 'null' }] };
+      return withNull(inner);
     }
 
     case 'ZodDefault':
@@ -102,6 +100,17 @@ function convertType(schema: z.ZodTypeAny, openaiStrict: boolean): JsonSchema {
       // Fail loud instead of silently producing invalid schema
       throw new Error(`zodToJsonSchema: unsupported Zod type "${typeName}". Add explicit handling for this type.`);
   }
+}
+
+function withNull(schema: JsonSchema): JsonSchema {
+  if (Array.isArray(schema.anyOf)) {
+    const alreadyNullable = schema.anyOf.some((option) => {
+      return typeof option === 'object' && option !== null && (option as JsonSchema).type === 'null';
+    });
+    return alreadyNullable ? schema : { anyOf: [...schema.anyOf, { type: 'null' }] };
+  }
+
+  return { anyOf: [schema, { type: 'null' }] };
 }
 
 export function zodToAnthropicTool(
