@@ -2,11 +2,11 @@ import { z } from 'zod';
 
 type JsonSchema = Record<string, unknown>;
 
-export function zodToJsonSchema(schema: z.ZodTypeAny): JsonSchema {
-  return convertType(schema);
+export function zodToJsonSchema(schema: z.ZodTypeAny, openaiStrict = false): JsonSchema {
+  return convertType(schema, openaiStrict);
 }
 
-function convertType(schema: z.ZodTypeAny): JsonSchema {
+function convertType(schema: z.ZodTypeAny, openaiStrict: boolean): JsonSchema {
   const def = schema._def;
   const typeName = def.typeName as string;
 
@@ -33,7 +33,7 @@ function convertType(schema: z.ZodTypeAny): JsonSchema {
       return { type: 'string', enum: def.values };
 
     case 'ZodArray':
-      return { type: 'array', items: convertType(def.type) };
+      return { type: 'array', items: convertType(def.type, openaiStrict) };
 
     case 'ZodObject': {
       const shape = def.shape();
@@ -43,8 +43,19 @@ function convertType(schema: z.ZodTypeAny): JsonSchema {
       for (const [key, value] of Object.entries(shape)) {
         const fieldSchema = value as z.ZodTypeAny;
         const isOptional = fieldSchema.isOptional();
-        properties[key] = convertType(fieldSchema);
-        if (!isOptional) {
+        let propSchema = convertType(fieldSchema, openaiStrict);
+
+        // OpenAI's strict structured-output mode requires every property to be
+        // listed in `required`; true optionality must instead be expressed by
+        // making the field's type nullable. Without this, any schema with an
+        // optional field is rejected outright by OpenAI's API (400 Invalid schema),
+        // while Anthropic's looser tool-schema rules tolerate the omission.
+        if (openaiStrict && isOptional) {
+          propSchema = withNull(propSchema);
+        }
+
+        properties[key] = propSchema;
+        if (!isOptional || openaiStrict) {
           required.push(key);
         }
       }
@@ -61,34 +72,45 @@ function convertType(schema: z.ZodTypeAny): JsonSchema {
     }
 
     case 'ZodOptional':
-      return convertType(def.innerType);
+      return convertType(def.innerType, openaiStrict);
 
     case 'ZodNullable': {
-      const inner = convertType(def.innerType);
-      return { anyOf: [inner, { type: 'null' }] };
+      const inner = convertType(def.innerType, openaiStrict);
+      return withNull(inner);
     }
 
     case 'ZodDefault':
-      return convertType(def.innerType);
+      return convertType(def.innerType, openaiStrict);
 
     case 'ZodEffects':
-      return convertType(def.schema);
+      return convertType(def.schema, openaiStrict);
 
     case 'ZodUnion': {
-      const options = (def.options as z.ZodTypeAny[]).map(convertType);
+      const options = (def.options as z.ZodTypeAny[]).map((o) => convertType(o, openaiStrict));
       return { anyOf: options };
     }
 
     case 'ZodRecord':
       return {
         type: 'object',
-        additionalProperties: convertType(def.valueType),
+        additionalProperties: convertType(def.valueType, openaiStrict),
       };
 
     default:
       // Fail loud instead of silently producing invalid schema
       throw new Error(`zodToJsonSchema: unsupported Zod type "${typeName}". Add explicit handling for this type.`);
   }
+}
+
+function withNull(schema: JsonSchema): JsonSchema {
+  if (Array.isArray(schema.anyOf)) {
+    const alreadyNullable = schema.anyOf.some((option) => {
+      return typeof option === 'object' && option !== null && (option as JsonSchema).type === 'null';
+    });
+    return alreadyNullable ? schema : { anyOf: [...schema.anyOf, { type: 'null' }] };
+  }
+
+  return { anyOf: [schema, { type: 'null' }] };
 }
 
 export function zodToAnthropicTool(
@@ -103,7 +125,7 @@ export function zodToAnthropicTool(
   return {
     name,
     description,
-    input_schema: zodToJsonSchema(schema),
+    input_schema: zodToJsonSchema(schema, false),
   };
 }
 
@@ -119,7 +141,7 @@ export function zodToOpenAIResponseFormat(
     json_schema: {
       name,
       strict: true,
-      schema: zodToJsonSchema(schema),
+      schema: zodToJsonSchema(schema, true),
     },
   };
 }

@@ -66,26 +66,41 @@ if (!pythonCmd) {
 
 // Setup code-review-agent (LLM-powered semantic analysis)
 if (existsSync(codeReviewAgentDir)) {
+  // The published package ships a pre-built `dist/`, so checking only for
+  // dist/bin/cr-agent.js is a false positive: that file is always present,
+  // regardless of whether code-review-agent's own runtime dependencies
+  // (commander, @anthropic-ai/sdk, openai, etc.) were ever installed —
+  // node_modules is correctly never shipped, so it must be checked separately.
+  const nodeModulesExists = existsSync(join(codeReviewAgentDir, "node_modules"));
   const distExists = existsSync(join(codeReviewAgentDir, "dist", "bin", "cr-agent.js"));
 
-  if (distExists) {
-    console.log("[postinstall] code-review-agent already built — cr-agent CLI available.");
+  if (nodeModulesExists && distExists) {
+    console.log("[postinstall] code-review-agent already set up — cr-agent CLI available.");
   } else {
     console.log("[postinstall] Setting up code-review-agent (LLM-powered code review)...");
     try {
-      // Install dependencies
-      execSync("npm install --omit=dev", {
-        cwd: codeReviewAgentDir,
-        timeout: 180000,
-        stdio: ["pipe", "pipe", "pipe"]
-      });
+      if (!nodeModulesExists) {
+        const installCommand = distExists ? "npm install --omit=dev" : "npm install";
+        execSync(installCommand, {
+          cwd: codeReviewAgentDir,
+          timeout: 180000,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+      }
 
-      // Build TypeScript
-      execSync("npm run build", {
-        cwd: codeReviewAgentDir,
-        timeout: 60000,
-        stdio: ["pipe", "pipe", "pipe"]
-      });
+      if (!distExists) {
+        execSync("npm run build", {
+          cwd: codeReviewAgentDir,
+          timeout: 60000,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+
+        execSync("npm prune --omit=dev", {
+          cwd: codeReviewAgentDir,
+          timeout: 60000,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+      }
 
       console.log("[postinstall] code-review-agent installed — run: npx cr-agent --help");
     } catch (err) {
