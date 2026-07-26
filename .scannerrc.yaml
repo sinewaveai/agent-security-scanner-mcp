@@ -4,3 +4,23 @@ suppress:
   # on JavaScript template literals. This repo has no JSP files.
   # Fixed in analyzer.py (paths.include filter support) for future releases.
   - rule: use-escapexml
+  # The Apify actor wrapper builds plain JSON/SARIF objects. This legacy
+  # JavaScript rule false-positives on object updates and fallback expressions
+  # in src/main.js; there is no template rendering or Mustache use here.
+  - rule: detect-disable-mustache-escape
+    paths:
+      - src/main.js
+  # Intentional vulnerable fixture and mock finding strings used to validate
+  # Actor normalization/output. These are not executable product paths.
+  - rule: eval-detected
+    paths:
+      - test/fixtures/apify-vulnerable-agent.js
+      - tests/apify-actor.test.js
+  - rule: detect-eval-with-expression
+    paths:
+      - test/fixtures/apify-vulnerable-agent.js
+      - tests/apify-actor.test.js
+  - rule: detect-child-process
+    paths:
+      - test/fixtures/apify-vulnerable-agent.js
+      - tests/apify-actor.test.js

@@ -11,6 +11,7 @@
   },
   "scripts": {
     "start": "node index.js",
+    "actor:start": "node src/main.js",
     "postinstall": "node scripts/postinstall.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -80,6 +81,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "apify": "^3.7.2",
     "bloom-filters": "^3.0.4",
     "tar": "^7.5.16",
     "zod": "^4.3.6"
@@ -103,7 +105,10 @@
     "src/plugin-health.js",
     "src/semantic-integration.js",
     "src/semantic-analyzer.js",
+    "src/main.js",
     "src/utils/*.js",
+    ".actor/**",
+    "Dockerfile",
     "openclaw.plugin.json",
     "templates/**",
     "analyzer.py",
