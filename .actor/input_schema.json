@@ -84,6 +84,13 @@
       "enumTitles": ["Quick rules (fast)", "Analyzer (deeper)"],
       "default": "quick"
     },
+    "includeTestFiles": {
+      "title": "Include Test, Demo, and Fixture Files",
+      "description": "Include tests, demos, benchmarks, and fixtures in repository scans. Disabled by default to reduce noisy findings from intentionally vulnerable examples.",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": false
+    },
     "maxRepositoryFiles": {
       "title": "Max Repository Files",
       "description": "Maximum number of source files to scan for repository targets. Lower values finish faster on large repositories; maximum is 500.",
