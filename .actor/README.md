@@ -22,6 +22,8 @@ This Actor does not continuously monitor a target after the run finishes. Re-run
 
 Repository scans default to `quick`, a fast rule-based pass designed for hosted Apify runs and first-look triage. Set `repositoryScanMode` to `analyzer` when you need deeper per-file analysis and are willing to trade runtime for coverage.
 
+By default, repository scans skip tests, demos, benchmarks, and fixtures so intentionally vulnerable examples do not swamp the dataset. Set `includeTestFiles` to `true` when you want to audit those paths too; quick-mode findings from those paths are marked lower confidence.
+
 ## Example Inputs
 
 Scan a repository:
@@ -32,6 +34,7 @@ Scan a repository:
   "repoUrl": "https://github.com/modelcontextprotocol/servers.git",
   "branch": "main",
   "repositoryScanMode": "quick",
+  "includeTestFiles": false,
   "maxRepositoryFiles": 150,
   "perFileTimeoutSeconds": 30,
   "severityThreshold": "medium",
@@ -78,6 +81,7 @@ When using Apify MCP tools, call the Actor with the same JSON input shape. For e
     "target": "repository",
     "repoUrl": "https://github.com/your-org/your-agent.git",
     "repositoryScanMode": "quick",
+    "includeTestFiles": false,
     "maxRepositoryFiles": 150,
     "perFileTimeoutSeconds": 30,
     "severityThreshold": "medium",

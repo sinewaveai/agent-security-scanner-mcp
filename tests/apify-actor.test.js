@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   createSarif,
   createSummary,
   normalizeScannerOutput,
-  normalizeSeverity
+  normalizeSeverity,
+  runScanner
 } from '../src/main.js';
 
 describe('Apify Actor wrapper', () => {
@@ -95,6 +99,8 @@ describe('Apify Actor wrapper', () => {
     expect(summary.sarifKey).toBe('report.sarif');
     expect(summary.scanMode).toBe('apify-repository-quick');
     expect(summary.repositoryScanMode).toBe('quick');
+    expect(summary.includeTestFiles).toBeNull();
+    expect(summary.excludedFiles).toBe(0);
     expect(summary.capped).toBe(true);
     expect(summary.scanLimit).toBe(150);
     expect(summary.perFileTimeoutSeconds).toBe(30);
@@ -108,5 +114,72 @@ describe('Apify Actor wrapper', () => {
     expect(normalizeSeverity('WARNING')).toBe('medium');
     expect(normalizeSeverity('INFO')).toBe('info');
     expect(normalizeSeverity('critical')).toBe('critical');
+  });
+
+  it('excludes test, demo, benchmark, and fixture files from repository quick scans by default', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'apify-noise-filter-'));
+    try {
+      await mkdir(join(repoDir, 'src'), { recursive: true });
+      await mkdir(join(repoDir, 'tests'), { recursive: true });
+      await mkdir(join(repoDir, 'demo'), { recursive: true });
+      await writeFile(join(repoDir, 'src', 'agent.js'), 'eval(userInput);\n', 'utf8');
+      await writeFile(join(repoDir, 'tests', 'agent.test.js'), 'eval(testInput);\n', 'utf8');
+      await writeFile(join(repoDir, 'demo', 'unsafe-demo.js'), 'eval(demoInput);\n', 'utf8');
+
+      const result = await runScanner({
+        kind: 'repository',
+        path: repoDir,
+        options: { maxRepositoryFiles: 10, repositoryScanMode: 'quick' }
+      });
+
+      expect(result.scan_mode).toBe('apify-repository-quick');
+      expect(result.include_test_files).toBe(false);
+      expect(result.files_scanned).toBe(1);
+      expect(result.issues_count).toBe(1);
+      expect(result.excluded_files).toBe(2);
+      expect(result.scanned_files).toEqual(['src/agent.js']);
+      expect(result.issues[0]).toMatchObject({
+        file: 'src/agent.js',
+        confidence: 'MEDIUM',
+        metadata: { source_context: 'source' }
+      });
+    } finally {
+      await rm(repoDir, { recursive: true, force: true });
+    }
+  });
+
+  it('can include test, demo, benchmark, and fixture files with low confidence context', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'apify-noise-filter-'));
+    try {
+      await mkdir(join(repoDir, 'src'), { recursive: true });
+      await mkdir(join(repoDir, 'tests'), { recursive: true });
+      await mkdir(join(repoDir, 'demo'), { recursive: true });
+      await writeFile(join(repoDir, 'src', 'agent.js'), 'eval(userInput);\n', 'utf8');
+      await writeFile(join(repoDir, 'tests', 'agent.test.js'), 'eval(testInput);\n', 'utf8');
+      await writeFile(join(repoDir, 'demo', 'unsafe-demo.js'), 'eval(demoInput);\n', 'utf8');
+
+      const result = await runScanner({
+        kind: 'repository',
+        path: repoDir,
+        options: { maxRepositoryFiles: 10, repositoryScanMode: 'quick', includeTestFiles: true }
+      });
+
+      expect(result.include_test_files).toBe(true);
+      expect(result.files_scanned).toBe(3);
+      expect(result.issues_count).toBe(3);
+      expect(result.excluded_files).toBe(0);
+      expect(result.scanned_files).toEqual(['demo/unsafe-demo.js', 'src/agent.js', 'tests/agent.test.js']);
+      expect(result.issues.find((issue) => issue.file === 'src/agent.js')?.confidence).toBe('MEDIUM');
+      expect(result.issues.find((issue) => issue.file === 'tests/agent.test.js')).toMatchObject({
+        confidence: 'LOW',
+        metadata: { source_context: 'test_or_fixture' }
+      });
+      expect(result.issues.find((issue) => issue.file === 'demo/unsafe-demo.js')).toMatchObject({
+        confidence: 'LOW',
+        metadata: { source_context: 'test_or_fixture' }
+      });
+    } finally {
+      await rm(repoDir, { recursive: true, force: true });
+    }
   });
 });

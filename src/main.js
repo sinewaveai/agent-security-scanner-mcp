@@ -16,6 +16,7 @@ const DEFAULT_REPOSITORY_SCAN_FILE_LIMIT = 150;
 const MAX_REPOSITORY_SCAN_FILE_LIMIT = 500;
 const DEFAULT_REPOSITORY_FILE_TIMEOUT_SECONDS = 30;
 const MAX_REPOSITORY_FILE_TIMEOUT_SECONDS = 120;
+const DEFAULT_INCLUDE_TEST_FILES = false;
 const REPOSITORY_SCAN_EXTENSIONS = new Set([
   '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.go', '.rb', '.php',
   '.rs', '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.cs',
@@ -25,6 +26,17 @@ const REPOSITORY_SCAN_SKIP_DIRS = new Set([
   '.git', 'node_modules', 'vendor', 'dist', 'build', 'coverage', '.next',
   '.nuxt', '.venv', 'venv', 'env', '__pycache__', '.pytest_cache'
 ]);
+const REPOSITORY_TEST_DIRS = new Set([
+  '__fixtures__', '__mocks__', '__tests__', 'benchmark', 'benchmarks',
+  'demo', 'demos', 'fixture', 'fixtures', 'mock', 'mocks', 'spec',
+  'test', 'tests'
+]);
+const REPOSITORY_TEST_FILE_PATTERNS = [
+  /\.(?:test|spec)\.[cm]?[jt]sx?$/i,
+  /(?:^|[\\/])test_[^\\/]+\.py$/i,
+  /(?:^|[\\/])[^\\/]+_test\.py$/i,
+  /(?:^|[\\/])conftest\.py$/i
+];
 const DEFAULT_REPOSITORY_SCAN_MODE = 'quick';
 const REPOSITORY_SCAN_MODES = new Set(['quick', 'analyzer']);
 const QUICK_FINDINGS_PER_FILE_LIMIT = 20;
@@ -191,6 +203,8 @@ export function normalizeFinding(finding, index, options = {}) {
       file,
       line: typeof line === 'number' ? line : undefined
     },
+    confidence: finding.confidence || finding.metadata?.confidence,
+    sourceContext: finding.sourceContext || finding.metadata?.source_context,
     owaspLlm: finding.owaspLlm || finding.owasp_llm || finding.metadata?.owasp_llm || inferOwaspLlm(finding),
     mitreAtlas: finding.mitreAtlas || finding.mitre_atlas || finding.metadata?.mitre_atlas || inferMitreAtlas(finding),
     remediation: options.includeRemediation ? remediationFor(finding) : undefined
@@ -287,6 +301,8 @@ export function createSummary({ input, scannerOutput, findings, source }) {
     sarifKey: 'report.sarif',
     scanMode: scannerOutput.scan_mode || null,
     repositoryScanMode: scannerOutput.repository_scan_mode || null,
+    includeTestFiles: scannerOutput.include_test_files ?? null,
+    excludedFiles: scannerOutput.excluded_files || 0,
     capped: Boolean(scannerOutput.capped),
     scanLimit: scannerOutput.scan_limit || null,
     perFileTimeoutSeconds: scannerOutput.per_file_timeout_seconds || null,
@@ -368,9 +384,28 @@ function normalizeRepositoryScanMode(value) {
   return REPOSITORY_SCAN_MODES.has(value) ? value : DEFAULT_REPOSITORY_SCAN_MODE;
 }
 
-async function collectRepositoryFiles(rootDir, fileLimit = DEFAULT_REPOSITORY_SCAN_FILE_LIMIT) {
+function normalizeBooleanOption(value, defaultValue) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  }
+  return defaultValue;
+}
+
+function isRepositoryTestPath(relativeFile) {
+  const normalizedPath = relativeFile.replaceAll('\\', '/');
+  const parts = normalizedPath.split('/').map((part) => part.toLowerCase());
+  if (parts.some((part) => REPOSITORY_TEST_DIRS.has(part))) return true;
+  return REPOSITORY_TEST_FILE_PATTERNS.some((pattern) => pattern.test(normalizedPath));
+}
+
+async function collectRepositoryFiles(rootDir, fileLimit = DEFAULT_REPOSITORY_SCAN_FILE_LIMIT, options = {}) {
   const files = [];
   const skipped = [];
+  const excluded = [];
+  const includeTestFiles = normalizeBooleanOption(options.includeTestFiles, DEFAULT_INCLUDE_TEST_FILES);
 
   async function walk(currentDir) {
     if (files.length >= fileLimit) return;
@@ -389,20 +424,30 @@ async function collectRepositoryFiles(rootDir, fileLimit = DEFAULT_REPOSITORY_SC
     for (const entry of entries) {
       if (files.length >= fileLimit) return;
       const fullPath = join(currentDir, entry.name);
+      const relativePath = relative(rootDir, fullPath) || entry.name;
       if (entry.isDirectory()) {
-        if (!REPOSITORY_SCAN_SKIP_DIRS.has(entry.name)) await walk(fullPath);
+        if (REPOSITORY_SCAN_SKIP_DIRS.has(entry.name)) continue;
+        if (!includeTestFiles && isRepositoryTestPath(relativePath)) {
+          excluded.push(relativePath);
+          continue;
+        }
+        await walk(fullPath);
         continue;
       }
       if (!entry.isFile() || !isScannableRepositoryFile(fullPath)) continue;
+      if (!includeTestFiles && isRepositoryTestPath(relativePath)) {
+        excluded.push(relativePath);
+        continue;
+      }
 
       try {
         const fileStat = await stat(fullPath);
         if (fileStat.size > 1024 * 1024) {
-          skipped.push({ path: relative(rootDir, fullPath), reason: 'File larger than 1MB' });
+          skipped.push({ path: relativePath, reason: 'File larger than 1MB' });
           continue;
         }
       } catch (error) {
-        skipped.push({ path: relative(rootDir, fullPath), reason: error.message });
+        skipped.push({ path: relativePath, reason: error.message });
         continue;
       }
 
@@ -411,7 +456,7 @@ async function collectRepositoryFiles(rootDir, fileLimit = DEFAULT_REPOSITORY_SC
   }
 
   await walk(rootDir);
-  return { files, skipped, capped: files.length >= fileLimit };
+  return { files, skipped, excluded, capped: files.length >= fileLimit };
 }
 
 function calculateRepositoryGrade(issueCount, fileCount, errorCount) {
@@ -451,6 +496,7 @@ async function scanRepositoryFileQuick(filePath, relativeFile) {
   const content = await readFile(filePath, 'utf8');
   const findings = [];
   const lines = content.split(/\r?\n/);
+  const isTestPath = isRepositoryTestPath(relativeFile);
 
   for (const [lineIndex, line] of lines.entries()) {
     if (findings.length >= QUICK_FINDINGS_PER_FILE_LIMIT) break;
@@ -461,11 +507,12 @@ async function scanRepositoryFileQuick(filePath, relativeFile) {
         line: lineIndex + 1,
         ruleId: `apify.quick.${rule.id}`,
         severity: rule.severity,
-        confidence: 'MEDIUM',
+        confidence: isTestPath ? 'LOW' : 'MEDIUM',
         message: rule.message,
         file: relativeFile,
         metadata: {
-          category: rule.category
+          category: rule.category,
+          source_context: isTestPath ? 'test_or_fixture' : 'source'
         }
       });
     }
@@ -478,15 +525,17 @@ async function scanRepositoryForActor(directoryPath, options = {}) {
   const fileLimit = normalizeRepositoryFileLimit(options.maxRepositoryFiles);
   const perFileTimeoutSeconds = normalizeRepositoryFileTimeout(options.perFileTimeoutSeconds);
   const scanMode = normalizeRepositoryScanMode(options.repositoryScanMode);
-  const { files, skipped, capped } = await collectRepositoryFiles(directoryPath, fileLimit);
+  const includeTestFiles = normalizeBooleanOption(options.includeTestFiles, DEFAULT_INCLUDE_TEST_FILES);
+  const { files, skipped, excluded, capped } = await collectRepositoryFiles(directoryPath, fileLimit, { includeTestFiles });
   const issues = [];
   const scanErrors = [...skipped];
   const bySeverity = { error: 0, warning: 0, info: 0 };
   const byCategory = {};
   const byFile = {};
 
-  console.log(`[Apify] Repository scan discovered ${files.length} file(s); mode=${scanMode}; limit=${fileLimit}; capped=${capped}; perFileTimeout=${perFileTimeoutSeconds}s`);
+  console.log(`[Apify] Repository scan discovered ${files.length} file(s); mode=${scanMode}; includeTestFiles=${includeTestFiles}; excluded=${excluded.length}; limit=${fileLimit}; capped=${capped}; perFileTimeout=${perFileTimeoutSeconds}s`);
   if (skipped.length > 0) console.log(`[Apify] Skipped ${skipped.length} file(s) before scan.`);
+  if (excluded.length > 0) console.log(`[Apify] Excluded ${excluded.length} test/demo/benchmark/fixture path(s).`);
 
   await writeRepositoryProgress({
     scanMode: scanMode === 'quick' ? 'apify-repository-quick' : 'apify-repository-analyzer',
@@ -496,6 +545,8 @@ async function scanRepositoryForActor(directoryPath, options = {}) {
     issuesCount: 0,
     capped,
     scanLimit: fileLimit,
+    includeTestFiles,
+    excludedFiles: excluded.length,
     perFileTimeoutSeconds,
     scanErrors: scanErrors.slice(0, 25)
   });
@@ -514,6 +565,8 @@ async function scanRepositoryForActor(directoryPath, options = {}) {
       issuesCount: issues.length,
       capped,
       scanLimit: fileLimit,
+      includeTestFiles,
+      excludedFiles: excluded.length,
       perFileTimeoutSeconds,
       scanErrors: scanErrors.slice(0, 25)
     });
@@ -559,6 +612,8 @@ async function scanRepositoryForActor(directoryPath, options = {}) {
       issuesCount: issues.length,
       capped,
       scanLimit: fileLimit,
+      includeTestFiles,
+      excludedFiles: excluded.length,
       perFileTimeoutSeconds,
       currentFile: relativeFile,
       scanErrors: scanErrors.slice(0, 25)
@@ -569,6 +624,9 @@ async function scanRepositoryForActor(directoryPath, options = {}) {
     directory: directoryPath,
     scan_mode: scanMode === 'quick' ? 'apify-repository-quick' : 'apify-repository-analyzer',
     repository_scan_mode: scanMode,
+    include_test_files: includeTestFiles,
+    excluded_files: excluded.length,
+    excluded_file_examples: excluded.slice(0, 25),
     files_scanned: files.length,
     scan_limit: fileLimit,
     per_file_timeout_seconds: perFileTimeoutSeconds,
@@ -620,7 +678,8 @@ export async function runActor(input) {
       preparedTarget.options = {
         maxRepositoryFiles: normalizedInput.maxRepositoryFiles,
         perFileTimeoutSeconds: normalizedInput.perFileTimeoutSeconds,
-        repositoryScanMode: normalizedInput.repositoryScanMode
+        repositoryScanMode: normalizedInput.repositoryScanMode,
+        includeTestFiles: normalizedInput.includeTestFiles
       };
     }
     const scannerOutput = await runScanner(preparedTarget);
@@ -658,6 +717,8 @@ export async function runActor(input) {
       issuesCount: summary.findingsCount,
       capped: summary.capped,
       scanLimit: summary.scanLimit,
+      includeTestFiles: summary.includeTestFiles,
+      excludedFiles: summary.excludedFiles,
       perFileTimeoutSeconds: summary.perFileTimeoutSeconds,
       scanErrors: summary.scanErrors.slice(0, 25)
     });
