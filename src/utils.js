@@ -100,28 +100,30 @@ export function runAnalyzer(filePath, engine = 'auto') {
 
 // Async analyzer — tries daemon first, falls back to async execFile.
 // Accepts an optional AbortSignal to truly cancel in-flight work (kills child process).
-export async function runAnalyzerAsync(filePath, engine = 'auto', signal) {
+export async function runAnalyzerAsync(filePath, engine = 'auto', signal, options = {}) {
   if (signal && signal.aborted) throw new DOMException('Analysis aborted', 'AbortError');
-  try {
-    const client = getDaemonClient();
-    if (client.isAvailable) {
-      const analyzePromise = client.analyze(filePath, engine);
-      if (signal) {
-        return await Promise.race([
-          analyzePromise,
-          new Promise((_, reject) => {
-            signal.addEventListener('abort', () =>
-              reject(new DOMException('Analysis aborted', 'AbortError')),
-              { once: true }
-            );
-          }),
-        ]);
+  if (options.useDaemon !== false) {
+    try {
+      const client = getDaemonClient();
+      if (client.isAvailable) {
+        const analyzePromise = client.analyze(filePath, engine);
+        if (signal) {
+          return await Promise.race([
+            analyzePromise,
+            new Promise((_, reject) => {
+              signal.addEventListener('abort', () =>
+                reject(new DOMException('Analysis aborted', 'AbortError')),
+                { once: true }
+              );
+            }),
+          ]);
+        }
+        return await analyzePromise;
       }
-      return await analyzePromise;
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      // Daemon failed — fall through to async execFile
     }
-  } catch (err) {
-    if (err.name === 'AbortError') throw err;
-    // Daemon failed — fall through to async execFile
   }
   if (signal && signal.aborted) throw new DOMException('Analysis aborted', 'AbortError');
 

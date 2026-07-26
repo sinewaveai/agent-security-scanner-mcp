@@ -66,7 +66,7 @@ function formatFull(file_path, language, issues) {
   };
 }
 
-export async function scanSecurity({ file_path, output_format, verbosity, engine, project_context, include_context, enable_semantic }) {
+export async function scanSecurity({ file_path, output_format, verbosity, engine, project_context, include_context, enable_semantic, signal, use_daemon }) {
   if (!existsSync(file_path)) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: "File not found" }) }]
@@ -112,7 +112,9 @@ export async function scanSecurity({ file_path, output_format, verbosity, engine
   // Run primary analysis (AST/regex)
   let rawIssues = [];
   if (engineMode !== 'semantic') {
-    rawIssues = await runAnalyzerAsync(file_path, engineMode === 'all' ? 'auto' : engineMode);
+    rawIssues = await runAnalyzerAsync(file_path, engineMode === 'all' ? 'auto' : engineMode, signal, {
+      useDaemon: use_daemon !== false
+    });
     if (rawIssues.error) {
       return {
         content: [{ type: "text", text: JSON.stringify(rawIssues) }]

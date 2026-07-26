@@ -1,6 +1,6 @@
 import { Actor } from 'apify';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, extname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -14,7 +14,8 @@ const SEVERITY_RANK = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const DEFAULT_RULE_SETS = ['all'];
 const DEFAULT_REPOSITORY_SCAN_FILE_LIMIT = 150;
 const MAX_REPOSITORY_SCAN_FILE_LIMIT = 500;
-const REPOSITORY_PROGRESS_INTERVAL = 10;
+const DEFAULT_REPOSITORY_FILE_TIMEOUT_SECONDS = 30;
+const MAX_REPOSITORY_FILE_TIMEOUT_SECONDS = 120;
 const REPOSITORY_SCAN_EXTENSIONS = new Set([
   '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.go', '.rb', '.php',
   '.rs', '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.cs',
@@ -24,6 +25,88 @@ const REPOSITORY_SCAN_SKIP_DIRS = new Set([
   '.git', 'node_modules', 'vendor', 'dist', 'build', 'coverage', '.next',
   '.nuxt', '.venv', 'venv', 'env', '__pycache__', '.pytest_cache'
 ]);
+const DEFAULT_REPOSITORY_SCAN_MODE = 'quick';
+const REPOSITORY_SCAN_MODES = new Set(['quick', 'analyzer']);
+const QUICK_FINDINGS_PER_FILE_LIMIT = 20;
+const QUICK_REPOSITORY_RULES = [
+  {
+    id: 'eval-detected',
+    severity: 'error',
+    category: 'code-execution',
+    pattern: /\beval\s*\(/,
+    message: 'eval() can execute attacker-controlled code.'
+  },
+  {
+    id: 'new-function-detected',
+    severity: 'error',
+    category: 'code-execution',
+    pattern: /\bnew\s+Function\s*\(/,
+    message: 'new Function() can execute attacker-controlled code.'
+  },
+  {
+    id: 'child-process-exec',
+    severity: 'error',
+    category: 'command-injection',
+    pattern: /\bexec(?:Sync)?\s*\(/,
+    message: 'child_process exec-style calls can lead to command injection when input is not fixed.'
+  },
+  {
+    id: 'shell-true',
+    severity: 'error',
+    category: 'command-injection',
+    pattern: /\bshell\s*[:=]\s*true\b/i,
+    message: 'shell:true or shell=True increases command injection risk.'
+  },
+  {
+    id: 'hardcoded-secret',
+    severity: 'warning',
+    category: 'secrets',
+    pattern: /\b(api[_-]?key|secret|token|password)\b\s*[:=]\s*['"][^'"\n]{12,}['"]/i,
+    message: 'Possible hardcoded secret or credential.'
+  },
+  {
+    id: 'innerhtml-assignment',
+    severity: 'warning',
+    category: 'xss',
+    pattern: /\.innerHTML\s*=/,
+    message: 'innerHTML assignment can introduce XSS when content is user-controlled.'
+  },
+  {
+    id: 'document-write',
+    severity: 'warning',
+    category: 'xss',
+    pattern: /\bdocument\.write\s*\(/,
+    message: 'document.write() can introduce XSS when content is user-controlled.'
+  },
+  {
+    id: 'python-pickle-loads',
+    severity: 'error',
+    category: 'deserialization',
+    pattern: /\bpickle\.loads?\s*\(/,
+    message: 'pickle load operations can execute code when data is untrusted.'
+  },
+  {
+    id: 'python-yaml-load',
+    severity: 'warning',
+    category: 'deserialization',
+    pattern: /\byaml\.load\s*\(/,
+    message: 'yaml.load() can deserialize unsafe objects. Prefer safe_load().'
+  },
+  {
+    id: 'terraform-public-acl',
+    severity: 'warning',
+    category: 'cloud-misconfiguration',
+    pattern: /\bacl\s*=\s*["']public-read["']/,
+    message: 'Public cloud storage ACL detected.'
+  },
+  {
+    id: 'curl-pipe-shell',
+    severity: 'warning',
+    category: 'supply-chain',
+    pattern: /\bcurl\b.+\|\s*(?:sh|bash)\b/,
+    message: 'Piping downloaded scripts into a shell is a supply-chain risk.'
+  }
+];
 
 function parseToolResult(result) {
   const text = result?.content?.[0]?.text;
@@ -203,8 +286,10 @@ export function createSummary({ input, scannerOutput, findings, source }) {
     severityThreshold: input.severityThreshold || 'info',
     sarifKey: 'report.sarif',
     scanMode: scannerOutput.scan_mode || null,
+    repositoryScanMode: scannerOutput.repository_scan_mode || null,
     capped: Boolean(scannerOutput.capped),
     scanLimit: scannerOutput.scan_limit || null,
+    perFileTimeoutSeconds: scannerOutput.per_file_timeout_seconds || null,
     scanErrors: Array.isArray(scannerOutput.scan_errors) ? scannerOutput.scan_errors : []
   };
 }
@@ -273,6 +358,16 @@ function normalizeRepositoryFileLimit(value) {
   return Math.min(parsed, MAX_REPOSITORY_SCAN_FILE_LIMIT);
 }
 
+function normalizeRepositoryFileTimeout(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_REPOSITORY_FILE_TIMEOUT_SECONDS;
+  return Math.min(parsed, MAX_REPOSITORY_FILE_TIMEOUT_SECONDS);
+}
+
+function normalizeRepositoryScanMode(value) {
+  return REPOSITORY_SCAN_MODES.has(value) ? value : DEFAULT_REPOSITORY_SCAN_MODE;
+}
+
 async function collectRepositoryFiles(rootDir, fileLimit = DEFAULT_REPOSITORY_SCAN_FILE_LIMIT) {
   const files = [];
   const skipped = [];
@@ -332,16 +427,57 @@ async function writeRepositoryProgress(progress) {
   if (!Actor.isAtHome()) return;
   try {
     await Actor.setValue('PROGRESS', progress);
-    await Actor.setStatusMessage(
-      `Scanning repository: ${progress.filesScanned}/${progress.filesDiscovered} files, ${progress.issuesCount} issue(s)`
-    );
+    const current = progress.currentFile ? `: ${progress.currentFile}` : '';
+    const label = progress.status === 'scanning_file'
+      ? `Scanning file ${progress.currentFileIndex}/${progress.filesDiscovered}${current}`
+      : `Scanning repository: ${progress.filesScanned}/${progress.filesDiscovered} files, ${progress.issuesCount} issue(s)`;
+    await Actor.setStatusMessage(label.slice(0, 250));
   } catch {
     // Progress reporting is best-effort so local smoke tests can call runScanner directly.
   }
 }
 
+async function scanSecurityWithTimeout(args, timeoutSeconds) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
+  try {
+    return await scanSecurity({ ...args, signal: controller.signal, use_daemon: false });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function scanRepositoryFileQuick(filePath, relativeFile) {
+  const content = await readFile(filePath, 'utf8');
+  const findings = [];
+  const lines = content.split(/\r?\n/);
+
+  for (const [lineIndex, line] of lines.entries()) {
+    if (findings.length >= QUICK_FINDINGS_PER_FILE_LIMIT) break;
+    for (const rule of QUICK_REPOSITORY_RULES) {
+      if (findings.length >= QUICK_FINDINGS_PER_FILE_LIMIT) break;
+      if (!rule.pattern.test(line)) continue;
+      findings.push({
+        line: lineIndex + 1,
+        ruleId: `apify.quick.${rule.id}`,
+        severity: rule.severity,
+        confidence: 'MEDIUM',
+        message: rule.message,
+        file: relativeFile,
+        metadata: {
+          category: rule.category
+        }
+      });
+    }
+  }
+
+  return findings;
+}
+
 async function scanRepositoryForActor(directoryPath, options = {}) {
   const fileLimit = normalizeRepositoryFileLimit(options.maxRepositoryFiles);
+  const perFileTimeoutSeconds = normalizeRepositoryFileTimeout(options.perFileTimeoutSeconds);
+  const scanMode = normalizeRepositoryScanMode(options.repositoryScanMode);
   const { files, skipped, capped } = await collectRepositoryFiles(directoryPath, fileLimit);
   const issues = [];
   const scanErrors = [...skipped];
@@ -349,31 +485,53 @@ async function scanRepositoryForActor(directoryPath, options = {}) {
   const byCategory = {};
   const byFile = {};
 
-  console.log(`[Apify] Repository scan discovered ${files.length} file(s); limit=${fileLimit}; capped=${capped}`);
+  console.log(`[Apify] Repository scan discovered ${files.length} file(s); mode=${scanMode}; limit=${fileLimit}; capped=${capped}; perFileTimeout=${perFileTimeoutSeconds}s`);
   if (skipped.length > 0) console.log(`[Apify] Skipped ${skipped.length} file(s) before scan.`);
 
   await writeRepositoryProgress({
-    scanMode: 'apify-repository-safe',
+    scanMode: scanMode === 'quick' ? 'apify-repository-quick' : 'apify-repository-analyzer',
     status: 'running',
     filesDiscovered: files.length,
     filesScanned: 0,
     issuesCount: 0,
     capped,
     scanLimit: fileLimit,
+    perFileTimeoutSeconds,
     scanErrors: scanErrors.slice(0, 25)
   });
 
   for (const [index, filePath] of files.entries()) {
     const relativeFile = relative(directoryPath, filePath) || basename(filePath);
+    const currentFileIndex = index + 1;
+    console.log(`[Apify] Scanning ${currentFileIndex}/${files.length}: ${relativeFile}`);
+    await writeRepositoryProgress({
+      scanMode: scanMode === 'quick' ? 'apify-repository-quick' : 'apify-repository-analyzer',
+      status: 'scanning_file',
+      filesDiscovered: files.length,
+      filesScanned: index,
+      currentFileIndex,
+      currentFile: relativeFile,
+      issuesCount: issues.length,
+      capped,
+      scanLimit: fileLimit,
+      perFileTimeoutSeconds,
+      scanErrors: scanErrors.slice(0, 25)
+    });
+
     try {
-      const result = await scanSecurity({
-        file_path: filePath,
-        verbosity: 'compact',
-        engine: 'regex',
-        enable_semantic: false
-      });
-      const parsed = parseToolResult(result);
-      const fileIssues = Array.isArray(parsed.issues) ? parsed.issues : [];
+      let fileIssues;
+      if (scanMode === 'quick') {
+        fileIssues = await scanRepositoryFileQuick(filePath, relativeFile);
+      } else {
+        const result = await scanSecurityWithTimeout({
+          file_path: filePath,
+          verbosity: 'compact',
+          engine: 'regex',
+          enable_semantic: false
+        }, perFileTimeoutSeconds);
+        const parsed = parseToolResult(result);
+        fileIssues = Array.isArray(parsed.issues) ? parsed.issues : [];
+      }
       byFile[relativeFile] = fileIssues.length;
 
       for (const issue of fileIssues) {
@@ -384,31 +542,36 @@ async function scanRepositoryForActor(directoryPath, options = {}) {
         byCategory[category] = (byCategory[category] || 0) + 1;
       }
     } catch (error) {
-      scanErrors.push({ path: relativeFile, reason: error?.message || String(error) });
+      const timedOut = error?.name === 'AbortError';
+      scanErrors.push({
+        path: relativeFile,
+        reason: timedOut ? `Timed out after ${perFileTimeoutSeconds}s` : error?.message || String(error)
+      });
     }
 
     const filesScanned = index + 1;
-    if (filesScanned === files.length || filesScanned % REPOSITORY_PROGRESS_INTERVAL === 0) {
-      console.log(`[Apify] Scanned ${filesScanned}/${files.length} file(s), issues=${issues.length}`);
-      await writeRepositoryProgress({
-        scanMode: 'apify-repository-safe',
-        status: filesScanned === files.length ? 'finalizing' : 'running',
-        filesDiscovered: files.length,
-        filesScanned,
-        issuesCount: issues.length,
-        capped,
-        scanLimit: fileLimit,
-        currentFile: relativeFile,
-        scanErrors: scanErrors.slice(0, 25)
-      });
-    }
+    console.log(`[Apify] Scanned ${filesScanned}/${files.length} file(s), issues=${issues.length}`);
+    await writeRepositoryProgress({
+      scanMode: scanMode === 'quick' ? 'apify-repository-quick' : 'apify-repository-analyzer',
+      status: filesScanned === files.length ? 'finalizing' : 'running',
+      filesDiscovered: files.length,
+      filesScanned,
+      issuesCount: issues.length,
+      capped,
+      scanLimit: fileLimit,
+      perFileTimeoutSeconds,
+      currentFile: relativeFile,
+      scanErrors: scanErrors.slice(0, 25)
+    });
   }
 
   return {
     directory: directoryPath,
-    scan_mode: 'apify-repository-safe',
+    scan_mode: scanMode === 'quick' ? 'apify-repository-quick' : 'apify-repository-analyzer',
+    repository_scan_mode: scanMode,
     files_scanned: files.length,
     scan_limit: fileLimit,
+    per_file_timeout_seconds: perFileTimeoutSeconds,
     issues_count: issues.length,
     grade: calculateRepositoryGrade(issues.length, files.length, bySeverity.error || 0),
     by_severity: bySeverity,
@@ -455,7 +618,9 @@ export async function runActor(input) {
     const preparedTarget = await prepareTarget(normalizedInput, workDir);
     if (preparedTarget.kind === 'repository') {
       preparedTarget.options = {
-        maxRepositoryFiles: normalizedInput.maxRepositoryFiles
+        maxRepositoryFiles: normalizedInput.maxRepositoryFiles,
+        perFileTimeoutSeconds: normalizedInput.perFileTimeoutSeconds,
+        repositoryScanMode: normalizedInput.repositoryScanMode
       };
     }
     const scannerOutput = await runScanner(preparedTarget);
@@ -486,12 +651,14 @@ export async function runActor(input) {
     await Actor.setValue('report.sarif', JSON.stringify(sarif, null, 2), { contentType: 'application/sarif+json' });
     await Actor.setValue('PROGRESS', {
       scanMode: summary.scanMode,
+      repositoryScanMode: summary.repositoryScanMode,
       status: 'complete',
       filesDiscovered: summary.filesScanned,
       filesScanned: summary.filesScanned,
       issuesCount: summary.findingsCount,
       capped: summary.capped,
       scanLimit: summary.scanLimit,
+      perFileTimeoutSeconds: summary.perFileTimeoutSeconds,
       scanErrors: summary.scanErrors.slice(0, 25)
     });
     return { summary, findings, sarif };
