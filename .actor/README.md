@@ -17,8 +17,10 @@ This Actor does not continuously monitor a target after the run finishes. Re-run
 
 - Dataset: one item per normalized finding with `id`, `severity`, `category`, `ruleId`, `title`, `description`, `location`, `owaspLlm`, `mitreAtlas`, and optional `remediation`.
 - Key-value store `OUTPUT`: summary counts, grade, posture score, coverage, source metadata, and SARIF key.
-- Key-value store `PROGRESS`: live repository scan progress, including discovered files, scanned files, issue count, cap status, and recent scan errors.
+- Key-value store `PROGRESS`: live repository scan progress, including the scan mode, current file, discovered files, scanned files, issue count, cap status, per-file timeout, and recent scan errors.
 - Key-value store `report.sarif`: SARIF 2.1.0 report for downstream security tools.
+
+Repository scans default to `quick`, a fast rule-based pass designed for hosted Apify runs and first-look triage. Set `repositoryScanMode` to `analyzer` when you need deeper per-file analysis and are willing to trade runtime for coverage.
 
 ## Example Inputs
 
@@ -29,7 +31,9 @@ Scan a repository:
   "target": "repository",
   "repoUrl": "https://github.com/modelcontextprotocol/servers.git",
   "branch": "main",
+  "repositoryScanMode": "quick",
   "maxRepositoryFiles": 150,
+  "perFileTimeoutSeconds": 30,
   "severityThreshold": "medium",
   "includeRemediation": true
 }
@@ -73,7 +77,9 @@ When using Apify MCP tools, call the Actor with the same JSON input shape. For e
   "input": {
     "target": "repository",
     "repoUrl": "https://github.com/your-org/your-agent.git",
+    "repositoryScanMode": "quick",
     "maxRepositoryFiles": 150,
+    "perFileTimeoutSeconds": 30,
     "severityThreshold": "medium",
     "includeRemediation": true
   }

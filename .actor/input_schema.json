@@ -75,6 +75,15 @@
       "editor": "checkbox",
       "default": true
     },
+    "repositoryScanMode": {
+      "title": "Repository Scan Mode",
+      "description": "Use quick for fast rule-based repository results. Use analyzer for deeper per-file analysis with a higher runtime cost.",
+      "type": "string",
+      "editor": "select",
+      "enum": ["quick", "analyzer"],
+      "enumTitles": ["Quick rules (fast)", "Analyzer (deeper)"],
+      "default": "quick"
+    },
     "maxRepositoryFiles": {
       "title": "Max Repository Files",
       "description": "Maximum number of source files to scan for repository targets. Lower values finish faster on large repositories; maximum is 500.",
@@ -83,6 +92,15 @@
       "minimum": 1,
       "maximum": 500,
       "default": 150
+    },
+    "perFileTimeoutSeconds": {
+      "title": "Per-file Timeout Seconds",
+      "description": "Maximum time to spend on any single repository file before recording a scan error and moving on.",
+      "type": "integer",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 120,
+      "default": 30
     }
   },
   "required": ["target"]

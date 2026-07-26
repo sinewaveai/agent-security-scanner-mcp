@@ -10,6 +10,34 @@ suppress:
   - rule: detect-disable-mustache-escape
     paths:
       - src/main.js
+      - src/tools/scan-security.js
+      - src/utils.js
+  # False positive on scan-security's internal result shaping. The scanner
+  # is not invoking PhantomJS or browser page methods here.
+  - rule: phantom-injection
+    paths:
+      - src/tools/scan-security.js
+  # False positives in scanner infrastructure. src/utils.js contains analyzer
+  # orchestration, fixture-like rule text, and process controls; these findings
+  # are not user-controlled browser, prompt, or shell sinks.
+  - rule: javascript.llm.security.prompt-injection.anthropic-unsafe
+    paths:
+      - src/utils.js
+  - rule: insecure-document-method
+    paths:
+      - src/utils.js
+  - rule: eval-detected
+    paths:
+      - src/utils.js
+  - rule: insecure-createnodesfrommarkup
+    paths:
+      - src/utils.js
+  - rule: dangerous-spawn-shell
+    paths:
+      - src/utils.js
+  - rule: tofastproperties-code-execution
+    paths:
+      - src/utils.js
   # Intentional vulnerable fixture and mock finding strings used to validate
   # Actor normalization/output. These are not executable product paths.
   - rule: eval-detected
@@ -29,3 +57,17 @@ suppress:
   - rule: detect-buffer-noassert
     paths:
       - tests/apify-actor.test.js
+  # Intentional quick-mode rule catalog for the Apify Actor. These strings and
+  # regexes describe risky patterns; they are not executable sinks or secrets.
+  - rule: generic-api-key
+    paths:
+      - src/main.js
+  - rule: eval-detected
+    paths:
+      - src/main.js
+  - rule: function-constructor
+    paths:
+      - src/main.js
+  - rule: document-write
+    paths:
+      - src/main.js
