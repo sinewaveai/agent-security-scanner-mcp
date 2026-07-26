@@ -1,18 +1,27 @@
 import { Actor } from 'apify';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, extname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { scanSecurity } from './tools/scan-security.js';
-import { scanProject } from './tools/scan-project.js';
 import { scanMcpServer } from './tools/scan-mcp.js';
 
 const execFileAsync = promisify(execFile);
 const SEVERITY_RANK = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const DEFAULT_RULE_SETS = ['all'];
+const REPOSITORY_SCAN_FILE_LIMIT = 500;
+const REPOSITORY_SCAN_EXTENSIONS = new Set([
+  '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.go', '.rb', '.php',
+  '.rs', '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.cs',
+  '.tf', '.hcl', '.sql'
+]);
+const REPOSITORY_SCAN_SKIP_DIRS = new Set([
+  '.git', 'node_modules', 'vendor', 'dist', 'build', 'coverage', '.next',
+  '.nuxt', '.venv', 'venv', 'env', '__pycache__', '.pytest_cache'
+]);
 
 function parseToolResult(result) {
   const text = result?.content?.[0]?.text;
@@ -190,7 +199,10 @@ export function createSummary({ input, scannerOutput, findings, source }) {
     },
     ruleSets: input.ruleSets || DEFAULT_RULE_SETS,
     severityThreshold: input.severityThreshold || 'info',
-    sarifKey: 'report.sarif'
+    sarifKey: 'report.sarif',
+    scanMode: scannerOutput.scan_mode || null,
+    capped: Boolean(scannerOutput.capped),
+    scanErrors: Array.isArray(scannerOutput.scan_errors) ? scannerOutput.scan_errors : []
   };
 }
 
@@ -247,6 +259,111 @@ export async function prepareTarget(input, workDir) {
   }
 }
 
+function isScannableRepositoryFile(filePath) {
+  const base = basename(filePath).toLowerCase();
+  return base === 'dockerfile' || REPOSITORY_SCAN_EXTENSIONS.has(extname(filePath).toLowerCase());
+}
+
+async function collectRepositoryFiles(rootDir) {
+  const files = [];
+  const skipped = [];
+
+  async function walk(currentDir) {
+    if (files.length >= REPOSITORY_SCAN_FILE_LIMIT) return;
+    let entries;
+    try {
+      entries = await readdir(currentDir, { withFileTypes: true });
+    } catch (error) {
+      skipped.push({ path: relative(rootDir, currentDir) || '.', reason: error.message });
+      return;
+    }
+
+    for (const entry of entries) {
+      if (files.length >= REPOSITORY_SCAN_FILE_LIMIT) return;
+      const fullPath = join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        if (!REPOSITORY_SCAN_SKIP_DIRS.has(entry.name)) await walk(fullPath);
+        continue;
+      }
+      if (!entry.isFile() || !isScannableRepositoryFile(fullPath)) continue;
+
+      try {
+        const fileStat = await stat(fullPath);
+        if (fileStat.size > 1024 * 1024) {
+          skipped.push({ path: relative(rootDir, fullPath), reason: 'File larger than 1MB' });
+          continue;
+        }
+      } catch (error) {
+        skipped.push({ path: relative(rootDir, fullPath), reason: error.message });
+        continue;
+      }
+
+      files.push(fullPath);
+    }
+  }
+
+  await walk(rootDir);
+  return { files, skipped, capped: files.length >= REPOSITORY_SCAN_FILE_LIMIT };
+}
+
+function calculateRepositoryGrade(issueCount, fileCount, errorCount) {
+  if (fileCount === 0 || issueCount === 0) return 'A';
+  const density = issueCount / fileCount;
+  if (errorCount === 0 && density < 0.5) return 'B';
+  if (errorCount <= 2 && density < 1.5) return 'C';
+  if (errorCount <= 5 && density < 3) return 'D';
+  return 'F';
+}
+
+async function scanRepositoryForActor(directoryPath) {
+  const { files, skipped, capped } = await collectRepositoryFiles(directoryPath);
+  const issues = [];
+  const scanErrors = [...skipped];
+  const bySeverity = { error: 0, warning: 0, info: 0 };
+  const byCategory = {};
+  const byFile = {};
+
+  for (const filePath of files) {
+    const relativeFile = relative(directoryPath, filePath) || basename(filePath);
+    try {
+      const result = await scanSecurity({
+        file_path: filePath,
+        verbosity: 'full',
+        engine: 'regex',
+        enable_semantic: false
+      });
+      const parsed = parseToolResult(result);
+      const fileIssues = Array.isArray(parsed.issues) ? parsed.issues : [];
+      byFile[relativeFile] = fileIssues.length;
+
+      for (const issue of fileIssues) {
+        issues.push({ ...issue, file: relativeFile });
+        const severity = String(issue.severity || 'info').toLowerCase();
+        bySeverity[severity] = (bySeverity[severity] || 0) + 1;
+        const category = issue.metadata?.category || issue.ruleId?.split('.')[0] || 'security';
+        byCategory[category] = (byCategory[category] || 0) + 1;
+      }
+    } catch (error) {
+      scanErrors.push({ path: relativeFile, reason: error?.message || String(error) });
+    }
+  }
+
+  return {
+    directory: directoryPath,
+    scan_mode: 'apify-repository-safe',
+    files_scanned: files.length,
+    issues_count: issues.length,
+    grade: calculateRepositoryGrade(issues.length, files.length, bySeverity.error || 0),
+    by_severity: bySeverity,
+    by_category: byCategory,
+    by_file: byFile,
+    issues,
+    scanned_files: files.map((filePath) => relative(directoryPath, filePath) || basename(filePath)),
+    scan_errors: scanErrors.length > 0 ? scanErrors : undefined,
+    capped
+  };
+}
+
 export async function runScanner(preparedTarget) {
   if (preparedTarget.kind === 'code') {
     return parseToolResult(await scanSecurity({
@@ -264,12 +381,7 @@ export async function runScanner(preparedTarget) {
     }));
   }
 
-  return parseToolResult(await scanProject({
-    directory_path: preparedTarget.path,
-    recursive: true,
-    cross_file: true,
-    verbosity: 'full'
-  }));
+  return scanRepositoryForActor(preparedTarget.path);
 }
 
 export async function runActor(input) {

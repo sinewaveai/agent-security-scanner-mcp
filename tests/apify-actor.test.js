@@ -74,7 +74,13 @@ describe('Apify Actor wrapper', () => {
 
     const summary = createSummary({
       input: { target: 'mcpServer', ruleSets: ['all'], severityThreshold: 'info' },
-      scannerOutput: { grade: 'D', files_scanned: 1 },
+      scannerOutput: {
+        grade: 'D',
+        files_scanned: 1,
+        scan_mode: 'apify-repository-safe',
+        capped: true,
+        scan_errors: [{ path: 'large-file.js', reason: 'File larger than 1MB' }]
+      },
       findings,
       source: { kind: 'mcpServer', path: '/tmp/server' }
     });
@@ -84,6 +90,9 @@ describe('Apify Actor wrapper', () => {
     expect(summary.bySeverity.high).toBe(1);
     expect(summary.frameworkCoverage.owaspLlm).toContain('LLM01');
     expect(summary.sarifKey).toBe('report.sarif');
+    expect(summary.scanMode).toBe('apify-repository-safe');
+    expect(summary.capped).toBe(true);
+    expect(summary.scanErrors).toEqual([{ path: 'large-file.js', reason: 'File larger than 1MB' }]);
     expect(sarif.runs[0].tool.driver.rules[0].id).toBe('mcp.manifest-description-injection');
     expect(sarif.runs[0].results[0].level).toBe('error');
   });
