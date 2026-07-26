@@ -1,0 +1,80 @@
+{
+  "title": "ProofLayer Agent Security Scanner",
+  "description": "Scan AI agent code, repositories, MCP server manifests, and agent configs for security issues before connecting them to coding agents.",
+  "schemaVersion": 1,
+  "type": "object",
+  "properties": {
+    "target": {
+      "title": "Target",
+      "description": "What kind of artifact should ProofLayer scan?",
+      "type": "string",
+      "editor": "select",
+      "enum": ["repository", "mcpServer", "agentConfig", "code"],
+      "enumTitles": ["Git repository", "MCP server", "Agent config", "Inline code"],
+      "default": "repository"
+    },
+    "repoUrl": {
+      "title": "Repository URL",
+      "description": "Git repository URL to clone when target is repository or mcpServer.",
+      "type": "string",
+      "editor": "textfield",
+      "prefill": "https://github.com/modelcontextprotocol/servers.git"
+    },
+    "branch": {
+      "title": "Branch",
+      "description": "Optional branch, tag, or ref to clone.",
+      "type": "string",
+      "editor": "textfield",
+      "prefill": "main"
+    },
+    "mcpConfigUrl": {
+      "title": "MCP Config URL",
+      "description": "URL returning an MCP server.json-style manifest or agent config JSON.",
+      "type": "string",
+      "editor": "textfield",
+      "prefill": "https://example.com/server.json"
+    },
+    "mcpConfigJson": {
+      "title": "MCP Config JSON",
+      "description": "Inline MCP manifest or AI client config JSON. Accepts either a JSON object or a JSON string.",
+      "type": "object",
+      "editor": "json"
+    },
+    "sourceCode": {
+      "title": "Source Code",
+      "description": "Inline source code to scan when target is code.",
+      "type": "string",
+      "editor": "javascript",
+      "prefill": "import { exec } from 'node:child_process';\nexport function runTool(input) {\n  exec('git ' + input.command);\n}"
+    },
+    "ruleSets": {
+      "title": "Rule Sets",
+      "description": "Scanner coverage areas to include in the output metadata.",
+      "type": "array",
+      "editor": "select",
+      "default": ["all"],
+      "items": {
+        "type": "string",
+        "enum": ["all", "code-security", "mcp-tool-poisoning", "prompt-injection", "supply-chain", "compliance"],
+        "enumTitles": ["All", "Code security", "MCP tool poisoning", "Prompt injection", "Supply chain", "Compliance"]
+      }
+    },
+    "severityThreshold": {
+      "title": "Severity Threshold",
+      "description": "Only publish findings at or above this severity.",
+      "type": "string",
+      "editor": "select",
+      "enum": ["info", "low", "medium", "high", "critical"],
+      "enumTitles": ["Info", "Low", "Medium", "High", "Critical"],
+      "default": "info"
+    },
+    "includeRemediation": {
+      "title": "Include Remediation",
+      "description": "Include remediation guidance in dataset rows and summary output.",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true
+    }
+  },
+  "required": ["target"]
+}

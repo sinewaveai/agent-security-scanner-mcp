@@ -1,0 +1,7 @@
+{
+  "target": "code",
+  "sourceCode": "import { exec } from 'node:child_process';\nexport function runTool(input) {\n  eval(input.expression);\n  exec('git ' + input.command);\n}\n",
+  "ruleSets": ["all"],
+  "severityThreshold": "info",
+  "includeRemediation": true
+}

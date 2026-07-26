@@ -1,0 +1,12 @@
+{
+  "actorSpecification": 1,
+  "name": "prooflayer-agent-security-scanner",
+  "title": "ProofLayer Agent Security Scanner",
+  "description": "Point-in-time security scans for AI agent repositories, MCP servers, agent configs, and inline code using ProofLayer's open-source scanner.",
+  "version": "0.1",
+  "input": "./input_schema.json",
+  "dockerfile": "../Dockerfile",
+  "meta": {
+    "templateId": "js-start"
+  }
+}
