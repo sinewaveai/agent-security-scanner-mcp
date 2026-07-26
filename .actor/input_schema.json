@@ -74,6 +74,15 @@
       "type": "boolean",
       "editor": "checkbox",
       "default": true
+    },
+    "maxRepositoryFiles": {
+      "title": "Max Repository Files",
+      "description": "Maximum number of source files to scan for repository targets. Lower values finish faster on large repositories; maximum is 500.",
+      "type": "integer",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 500,
+      "default": 150
     }
   },
   "required": ["target"]

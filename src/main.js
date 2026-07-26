@@ -12,7 +12,9 @@ import { scanMcpServer } from './tools/scan-mcp.js';
 const execFileAsync = promisify(execFile);
 const SEVERITY_RANK = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const DEFAULT_RULE_SETS = ['all'];
-const REPOSITORY_SCAN_FILE_LIMIT = 500;
+const DEFAULT_REPOSITORY_SCAN_FILE_LIMIT = 150;
+const MAX_REPOSITORY_SCAN_FILE_LIMIT = 500;
+const REPOSITORY_PROGRESS_INTERVAL = 10;
 const REPOSITORY_SCAN_EXTENSIONS = new Set([
   '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.go', '.rb', '.php',
   '.rs', '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.cs',
@@ -202,6 +204,7 @@ export function createSummary({ input, scannerOutput, findings, source }) {
     sarifKey: 'report.sarif',
     scanMode: scannerOutput.scan_mode || null,
     capped: Boolean(scannerOutput.capped),
+    scanLimit: scannerOutput.scan_limit || null,
     scanErrors: Array.isArray(scannerOutput.scan_errors) ? scannerOutput.scan_errors : []
   };
 }
@@ -264,22 +267,32 @@ function isScannableRepositoryFile(filePath) {
   return base === 'dockerfile' || REPOSITORY_SCAN_EXTENSIONS.has(extname(filePath).toLowerCase());
 }
 
-async function collectRepositoryFiles(rootDir) {
+function normalizeRepositoryFileLimit(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_REPOSITORY_SCAN_FILE_LIMIT;
+  return Math.min(parsed, MAX_REPOSITORY_SCAN_FILE_LIMIT);
+}
+
+async function collectRepositoryFiles(rootDir, fileLimit = DEFAULT_REPOSITORY_SCAN_FILE_LIMIT) {
   const files = [];
   const skipped = [];
 
   async function walk(currentDir) {
-    if (files.length >= REPOSITORY_SCAN_FILE_LIMIT) return;
+    if (files.length >= fileLimit) return;
     let entries;
     try {
-      entries = await readdir(currentDir, { withFileTypes: true });
+      entries = (await readdir(currentDir, { withFileTypes: true }))
+        .sort((a, b) => {
+          if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? 1 : -1;
+          return a.name.localeCompare(b.name);
+        });
     } catch (error) {
       skipped.push({ path: relative(rootDir, currentDir) || '.', reason: error.message });
       return;
     }
 
     for (const entry of entries) {
-      if (files.length >= REPOSITORY_SCAN_FILE_LIMIT) return;
+      if (files.length >= fileLimit) return;
       const fullPath = join(currentDir, entry.name);
       if (entry.isDirectory()) {
         if (!REPOSITORY_SCAN_SKIP_DIRS.has(entry.name)) await walk(fullPath);
@@ -303,7 +316,7 @@ async function collectRepositoryFiles(rootDir) {
   }
 
   await walk(rootDir);
-  return { files, skipped, capped: files.length >= REPOSITORY_SCAN_FILE_LIMIT };
+  return { files, skipped, capped: files.length >= fileLimit };
 }
 
 function calculateRepositoryGrade(issueCount, fileCount, errorCount) {
@@ -315,20 +328,47 @@ function calculateRepositoryGrade(issueCount, fileCount, errorCount) {
   return 'F';
 }
 
-async function scanRepositoryForActor(directoryPath) {
-  const { files, skipped, capped } = await collectRepositoryFiles(directoryPath);
+async function writeRepositoryProgress(progress) {
+  if (!Actor.isAtHome()) return;
+  try {
+    await Actor.setValue('PROGRESS', progress);
+    await Actor.setStatusMessage(
+      `Scanning repository: ${progress.filesScanned}/${progress.filesDiscovered} files, ${progress.issuesCount} issue(s)`
+    );
+  } catch {
+    // Progress reporting is best-effort so local smoke tests can call runScanner directly.
+  }
+}
+
+async function scanRepositoryForActor(directoryPath, options = {}) {
+  const fileLimit = normalizeRepositoryFileLimit(options.maxRepositoryFiles);
+  const { files, skipped, capped } = await collectRepositoryFiles(directoryPath, fileLimit);
   const issues = [];
   const scanErrors = [...skipped];
   const bySeverity = { error: 0, warning: 0, info: 0 };
   const byCategory = {};
   const byFile = {};
 
-  for (const filePath of files) {
+  console.log(`[Apify] Repository scan discovered ${files.length} file(s); limit=${fileLimit}; capped=${capped}`);
+  if (skipped.length > 0) console.log(`[Apify] Skipped ${skipped.length} file(s) before scan.`);
+
+  await writeRepositoryProgress({
+    scanMode: 'apify-repository-safe',
+    status: 'running',
+    filesDiscovered: files.length,
+    filesScanned: 0,
+    issuesCount: 0,
+    capped,
+    scanLimit: fileLimit,
+    scanErrors: scanErrors.slice(0, 25)
+  });
+
+  for (const [index, filePath] of files.entries()) {
     const relativeFile = relative(directoryPath, filePath) || basename(filePath);
     try {
       const result = await scanSecurity({
         file_path: filePath,
-        verbosity: 'full',
+        verbosity: 'compact',
         engine: 'regex',
         enable_semantic: false
       });
@@ -346,12 +386,29 @@ async function scanRepositoryForActor(directoryPath) {
     } catch (error) {
       scanErrors.push({ path: relativeFile, reason: error?.message || String(error) });
     }
+
+    const filesScanned = index + 1;
+    if (filesScanned === files.length || filesScanned % REPOSITORY_PROGRESS_INTERVAL === 0) {
+      console.log(`[Apify] Scanned ${filesScanned}/${files.length} file(s), issues=${issues.length}`);
+      await writeRepositoryProgress({
+        scanMode: 'apify-repository-safe',
+        status: filesScanned === files.length ? 'finalizing' : 'running',
+        filesDiscovered: files.length,
+        filesScanned,
+        issuesCount: issues.length,
+        capped,
+        scanLimit: fileLimit,
+        currentFile: relativeFile,
+        scanErrors: scanErrors.slice(0, 25)
+      });
+    }
   }
 
   return {
     directory: directoryPath,
     scan_mode: 'apify-repository-safe',
     files_scanned: files.length,
+    scan_limit: fileLimit,
     issues_count: issues.length,
     grade: calculateRepositoryGrade(issues.length, files.length, bySeverity.error || 0),
     by_severity: bySeverity,
@@ -381,7 +438,7 @@ export async function runScanner(preparedTarget) {
     }));
   }
 
-  return scanRepositoryForActor(preparedTarget.path);
+  return scanRepositoryForActor(preparedTarget.path, preparedTarget.options);
 }
 
 export async function runActor(input) {
@@ -396,6 +453,11 @@ export async function runActor(input) {
   const workDir = await mkdtemp(join(tmpdir(), 'prooflayer-apify-'));
   try {
     const preparedTarget = await prepareTarget(normalizedInput, workDir);
+    if (preparedTarget.kind === 'repository') {
+      preparedTarget.options = {
+        maxRepositoryFiles: normalizedInput.maxRepositoryFiles
+      };
+    }
     const scannerOutput = await runScanner(preparedTarget);
     if (scannerOutput.error) throw new Error(scannerOutput.error);
 
@@ -422,6 +484,16 @@ export async function runActor(input) {
     }
     await Actor.setValue('OUTPUT', summary);
     await Actor.setValue('report.sarif', JSON.stringify(sarif, null, 2), { contentType: 'application/sarif+json' });
+    await Actor.setValue('PROGRESS', {
+      scanMode: summary.scanMode,
+      status: 'complete',
+      filesDiscovered: summary.filesScanned,
+      filesScanned: summary.filesScanned,
+      issuesCount: summary.findingsCount,
+      capped: summary.capped,
+      scanLimit: summary.scanLimit,
+      scanErrors: summary.scanErrors.slice(0, 25)
+    });
     return { summary, findings, sarif };
   } finally {
     await rm(workDir, { recursive: true, force: true });

@@ -17,6 +17,7 @@ This Actor does not continuously monitor a target after the run finishes. Re-run
 
 - Dataset: one item per normalized finding with `id`, `severity`, `category`, `ruleId`, `title`, `description`, `location`, `owaspLlm`, `mitreAtlas`, and optional `remediation`.
 - Key-value store `OUTPUT`: summary counts, grade, posture score, coverage, source metadata, and SARIF key.
+- Key-value store `PROGRESS`: live repository scan progress, including discovered files, scanned files, issue count, cap status, and recent scan errors.
 - Key-value store `report.sarif`: SARIF 2.1.0 report for downstream security tools.
 
 ## Example Inputs
@@ -28,6 +29,7 @@ Scan a repository:
   "target": "repository",
   "repoUrl": "https://github.com/modelcontextprotocol/servers.git",
   "branch": "main",
+  "maxRepositoryFiles": 150,
   "severityThreshold": "medium",
   "includeRemediation": true
 }
@@ -71,13 +73,14 @@ When using Apify MCP tools, call the Actor with the same JSON input shape. For e
   "input": {
     "target": "repository",
     "repoUrl": "https://github.com/your-org/your-agent.git",
+    "maxRepositoryFiles": 150,
     "severityThreshold": "medium",
     "includeRemediation": true
   }
 }
 ```
 
-Read the dataset for finding rows, then read key-value store record `OUTPUT` for the run summary and `report.sarif` for SARIF.
+Read the dataset for finding rows, key-value store record `PROGRESS` while the Actor is running, `OUTPUT` for the final summary, and `report.sarif` for SARIF.
 
 ## Local Run And Publish
 
