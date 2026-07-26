@@ -24,3 +24,8 @@ suppress:
     paths:
       - test/fixtures/apify-vulnerable-agent.js
       - tests/apify-actor.test.js
+  # False positive: Vitest's expect(...).toBe(true) matches the broad
+  # Buffer noassert rule pattern, but no Buffer API is used in this test.
+  - rule: detect-buffer-noassert
+    paths:
+      - tests/apify-actor.test.js
