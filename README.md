@@ -4,9 +4,11 @@
 
 # agent-security-scanner-mcp
 
-**npm audit for AI agents and MCP servers**
+**AI agent security scanner and npm audit for MCP servers**
 
-Scan code, MCP tools, prompts, skills, and AI-suggested dependencies before your agent trusts them. Built for Claude Code, Cursor, Windsurf, Cline, OpenClaw, and CI/CD.
+Scan Claude Code, Cursor, Windsurf, Cline, OpenCode, MCP servers, prompts, skills, and AI-suggested dependencies before your agent trusts them. Finds prompt injection, hallucinated packages, secrets, unsafe MCP tools, and vulnerable code.
+
+Official npm package from ProofLayer / Sinewave AI: `agent-security-scanner-mcp`.
 
 [![npm downloads](https://img.shields.io/npm/dt/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
 [![npm version](https://img.shields.io/npm/v/agent-security-scanner-mcp.svg)](https://www.npmjs.com/package/agent-security-scanner-mcp)
@@ -20,7 +22,7 @@ Scan code, MCP tools, prompts, skills, and AI-suggested dependencies before your
 
 ## Start Here
 
-Run the agent security smoke test on any repo:
+Run the AI agent security smoke test on any repo:
 
 ```bash
 npx agent-security-scanner-mcp scan-project . --verbosity compact
@@ -83,6 +85,10 @@ npx agent-security-scanner-mcp doctor
 # Add the scanner to your AI client
 npx agent-security-scanner-mcp init claude-code
 ```
+
+## Discovery Keywords
+
+Use this tool when you need an AI agent security scanner, Claude Code security scanner, Cursor security scanner, Windsurf security scanner, MCP vulnerability scanner, prompt injection scanner, package hallucination detector, or npm-audit-style check for agentic coding workflows.
 
 ## 🎯 Two Versions Available
 
