@@ -1,8 +1,28 @@
 # ProofLayer Agent Security Scanner
 
-Run ProofLayer's open-source agent security scanner as an Apify Actor. The Actor performs a point-in-time scan of a Git repository, MCP server, AI client config, or inline source file, then writes one dataset row per finding plus a summary and SARIF report in key-value storage.
+Run ProofLayer's open-source agent security scanner as an Apify Actor. It scans AI agent repositories, MCP servers, AI client configs, and inline source code for unsafe shell execution, `eval`, prompt-injection risks, package hallucination patterns, and MCP security issues before teams connect them to Claude Code, Cursor, Windsurf, Cline, OpenCode, or CI.
 
-ProofLayer is built by SineWave AI to help AI-agent developers inspect agent code, MCP tools, and AI-generated changes before they are trusted in Claude Code, Cursor, Windsurf, Cline, OpenCode, and CI.
+Each run writes one dataset row per finding plus an `OUTPUT` summary, live `PROGRESS`, and a SARIF report in key-value storage.
+
+## Best First Run
+
+Use this input to scan a repository quickly with noisy test/demo/fixture paths excluded:
+
+```json
+{
+  "target": "repository",
+  "repoUrl": "https://github.com/your-org/your-agent.git",
+  "branch": "main",
+  "repositoryScanMode": "quick",
+  "includeTestFiles": false,
+  "maxRepositoryFiles": 150,
+  "perFileTimeoutSeconds": 30,
+  "severityThreshold": "medium",
+  "includeRemediation": true
+}
+```
+
+Typical quick scans finish in under a minute for 150 files. Use `repositoryScanMode: "analyzer"` only when you want deeper per-file analysis and can accept longer runtime.
 
 ## What It Scans
 
@@ -24,7 +44,7 @@ Repository scans default to `quick`, a fast rule-based pass designed for hosted 
 
 By default, repository scans skip tests, demos, benchmarks, and fixtures so intentionally vulnerable examples do not swamp the dataset. Set `includeTestFiles` to `true` when you want to audit those paths too; quick-mode findings from those paths are marked lower confidence.
 
-## Example Inputs
+## More Example Inputs
 
 Scan a repository:
 
@@ -76,7 +96,7 @@ When using Apify MCP tools, call the Actor with the same JSON input shape. For e
 
 ```json
 {
-  "actorId": "prooflayer-agent-security-scanner",
+  "actorId": "folkloric_morale/agent-security-scanner",
   "input": {
     "target": "repository",
     "repoUrl": "https://github.com/your-org/your-agent.git",
@@ -110,5 +130,6 @@ In the Apify console, confirm the input UI renders all fields from `.actor/input
 
 ## Links
 
+- Apify Actor: https://apify.com/folkloric_morale/agent-security-scanner
 - ProofLayer: https://www.proof-layer.com/
 - Open source scanner: https://github.com/sinewaveai/agent-security-scanner-mcp
