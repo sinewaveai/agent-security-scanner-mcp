@@ -58,6 +58,7 @@ export function buildFileContext(
   filePath: string,
   projectRoot: string,
   graph?: DependencyGraph,
+  diff?: FileContext['diff'],
 ): FileContext {
   const content = fs.readFileSync(filePath, 'utf-8');
   const ext = path.extname(filePath);
@@ -100,6 +101,7 @@ export function buildFileContext(
     isTestFile: isTestFile(relativePath),
     isConfigFile: isConfigFile(relativePath),
     isGenerated: isGeneratedFile(content),
+    diff,
   };
 }
 
