@@ -1,0 +1,30 @@
+<svg width="980" height="560" viewBox="0 0 980 560" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Project scan terminal screenshot</title>
+  <desc id="desc">Terminal-style screenshot showing scan-project output with a B grade and prioritized findings.</desc>
+  <rect width="980" height="560" rx="18" fill="#0B1020"/>
+  <rect x="24" y="24" width="932" height="512" rx="14" fill="#111827" stroke="#334155"/>
+  <circle cx="54" cy="54" r="8" fill="#EF4444"/>
+  <circle cx="80" cy="54" r="8" fill="#F59E0B"/>
+  <circle cx="106" cy="54" r="8" fill="#22C55E"/>
+  <text x="134" y="61" fill="#CBD5E1" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18">agent-security-scanner-mcp</text>
+  <text x="48" y="112" fill="#38BDF8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">$ npx agent-security-scanner-mcp scan-project . --verbosity compact</text>
+  <rect x="48" y="144" width="184" height="82" rx="10" fill="#052E16" stroke="#22C55E"/>
+  <text x="72" y="177" fill="#86EFAC" font-family="Inter, ui-sans-serif, system-ui" font-size="18" font-weight="700">Security grade</text>
+  <text x="72" y="211" fill="#FFFFFF" font-family="Inter, ui-sans-serif, system-ui" font-size="36" font-weight="800">B</text>
+  <rect x="260" y="144" width="188" height="82" rx="10" fill="#1E293B" stroke="#475569"/>
+  <text x="284" y="177" fill="#CBD5E1" font-family="Inter, ui-sans-serif, system-ui" font-size="18" font-weight="700">Files scanned</text>
+  <text x="284" y="211" fill="#FFFFFF" font-family="Inter, ui-sans-serif, system-ui" font-size="34" font-weight="800">128</text>
+  <rect x="476" y="144" width="188" height="82" rx="10" fill="#1E1B4B" stroke="#6366F1"/>
+  <text x="500" y="177" fill="#C7D2FE" font-family="Inter, ui-sans-serif, system-ui" font-size="18" font-weight="700">Findings</text>
+  <text x="500" y="211" fill="#FFFFFF" font-family="Inter, ui-sans-serif, system-ui" font-size="34" font-weight="800">7</text>
+  <rect x="692" y="144" width="216" height="82" rx="10" fill="#431407" stroke="#F97316"/>
+  <text x="716" y="177" fill="#FDBA74" font-family="Inter, ui-sans-serif, system-ui" font-size="18" font-weight="700">Needs review</text>
+  <text x="716" y="211" fill="#FFFFFF" font-family="Inter, ui-sans-serif, system-ui" font-size="34" font-weight="800">2 high</text>
+  <text x="48" y="282" fill="#E2E8F0" font-family="Inter, ui-sans-serif, system-ui" font-size="22" font-weight="700">Top findings</text>
+  <rect x="48" y="310" width="860" height="54" rx="8" fill="#172554" stroke="#2563EB"/>
+  <text x="70" y="344" fill="#DBEAFE" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17">HIGH  src/api/user.ts:42  SQL injection risk in query construction</text>
+  <rect x="48" y="376" width="860" height="54" rx="8" fill="#451A03" stroke="#D97706"/>
+  <text x="70" y="410" fill="#FEF3C7" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17">MED   Dockerfile:18     World-writable chmod detected</text>
+  <rect x="48" y="442" width="860" height="54" rx="8" fill="#1E293B" stroke="#475569"/>
+  <text x="70" y="476" fill="#CBD5E1" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17">INFO  package.json     New dependency requires package check</text>
+</svg>
