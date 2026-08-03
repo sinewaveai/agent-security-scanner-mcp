@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import * as path from 'node:path';
 
 export interface DiffHunk {
   /** 1-indexed start line in the NEW (post-change) version of the file. */
@@ -97,4 +98,29 @@ export function parseDiff(diffText: string): FileDiff[] {
 /** Formats hunks as a compact human-readable line-range list, e.g. "12-19, 45-45". */
 export function formatHunkRanges(hunks: DiffHunk[]): string {
   return hunks.map((h) => (h.startLine === h.endLine ? `${h.startLine}` : `${h.startLine}-${h.endLine}`)).join(', ');
+}
+
+/**
+ * Reads a file's content as of a specific ref, via `git show`, rather than
+ * from the working tree.
+ *
+ * This matters because the working tree is not guaranteed to have `ref`
+ * checked out — e.g. a fresh clone defaults to whatever the default branch
+ * is, not the specific commit being diffed. Reading via `fs.readFileSync`
+ * in that situation would either read the wrong version of the file or
+ * fail outright if the file doesn't exist on whatever branch happens to be
+ * checked out. `git show` reads directly from the object store regardless
+ * of working-tree state, and — just as importantly — never mutates it:
+ * an implicit `git checkout <ref>` would be a much worse fix, since running
+ * this against someone's real local repo could switch branches out from
+ * under them or disrupt uncommitted work.
+ */
+export function readFileAtRef(projectRoot: string, ref: string, relativePath: string): string {
+  // Git accepts forward slashes in <ref>:<path> on all platforms.
+  const gitPath = relativePath.split(path.sep).join('/');
+  return execFileSync(
+    'git',
+    ['show', `${ref}:${gitPath}`],
+    { cwd: projectRoot, encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 },
+  );
 }

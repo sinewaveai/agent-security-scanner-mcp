@@ -14,7 +14,7 @@ import { buildProjectContext } from '../context/project.js';
 import { buildFileContext } from '../context/file.js';
 import { DependencyGraphBuilder } from '../graph/dependency.js';
 import { postFilterFindings, suppressCarrierFindings } from './postprocess.js';
-import { getChangedFiles, type FileDiff } from '../context/diff.js';
+import { getChangedFiles, readFileAtRef, type FileDiff } from '../context/diff.js';
 
 export interface DiffRange {
   /** Base ref to diff from — the diff is computed against its merge-base with `head`. */
@@ -45,6 +45,7 @@ export class AnalysisEngine {
   private router: ModelRouter;
   private onProgress: ProgressCallback;
   private diffByFile = new Map<string, FileDiff>();
+  private diffContentByFile = new Map<string, string>();
 
   constructor(options: AnalysisOptions, onProgress?: ProgressCallback) {
     this.options = options;
@@ -74,14 +75,26 @@ export class AnalysisEngine {
 
       targetFiles = [];
       this.diffByFile.clear();
+      this.diffContentByFile.clear();
       for (const f of changedFiles) {
         const absPath = path.resolve(projectRoot, f.filePath);
-        // Skip files the diff touched but that no longer exist at head
-        // (shouldn't normally happen once deleted-file diffs are filtered,
-        // but guards against unusual diff output).
-        if (!fs.existsSync(absPath)) continue;
+        // Read content from the diff's head commit via git, not the
+        // filesystem — the working tree isn't guaranteed to have `head`
+        // checked out (e.g. a fresh clone defaults to whatever branch is
+        // checked out by default), so fs.readFileSync could silently read
+        // the wrong version of the file, or find nothing at all. Skip
+        // files that fail (e.g. genuinely gone at head despite surviving
+        // the deleted-file filter in getChangedFiles, for unusual diff
+        // output) rather than crash the whole run.
+        let content: string;
+        try {
+          content = readFileAtRef(projectRoot, diffRange.head, f.filePath);
+        } catch {
+          continue;
+        }
         targetFiles.push(absPath);
         this.diffByFile.set(absPath, f);
+        this.diffContentByFile.set(absPath, content);
       }
     } else {
       this.onProgress('discover', `Scanning ${resolvedPath}`);
@@ -135,7 +148,11 @@ export class AnalysisEngine {
       targetFiles,
       async (file) => {
         const diff = this.diffByFile.get(file);
-        const fileCtx = buildFileContext(file, projectRoot, graph, diff && { text: diff.diffText, hunks: diff.hunks });
+        const fileCtx = buildFileContext(
+          file, projectRoot, graph,
+          diff && { text: diff.diffText, hunks: diff.hunks },
+          this.diffContentByFile.get(file),
+        );
 
         // Auto-skip test, config, and generated files
         if (fileCtx.isTestFile || fileCtx.isConfigFile || fileCtx.isGenerated) {
@@ -187,7 +204,11 @@ export class AnalysisEngine {
       async (triageResult) => {
         const filePath = path.resolve(projectRoot, triageResult.file);
         const diff = this.diffByFile.get(filePath);
-        const fileCtx = buildFileContext(filePath, projectRoot, graph, diff && { text: diff.diffText, hunks: diff.hunks });
+        const fileCtx = buildFileContext(
+          filePath, projectRoot, graph,
+          diff && { text: diff.diffText, hunks: diff.hunks },
+          this.diffContentByFile.get(filePath),
+        );
 
         analyzeCount++;
         this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] Analyzing ${triageResult.file} (${fileCtx.lineCount} lines)...`);

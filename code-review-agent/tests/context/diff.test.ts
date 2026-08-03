@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { parseDiff, formatHunkRanges } from '../../src/context/diff.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { parseDiff, formatHunkRanges, getChangedFiles, readFileAtRef } from '../../src/context/diff.js';
 
 describe('parseDiff', () => {
   it('parses a single-hunk modification', () => {
@@ -146,5 +150,94 @@ describe('formatHunkRanges', () => {
 
   it('returns an empty string for no hunks', () => {
     expect(formatHunkRanges([])).toBe('');
+  });
+});
+
+// Regression coverage for a real bug: readFileAtRef/getChangedFiles must work
+// correctly even when the working tree has a DIFFERENT commit checked out
+// than the diff's head — e.g. a fresh clone defaults to whatever the
+// default branch is, not the specific commit being reviewed. This exact
+// scenario broke a real benchmark run (cr-agent silently found 0 files for
+// every instance) before readFileAtRef was added: buildFileContext used to
+// read file content via fs.readFileSync against the working tree, which
+// either read the wrong version of a file or found nothing at all for
+// files whose content/existence differs between the checked-out commit and
+// the diff's actual head.
+describe('readFileAtRef and getChangedFiles against a real git repo', () => {
+  let repoDir: string;
+
+  function git(args: string[]): string {
+    return execFileSync('git', args, { cwd: repoDir, encoding: 'utf-8' });
+  }
+
+  beforeAll(() => {
+    repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-agent-diff-test-'));
+    git(['init', '--quiet']);
+    git(['config', 'user.email', 'test@example.com']);
+    git(['config', 'user.name', 'Test']);
+
+    // Base commit: a file with original content.
+    fs.writeFileSync(path.join(repoDir, 'app.py'), 'def greet():\n    return "hello"\n');
+    git(['add', '.']);
+    git(['commit', '--quiet', '-m', 'base']);
+    const baseCommit = git(['rev-parse', 'HEAD']).trim();
+
+    // Head commit: modify the file (this is the "PR" being reviewed).
+    fs.writeFileSync(path.join(repoDir, 'app.py'), 'def greet(name):\n    return f"hello {name}"\n');
+    git(['commit', '--quiet', '-am', 'head']);
+    const headCommit = git(['rev-parse', 'HEAD']).trim();
+
+    // Simulate the actual bug scenario: after the diff is computed, the
+    // working tree ends up on a THIRD, unrelated commit — e.g. a fresh
+    // clone checked out to a default branch, or someone just has a
+    // different commit checked out locally. Content and even file
+    // existence can differ from both base and head.
+    fs.writeFileSync(path.join(repoDir, 'app.py'), 'def unrelated():\n    pass\n');
+    fs.writeFileSync(path.join(repoDir, 'only-on-third-commit.py'), 'x = 1\n');
+    git(['add', '.']);
+    git(['commit', '--quiet', '-m', 'unrelated third commit']);
+
+    (globalThis as unknown as { __testCommits: { base: string; head: string } }).__testCommits = {
+      base: baseCommit,
+      head: headCommit,
+    };
+  });
+
+  afterAll(() => {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  });
+
+  it('getChangedFiles finds the diff correctly regardless of what is currently checked out', () => {
+    const { base, head } = (globalThis as unknown as { __testCommits: { base: string; head: string } }).__testCommits;
+    const files = getChangedFiles(repoDir, base, head);
+    expect(files.map((f) => f.filePath)).toEqual(['app.py']);
+  });
+
+  it('readFileAtRef reads content at head, not the currently checked-out working tree', () => {
+    const { head } = (globalThis as unknown as { __testCommits: { base: string; head: string } }).__testCommits;
+
+    // Sanity check: the working tree really is on the unrelated third
+    // commit right now, not head — otherwise this test wouldn't actually
+    // exercise the bug scenario.
+    const workingTreeContent = fs.readFileSync(path.join(repoDir, 'app.py'), 'utf-8');
+    expect(workingTreeContent).toContain('unrelated');
+
+    const headContent = readFileAtRef(repoDir, head, 'app.py');
+    expect(headContent).toContain('def greet(name):');
+    expect(headContent).not.toContain('unrelated');
+  });
+
+  it('readFileAtRef reads content at base too, distinct from head', () => {
+    const { base } = (globalThis as unknown as { __testCommits: { base: string; head: string } }).__testCommits;
+    const baseContent = readFileAtRef(repoDir, base, 'app.py');
+    expect(baseContent).toBe('def greet():\n    return "hello"\n');
+  });
+
+  it('readFileAtRef throws for a file that does not exist at the given ref', () => {
+    const { base } = (globalThis as unknown as { __testCommits: { base: string; head: string } }).__testCommits;
+    // only-on-third-commit.py exists in the working tree's current commit
+    // but not at `base` — reading it there must fail loudly, not silently
+    // return the working-tree version.
+    expect(() => readFileAtRef(repoDir, base, 'only-on-third-commit.py')).toThrow();
   });
 });
