@@ -48,6 +48,16 @@ export interface FileContext {
   isTestFile: boolean;
   isConfigFile: boolean;
   isGenerated: boolean;
+  /**
+   * Present when analyzing a git diff rather than a full file. When set,
+   * the analyzer must only report findings within `hunks` — the file's
+   * full content is still provided as surrounding context, not as
+   * in-scope material to review on its own.
+   */
+  diff?: {
+    text: string;
+    hunks: Array<{ startLine: number; endLine: number }>;
+  };
 }
 
 export interface DependencyNode {

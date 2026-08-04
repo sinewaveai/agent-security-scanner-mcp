@@ -205,11 +205,23 @@ export function applyContextFilter(findings, filePath, language) {
   const inTestFile = isTestFile(filePath);
 
   return findings.filter(finding => {
-    const line = lines[finding.line] || '';
+    const lineNumber = Number.isInteger(finding.line) ? finding.line : 1;
+    const line = lines[lineNumber] || '';
+    const lineCandidates = [
+      lines[lineNumber],
+      lineNumber > 0 ? lines[lineNumber - 1] : undefined,
+    ].filter(Boolean);
     const ruleId = finding.ruleId?.toLowerCase() || '';
 
     // Inline suppression: // nosec or # nosec
-    if (hasNosecComment(line)) {
+    if (lineCandidates.some(hasNosecComment)) {
+      return false;
+    }
+
+    // Semgrep-style metavariable patterns can overmatch this imported rule in
+    // the lightweight matcher. Only keep it when the actual Mustache escape
+    // toggle appears on the flagged line.
+    if (ruleId.includes('detect-disable-mustache-escape') && !lineCandidates.some((candidate) => candidate.includes('escapeMarkup'))) {
       return false;
     }
 

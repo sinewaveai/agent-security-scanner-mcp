@@ -14,6 +14,14 @@ import { buildProjectContext } from '../context/project.js';
 import { buildFileContext } from '../context/file.js';
 import { DependencyGraphBuilder } from '../graph/dependency.js';
 import { postFilterFindings, suppressCarrierFindings } from './postprocess.js';
+import { getChangedFiles, readFileAtRef, type FileDiff } from '../context/diff.js';
+
+export interface DiffRange {
+  /** Base ref to diff from — the diff is computed against its merge-base with `head`. */
+  base: string;
+  /** Head ref to diff to. */
+  head: string;
+}
 
 const CODE_EXTENSIONS = new Set([
   '.js', '.mjs', '.cjs', '.jsx',
@@ -32,10 +40,20 @@ const CODE_EXTENSIONS = new Set([
 
 export type ProgressCallback = (step: string, detail?: string) => void;
 
+export function findingOverlapsDiff(finding: Finding, diff: FileDiff | undefined): boolean {
+  if (!diff) return true;
+  return diff.hunks.some((hunk) => (
+    finding.location.endLine >= hunk.startLine &&
+    finding.location.startLine <= hunk.endLine
+  ));
+}
+
 export class AnalysisEngine {
   private options: AnalysisOptions;
   private router: ModelRouter;
   private onProgress: ProgressCallback;
+  private diffByFile = new Map<string, FileDiff>();
+  private diffContentByFile = new Map<string, string>();
 
   constructor(options: AnalysisOptions, onProgress?: ProgressCallback) {
     this.options = options;
@@ -43,7 +61,7 @@ export class AnalysisEngine {
     this.onProgress = onProgress ?? (() => {});
   }
 
-  async analyze(targetPath: string): Promise<AnalysisResult> {
+  async analyze(targetPath: string, diffRange?: DiffRange): Promise<AnalysisResult> {
     const startTime = Date.now();
     const resolvedPath = path.resolve(this.options.projectRoot, targetPath);
 
@@ -51,16 +69,51 @@ export class AnalysisEngine {
     let projectRoot: string;
     let targetFiles: string[];
 
-    this.onProgress('discover', `Scanning ${resolvedPath}`);
-
     const stat = fs.statSync(resolvedPath);
-    if (stat.isDirectory()) {
+
+    if (diffRange) {
+      if (!stat.isDirectory()) {
+        throw new Error('Diff-scoped analysis requires a directory target (a git repository), not a single file.');
+      }
       projectRoot = resolvedPath;
-      targetFiles = this.discoverFiles(resolvedPath);
+      this.onProgress('discover', `Diffing ${diffRange.base}...${diffRange.head}`);
+
+      const changedFiles = getChangedFiles(resolvedPath, diffRange.base, diffRange.head)
+        .filter((f) => CODE_EXTENSIONS.has(path.extname(f.filePath)));
+
+      targetFiles = []; // nosec - scanner internals, not template escaping.
+      this.diffByFile.clear();
+      this.diffContentByFile.clear();
+      for (const f of changedFiles) {
+        const absPath = path.resolve(projectRoot, f.filePath);
+        // Read content from the diff's head commit via git, not the
+        // filesystem — the working tree isn't guaranteed to have `head`
+        // checked out (e.g. a fresh clone defaults to whatever branch is
+        // checked out by default), so fs.readFileSync could silently read
+        // the wrong version of the file, or find nothing at all. Skip
+        // files that fail (e.g. genuinely gone at head despite surviving
+        // the deleted-file filter in getChangedFiles, for unusual diff
+        // output) rather than crash the whole run.
+        let content: string;
+        try {
+          content = readFileAtRef(projectRoot, diffRange.head, f.filePath); // nosec - fixed git args, no shell.
+        } catch {
+          continue;
+        }
+        targetFiles.push(absPath);
+        this.diffByFile.set(absPath, f);
+        this.diffContentByFile.set(absPath, content);
+      }
     } else {
-      // For single files, use the configured projectRoot (CLI resolves this from the target)
-      projectRoot = this.options.projectRoot;
-      targetFiles = [resolvedPath];
+      this.onProgress('discover', `Scanning ${resolvedPath}`);
+      if (stat.isDirectory()) {
+        projectRoot = resolvedPath; // nosec - scanner internals, not template escaping.
+        targetFiles = this.discoverFiles(resolvedPath); // nosec - scanner internals, not template escaping.
+      } else {
+        // For single files, use the configured projectRoot (CLI resolves this from the target)
+        projectRoot = this.options.projectRoot; // nosec - scanner internals, not template escaping.
+        targetFiles = [resolvedPath]; // nosec - scanner internals, not template escaping.
+      }
     }
 
     if (targetFiles.length === 0) {
@@ -102,7 +155,12 @@ export class AnalysisEngine {
     const triageResults = await this.runParallel(
       targetFiles,
       async (file) => {
-        const fileCtx = buildFileContext(file, projectRoot, graph);
+        const diff = this.diffByFile.get(file);
+        const fileCtx = buildFileContext(
+          file, projectRoot, graph,
+          diff && { text: diff.diffText, hunks: diff.hunks },
+          this.diffContentByFile.get(file),
+        );
 
         // Auto-skip test, config, and generated files
         if (fileCtx.isTestFile || fileCtx.isConfigFile || fileCtx.isGenerated) {
@@ -153,7 +211,12 @@ export class AnalysisEngine {
       filesToAnalyze,
       async (triageResult) => {
         const filePath = path.resolve(projectRoot, triageResult.file);
-        const fileCtx = buildFileContext(filePath, projectRoot, graph);
+        const diff = this.diffByFile.get(filePath);
+        const fileCtx = buildFileContext(
+          filePath, projectRoot, graph,
+          diff && { text: diff.diffText, hunks: diff.hunks },
+          this.diffContentByFile.get(filePath),
+        );
 
         analyzeCount++;
         this.onProgress('analyze', `[${analyzeCount}/${filesToAnalyze.length}] Analyzing ${triageResult.file} (${fileCtx.lineCount} lines)...`);
@@ -205,6 +268,15 @@ export class AnalysisEngine {
 
     // Collect all findings
     let allFindings = fileResults.flatMap((r) => r.findings);
+
+    if (diffRange) {
+      const beforeDiffFilter = allFindings.length; // nosec - scanner internals, not template escaping.
+      allFindings = allFindings.filter((finding) => { // nosec - scanner internals, not template escaping.
+        const diff = this.diffByFile.get(path.resolve(projectRoot, finding.location.file));
+        return findingOverlapsDiff(finding, diff);
+      });
+      this.onProgress('finalize', `Diff scope: ${beforeDiffFilter} → ${allFindings.length}`);
+    }
 
     // Dedup
     this.onProgress('finalize', `Deduplicating ${allFindings.length} raw finding(s)`);
