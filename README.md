@@ -262,7 +262,7 @@ Run the scanner as an Apify Actor when you want a hosted API or scheduled scans:
 
 ## Latest Release
 
-`v4.5.5` reduces Dockerfile scan noise: `chmod 755` no longer reports as dangerous, while world-writable and setuid/setgid modes still flag. The latest product loop reports `0.9463` precision and a `0.0530` false-positive rate.
+`v4.5.8` adds diff-scoped `cr-agent` semantic review, fixes nested repository diff lookups, and filters semantic findings to changed hunks so PR reviews stay focused on code that actually changed.
 
 Detailed release history lives in [CHANGELOG.md](./CHANGELOG.md). The older README-embedded changelog is archived at [archive/README_CHANGELOG_ARCHIVE.md](./archive/README_CHANGELOG_ARCHIVE.md).
 

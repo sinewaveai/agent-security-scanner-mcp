@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.8] - 2026-08-04
+
+### Added
+
+- **`cr-agent` diff review mode:** added diff-scoped semantic review so teams can review only changed files/ranges instead of forcing full-project semantic analysis on every PR.
+
+### Fixed
+
+- **Subdirectory diff reviews:** fixed `cr-agent` file lookup when the target project is a subdirectory of a Git repository, so diff review no longer silently skips changed files from nested workspaces.
+- **Diff finding precision:** filters semantic findings to changed diff hunks after analysis, reducing review noise from unchanged code.
+- **SARIF test stability:** made SARIF rule-definition tests deterministic in regex-only CI environments without relying on JavaScript fixtures that can produce zero findings.
+
 ## [4.4.1] - 2026-05-19
 
 ### Fixed
