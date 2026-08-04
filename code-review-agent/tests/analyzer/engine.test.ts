@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as path from 'node:path';
-import { AnalysisEngine } from '../../src/analyzer/engine.js';
+import { AnalysisEngine, findingOverlapsDiff } from '../../src/analyzer/engine.js';
 import type { AnalysisOptions } from '../../src/types/config.js';
+import type { Finding } from '../../src/types/findings.js';
 
 // We need to mock the ModelRouter to return our MockLLMProvider
 // Since the engine creates its own router, we mock at the module level
@@ -195,5 +196,31 @@ describe('AnalysisEngine', () => {
     }).runParallel([1, 2, 3], async (value) => value * 2, 0);
 
     expect(results).toEqual([2, 4, 6]);
+  });
+
+  it('identifies findings outside diff hunks for deterministic diff-scope filtering', () => {
+    const baseFinding: Finding = {
+      title: 'dynamic code execution on user input',
+      severity: 'critical',
+      category: 'security',
+      location: { file: 'server.js', startLine: 23, endLine: 23 },
+      reasoning: 'dynamic code execution with user-controlled input',
+      intentAlignment: 'violates-intent',
+      confidence: 0.92,
+      suggestedAction: 'Remove dynamic execution, use a safe parser',
+      cwe: 'CWE-94',
+    };
+
+    const diff = {
+      filePath: 'server.js',
+      diffText: 'diff --git a/server.js b/server.js',
+      hunks: [{ startLine: 10, endLine: 15 }],
+    };
+
+    expect(findingOverlapsDiff(baseFinding, diff)).toBe(false); // nosec - expected false in filter test.
+    expect(findingOverlapsDiff({ // nosec - expected boolean assertion in filter test.
+      ...baseFinding,
+      location: { file: 'server.js', startLine: 12, endLine: 12 },
+    }, diff)).toBe(true);
   });
 });

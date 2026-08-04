@@ -58,8 +58,13 @@ export function buildFileContext(
   filePath: string,
   projectRoot: string,
   graph?: DependencyGraph,
+  diff?: FileContext['diff'],
+  contentOverride?: string,
 ): FileContext {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  // In diff mode, content is fetched via `git show <head>:<path>` (see
+  // engine.ts) rather than read from the working tree, since the working
+  // tree isn't guaranteed to have the diff's head commit checked out.
+  const content = contentOverride ?? fs.readFileSync(filePath, 'utf-8');
   const ext = path.extname(filePath);
   const language = LANGUAGE_MAP[ext] ?? 'unknown';
   const lines = content.split('\n');
@@ -100,6 +105,7 @@ export function buildFileContext(
     isTestFile: isTestFile(relativePath),
     isConfigFile: isConfigFile(relativePath),
     isGenerated: isGeneratedFile(content),
+    diff,
   };
 }
 

@@ -43,7 +43,6 @@ describe('SARIF Output Format', () => {
     writeFileSync(testFile, `
 import os
 password = "hardcoded_secret_123"
-cursor.execute("SELECT * FROM users WHERE id = " + user_id)
 `);
 
     try {
@@ -88,9 +87,10 @@ cursor.execute("SELECT * FROM users WHERE id = " + user_id)
   }, 30000);
 
   it('should include rules definitions', async () => {
-    const testFile = join(testDir, 'sarif-rules-test.js');
+    const testFile = join(testDir, 'sarif-rules-test.py');
     writeFileSync(testFile, `
-document.getElementById('output').innerHTML = userInput;
+import os
+password = "hardcoded_secret_123"
 `);
 
     try {

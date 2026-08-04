@@ -7,7 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { AnalysisEngine } from '../src/analyzer/engine.js';
+import { AnalysisEngine, type DiffRange } from '../src/analyzer/engine.js';
 import { IntentProfiler } from '../src/analyzer/intent.js';
 import { ModelRouter } from '../src/llm/router.js';
 import { DependencyGraphBuilder } from '../src/graph/dependency.js';
@@ -37,6 +37,8 @@ program
   .option('-v, --verbose', 'Verbose output')
   .option('--exclude <patterns...>', 'Patterns to exclude')
   .option('--concurrency <limit>', 'Concurrency limit', parseInt)
+  .option('--diff-base <ref>', 'Only review changes since this git ref — scopes analysis to the diff instead of the whole target (requires target to be a directory)')
+  .option('--diff-head <ref>', 'Head ref to diff against --diff-base (defaults to HEAD)')
   .action(async (target: string, flags: Record<string, unknown>) => {
     try {
       // Resolve project root from target, not cwd
@@ -45,6 +47,9 @@ program
         ? resolvedTarget
         : findProjectRoot(resolvedTarget);
       const config = loadConfig(targetProjectRoot);
+      const diffRange: DiffRange | undefined = flags.diffBase
+        ? { base: flags.diffBase as string, head: (flags.diffHead as string | undefined) ?? 'HEAD' }
+        : undefined;
       const mode: AnalysisMode | undefined = flags.securityOnly
         ? 'security'
         : (flags.mode as AnalysisMode | undefined);
@@ -89,7 +94,7 @@ program
         }
         if (step === 'done') process.stderr.write('\n');
       } : undefined);
-      const result = await engine.analyze(target);
+      const result = await engine.analyze(target, diffRange);
 
       if (options.format === 'json') {
         console.log(JSON.stringify(result, null, 2));

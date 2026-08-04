@@ -4,6 +4,7 @@ import type { AnalysisMode } from '../types/config.js';
 import type { LLMProvider } from '../llm/provider.js';
 import { formatProjectContextForLLM } from './project.js';
 import { buildRelatedFileSummaries, formatRelatedFileSummaries, type RelatedFileSummary } from './security-summary.js';
+import { formatHunkRanges } from './diff.js';
 
 const TOKEN_BUDGETS: Record<string, number> = {
   anthropic: 100_000,
@@ -98,7 +99,7 @@ export class ContextAssembler {
   ): string {
     const budget = TOKEN_BUDGETS[this.provider.providerName] ?? 60_000;
 
-    // Priority order: intent > file content > project context
+    // Priority order: diff scope > intent > file content > project context
     const sections: Array<{ label: string; content: string; priority: number }> = [
       {
         label: 'Intent Profile',
@@ -121,6 +122,16 @@ export class ContextAssembler {
         priority: 4,
       },
     ];
+
+    // Diff scope is the highest priority section — it defines what's
+    // actually in scope for this review, so it must never be truncated.
+    if (file.diff) {
+      sections.push({
+        label: 'Diff — ONLY report findings within these changed lines',
+        content: formatDiffSection(file),
+        priority: 0,
+      });
+    }
 
     // In security mode, add cross-file security context
     const relatedContent = formatRelatedFileSummaries(this.getRelatedSummaries(file));
@@ -171,12 +182,38 @@ export class ContextAssembler {
       project.readme ? `README excerpt: ${project.readme.slice(0, 500)}` : 'No README',
     ];
 
-    // Include first 100 lines of file content for triage
-    const preview = file.content.split('\n').slice(0, 100).join('\n');
-    sections.push('', '## File Preview (first 100 lines)', '```', preview, '```');
+    if (file.diff) {
+      // For diff-scoped review, triage on the actual change, not a
+      // full-file preview — a large file with a one-line diff shouldn't be
+      // triaged based on unrelated code near the top of the file.
+      sections.push(
+        '',
+        `## Changed Lines: ${formatHunkRanges(file.diff.hunks)}`,
+        '```diff',
+        file.diff.text,
+        '```',
+      );
+    } else {
+      // Include first 100 lines of file content for triage
+      const preview = file.content.split('\n').slice(0, 100).join('\n');
+      sections.push('', '## File Preview (first 100 lines)', '```', preview, '```');
+    }
 
     return sections.join('\n');
   }
+}
+
+function formatDiffSection(file: FileContext): string {
+  const hunks = file.diff!.hunks;
+  return [
+    `Changed lines in the new version of this file: ${formatHunkRanges(hunks)}`,
+    'The full file content below is provided only as surrounding context.',
+    'Findings outside the changed lines are OUT OF SCOPE for this review, even if they look like real issues.',
+    '',
+    '```diff',
+    file.diff!.text,
+    '```',
+  ].join('\n');
 }
 
 function formatIntent(intent: IntentProfile): string {
