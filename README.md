@@ -4,6 +4,8 @@
 
 # agent-security-scanner-mcp
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.sinewaveai%2Fagent-security-scanner-mcp.svg)](https://mcptoplist.com/server/io.github.sinewaveai%2Fagent-security-scanner-mcp)
+
 **Security scanner for AI coding agents, MCP servers, prompts, and AI-suggested packages.**
 
 Run it before Claude Code, Cursor, Windsurf, Cline, OpenCode, or another agent trusts new code, tools, prompts, or dependencies.
