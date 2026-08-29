@@ -522,16 +522,18 @@ const cliArgs = process.argv.slice(2);
   }
   process.exit(0);
 } else if (cliArgs[0] === 'scan-mcp') {
-  // CLI mode: scan-mcp <path> [--verbosity minimal|compact|full]
+  // CLI mode: scan-mcp <path> [--verbosity minimal|compact|full] [--manifest] [--update-baseline]
   const serverPath = cliArgs[1];
   if (!serverPath) {
-    console.error('Usage: agent-security-scanner-mcp scan-mcp <server-path> [--verbosity minimal|compact|full]');
+    console.error('Usage: agent-security-scanner-mcp scan-mcp <server-path> [--verbosity minimal|compact|full] [--manifest] [--update-baseline]');
     process.exit(1);
   }
   const verbosityIdx = cliArgs.indexOf('--verbosity');
   const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
+  const manifest = cliArgs.includes('--manifest');
+  const update_baseline = cliArgs.includes('--update-baseline');
 
-  scanMcpServer({ server_path: serverPath, verbosity }).then(result => {
+  scanMcpServer({ server_path: serverPath, verbosity, manifest, update_baseline }).then(result => {
     const output = JSON.parse(result.content[0].text);
     console.log(JSON.stringify(output, null, 2));
     process.exit(output.findings_count > 0 ? 1 : 0);
@@ -716,7 +718,7 @@ const cliArgs = process.argv.slice(2);
   console.log('    scan-packages <f> <e> Scan file imports for hallucinated packages');
   console.log('    scan-project <dir>   Scan directory for vulnerabilities with grading');
   console.log('    scan-diff [base] [target] Scan git diff for new vulnerabilities');
-  console.log('    scan-mcp <path>      Scan MCP server source for security issues');
+  console.log('    scan-mcp <path>      Scan MCP server source for security issues [--manifest] [--update-baseline]');
   console.log('    scan-action <t> <v>  Check agent action before execution');
   console.log('    audit [--config-path] Audit OpenClaw config for security issues [experimental]');
   console.log('    harden [--fix]       Auto-harden OpenClaw configuration [experimental]\n');
