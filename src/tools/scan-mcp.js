@@ -29,6 +29,148 @@ const URL_IN_DESCRIPTION = /https?:\/\/[^\s'"<>]+/gi;
 const SAFE_URL_DOMAINS = /^https?:\/\/(github\.com|npmjs\.com|pypi\.org|docs\.|api\.)/i;
 const TUNNELING_URL = /https?:\/\/[^\s'"]*\b(ngrok|serveo|localtunnel|localhost|127\.0\.0\.1|webhook\.site|requestbin|pipedream|interact\.sh|burp|oast)\b/i;
 
+function readJavaScriptString(source, start) {
+  const quote = source[start];
+  if (!['"', "'", '`'].includes(quote)) return null;
+
+  let value = '';
+  for (let i = start + 1; i < source.length; i++) {
+    const char = source[i];
+    if (char === '\\') {
+      if (i + 1 < source.length) value += source[++i];
+      continue;
+    }
+    if (char === quote) return { value, end: i + 1 };
+    value += char;
+  }
+  return null;
+}
+
+function skipJavaScriptTrivia(source, start) {
+  let i = start;
+  while (i < source.length) {
+    if (/\s/.test(source[i])) {
+      i++;
+    } else if (source.startsWith('//', i)) {
+      const newline = source.indexOf('\n', i + 2);
+      i = newline === -1 ? source.length : newline + 1;
+    } else if (source.startsWith('/*', i)) {
+      const end = source.indexOf('*/', i + 2);
+      i = end === -1 ? source.length : end + 2;
+    } else {
+      break;
+    }
+  }
+  return i;
+}
+
+function extractCallArguments(source, callStart) {
+  const openParen = source.indexOf('(', callStart);
+  if (openParen === -1) return [];
+
+  const args = [];
+  let argStart = openParen + 1;
+  let parenDepth = 1;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+
+  for (let i = openParen + 1; i < source.length; i++) {
+    const char = source[i];
+    if (['"', "'", '`'].includes(char)) {
+      const string = readJavaScriptString(source, i);
+      if (!string) return [];
+      i = string.end - 1;
+      continue;
+    }
+    if (source.startsWith('//', i)) {
+      const newline = source.indexOf('\n', i + 2);
+      if (newline === -1) return [];
+      i = newline;
+      continue;
+    }
+    if (source.startsWith('/*', i)) {
+      const end = source.indexOf('*/', i + 2);
+      if (end === -1) return [];
+      i = end + 1;
+      continue;
+    }
+
+    if (char === '(') parenDepth++;
+    else if (char === ')') {
+      parenDepth--;
+      if (parenDepth === 0) {
+        args.push(source.slice(argStart, i).trim());
+        return args;
+      }
+    } else if (char === '{') braceDepth++;
+    else if (char === '}') braceDepth--;
+    else if (char === '[') bracketDepth++;
+    else if (char === ']') bracketDepth--;
+    else if (char === ',' && parenDepth === 1 && braceDepth === 0 && bracketDepth === 0) {
+      args.push(source.slice(argStart, i).trim());
+      argStart = i + 1;
+    }
+  }
+
+  return [];
+}
+
+function extractTopLevelStringProperty(objectSource, propertyName) {
+  let braceDepth = 0;
+
+  for (let i = 0; i < objectSource.length; i++) {
+    const char = objectSource[i];
+    if (sourceStartsComment(objectSource, i)) {
+      i = skipJavaScriptTrivia(objectSource, i) - 1;
+      continue;
+    }
+
+    if (['"', "'", '`'].includes(char)) {
+      const key = readJavaScriptString(objectSource, i);
+      if (!key) return null;
+      if (braceDepth === 1 && key.value === propertyName) {
+        const colon = skipJavaScriptTrivia(objectSource, key.end);
+        if (objectSource[colon] === ':') {
+          const valueStart = skipJavaScriptTrivia(objectSource, colon + 1);
+          return readJavaScriptString(objectSource, valueStart)?.value ?? null;
+        }
+      }
+      i = key.end - 1;
+      continue;
+    }
+
+    if (char === '{') {
+      braceDepth++;
+      continue;
+    }
+    if (char === '}') {
+      braceDepth--;
+      continue;
+    }
+    if (braceDepth !== 1 || !objectSource.startsWith(propertyName, i)) continue;
+
+    const previous = objectSource[i - 1];
+    const next = objectSource[i + propertyName.length];
+    if ((previous && /[\w$]/.test(previous)) || (next && /[\w$]/.test(next))) continue;
+    const colon = skipJavaScriptTrivia(objectSource, i + propertyName.length);
+    if (objectSource[colon] !== ':') continue;
+    const valueStart = skipJavaScriptTrivia(objectSource, colon + 1);
+    return readJavaScriptString(objectSource, valueStart)?.value ?? null;
+  }
+
+  return null;
+}
+
+function sourceStartsComment(source, index) {
+  return source.startsWith('//', index) || source.startsWith('/*', index);
+}
+
+function getRegisterToolDescription(content, callStart) {
+  const args = extractCallArguments(content, callStart);
+  if (args.length < 2 || !args[1].trimStart().startsWith('{')) return null;
+  return extractTopLevelStringProperty(args[1], 'description');
+}
+
 // Cross-tool priority/exclusivity patterns
 const PRIORITY_PATTERNS = /\b(before\s+calling\s+any\s+other\s+tool|do\s+not\s+use\s+any\s+other\s+tool|replaces?\s+the\s+function\s+of|must\s+be\s+(called|used|run|invoked)\s+(first|before)|always\s+(call|use|run|invoke)\s+this\s+(first|before)|instead\s+of\s+(using|calling))\b/i;
 
@@ -359,6 +501,19 @@ const MCP_SECURITY_RULES = [
     pattern: /server\.tool\s*\(\s*["'`][^"'`]*["'`]\s*,\s*["'`][^"'`]*(ignore\s+previous|exfiltrat|override\s+.*instruction|do\s+not\s+tell|hidden\s+instruction|bypass\s+.*filter|disregard\s+|extract\s+.*credential)[^"'`]*["'`]/gi,
     fileTypes: ['.js', '.ts']
   },
+  {
+    id: 'mcp.description-injection-registertool',
+    severity: 'ERROR',
+    category: 'description-injection',
+    message: 'Tool description contains imperative language directed at the LLM. This pattern is used in tool poisoning attacks to inject hidden instructions.',
+    // registerTool() carries its description in the second-argument config object.
+    pattern: /server\.registerTool\s*\(\s*["'`][^"'`]+["'`]/g,
+    fileTypes: ['.js', '.ts'],
+    contextCheck: (_line, _lines, _lineIndex, match, content) => {
+      const description = getRegisterToolDescription(content, match.index);
+      return description !== null && MANIFEST_INJECTION_PHRASES.test(description);
+    }
+  },
 
   // ---- Category 7: Tool name spoofing ----
   {
@@ -366,8 +521,10 @@ const MCP_SECURITY_RULES = [
     severity: 'ERROR',
     category: 'tool-name-spoofing',
     message: 'Tool name is suspiciously similar to a well-known MCP tool. This may be a name spoofing attack.',
-    // Extracts the tool name (1st arg to server.tool) for Levenshtein comparison
-    pattern: /server\.tool\s*\(\s*["'`]([a-zA-Z_$][\w$]*)["'`]/g,
+    // Extracts the tool name (1st arg to server.tool/registerTool) for Levenshtein comparison.
+    // Both the older .tool() shorthand and the current .registerTool() API take the tool name as the
+    // first positional argument, so a single pattern covers both.
+    pattern: /server\.(?:tool|registerTool)\s*\(\s*["'`]([a-zA-Z_$][\w$]*)["'`]/g,
     fileTypes: ['.js', '.ts'],
     isSpoofingRule: true
   }
@@ -464,7 +621,7 @@ function scanFileContent(filePath, content) {
       // If rule has a context check, apply it
       if (rule.contextCheck) {
         const line = lines[lineIndex] || '';
-        if (!rule.contextCheck(line, lines, lineIndex)) {
+        if (!rule.contextCheck(line, lines, lineIndex, match, content)) {
           continue;
         }
       }
@@ -917,6 +1074,31 @@ function scanManifest(manifestPath) {
 
   const findings = [];
   const tools = manifest.tools || [];
+
+  // The real MCP registry server.json schema (what published servers actually ship) has no
+  // per-tool `tools` array -- it carries a single top-level name/description plus
+  // repository/websiteUrl fields. Without this block, any registry-format manifest silently
+  // produces zero findings regardless of content, since the loop below never runs.
+  if (tools.length === 0) {
+    const topDescription = manifest.description || '';
+    const topName = manifest.name || manifest.title || '';
+
+    if (MANIFEST_ZERO_WIDTH.test(topDescription) || MANIFEST_ZERO_WIDTH.test(topName)) {
+      findings.push({ rule: 'mcp.unicode-zero-width', severity: 'ERROR', category: 'unicode-poisoning', message: 'Zero-width Unicode character in manifest name or description.', file: manifestPath, line: 1, match: topName });
+    }
+    if (MANIFEST_BIDI.test(topDescription) || MANIFEST_BIDI.test(topName)) {
+      findings.push({ rule: 'mcp.unicode-bidi-override', severity: 'ERROR', category: 'unicode-poisoning', message: 'Bidirectional override character in manifest name or description.', file: manifestPath, line: 1, match: topName });
+    }
+    if (MANIFEST_INJECTION_PHRASES.test(topDescription)) {
+      findings.push({ rule: 'mcp.manifest-description-injection', severity: 'ERROR', category: 'description-injection', message: 'Manifest description contains injection language. Likely tool poisoning (Adversa TOP25 #2).', file: manifestPath, line: 1, match: topDescription.substring(0, 100) });
+    }
+    for (const [field, value] of [['repository', manifest.repository], ['websiteUrl', manifest.websiteUrl]]) {
+      const url = typeof value === 'string' ? value : (value && typeof value.url === 'string' ? value.url : '');
+      if (url && TUNNELING_URL.test(url)) {
+        findings.push({ rule: 'mcp.description-tunneling-url', severity: 'ERROR', category: 'description-injection', message: `Manifest "${field}" references a dev/tunneling URL. No legitimate production server should reference tunneling services.`, file: manifestPath, line: 1, match: url.substring(0, 100) });
+      }
+    }
+  }
 
   for (const tool of tools) {
     const name = tool.name || '';
