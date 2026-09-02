@@ -530,8 +530,8 @@ const cliArgs = process.argv.slice(2);
   }
   const verbosityIdx = cliArgs.indexOf('--verbosity');
   const verbosity = verbosityIdx !== -1 ? cliArgs[verbosityIdx + 1] : 'compact';
-  const manifest = cliArgs.includes('--manifest');
   const update_baseline = cliArgs.includes('--update-baseline');
+  const manifest = cliArgs.includes('--manifest') || update_baseline;
 
   scanMcpServer({ server_path: serverPath, verbosity, manifest, update_baseline }).then(result => {
     const output = JSON.parse(result.content[0].text);
